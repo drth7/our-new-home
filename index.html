@@ -41,8 +41,8 @@ button{font-family:inherit;touch-action:manipulation}
 #measure{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap;padding:0 4px 2px}
 #measure.warn{color:#e05563}
 
-.sheet{position:fixed;left:50%;top:50%;z-index:30;background:var(--panel);border-radius:18px;box-shadow:var(--shadow);width:min(540px,94vw);max-height:68vh;display:flex;flex-direction:column;transform:translate(-50%,-47%) scale(.96);opacity:0;pointer-events:none;transition:transform .2s,opacity .2s}
-.sheet.on{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));z-index:30;background:var(--panel);border-radius:18px;box-shadow:var(--shadow);width:min(540px,94vw);max-height:52vh;display:flex;flex-direction:column;transform:translate(-50%,calc(100% + 140px));transition:transform .3s cubic-bezier(.2,.9,.3,1);pointer-events:none}
+.sheet.on{transform:translate(-50%,0);pointer-events:auto}
 .shead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
 .shead b{font-size:15px}
 .xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer}
@@ -118,6 +118,15 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .whobtn{display:flex;width:100%;padding:14px;border-radius:14px;border:none;font-size:16px;font-weight:700;color:#fff;margin-top:12px;justify-content:center;cursor:pointer}
 .whobtn:active{transform:scale(.97)}
 .big-heart{font-size:46px;animation:beat 1.2s infinite}
+.pwAvatar{width:68px;height:68px;border-radius:50%;margin:0 auto 12px;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.pwRow{display:flex;gap:8px;margin-top:16px}
+.pwRow input{flex:1;text-align:center;letter-spacing:.3em;font-size:17px;padding:13px 12px;border-radius:14px;background:var(--panel2);border:1.5px solid var(--line);color:var(--text);transition:border-color .15s,box-shadow .15s}
+.pwRow input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(76,134,214,.18)}
+.pwRow input.err{border-color:#e05563;box-shadow:0 0 0 4px rgba(224,85,99,.18);animation:shake .4s}
+.pwEye{width:48px;border:1.5px solid var(--line);border-radius:14px;background:var(--panel2);color:var(--text);font-size:17px;cursor:pointer}
+.backbtn{background:none;border:none;color:var(--muted);font-weight:700;margin-top:14px;cursor:pointer;font-size:13.5px;padding:6px}
+.backbtn:hover{color:var(--text)}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 @keyframes beat{0%,100%{transform:scale(1)}12%{transform:scale(1.14)}24%{transform:scale(1)}}
 @keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
 
@@ -1323,7 +1332,9 @@ function attachFaceMarker(inner, role){
 }
 
 function makeTag(role){
-  const tag = makeLabel(role === 'guest' ? 'Guest' : nameFor(role), CHAR_COLORS[role]);
+  const tagName = role !== 'guest' ? nameFor(role)
+    : (isGuest() ? nameFor('guest') : (remoteGuestName || 'Guest'));
+  const tag = makeLabel(tagName, CHAR_COLORS[role]);
   tag.scale.set(1.5, 0.36, 1);
   tag.position.y = 2.05;
   return tag;
@@ -1425,11 +1436,11 @@ function makeCharacter(role){
 }
 
 function spawnAllCharacters(){
+  for (const role of ['husband','wife','guest']) if (!chars[role]) makeCharacter(role);
+  groundCharacters();                                        // measure feet in rest pose FIRST
   for (const role of ['husband','wife','guest']){
-    if (!chars[role]){
-      makeCharacter(role);
-      setPoseVisual(role, players[role].pose || 'stand');   // restore last pose
-    }
+    players[role].pose = 'stand';                            // never respawn mid-sit — that looks like floating
+    setPoseVisual(role, 'stand');
   }
   updateCharVisibility();
 }
@@ -2553,6 +2564,25 @@ function updateCat(dt){
   if (!cat) return;
   cat.t -= dt;
   cat.tail.rotation.x = -0.7 + Math.sin(performance.now()/1000 * 2.2) * 0.25;   // always wagging a little
+  // when someone else runs the cat brain, just mirror what their cat does
+  if (fb && currentUser && catOwnerRole() !== currentUser.role){
+    if (remoteCat){
+      const dx = remoteCat.x - cat.g.position.x, dz = remoteCat.z - cat.g.position.z;
+      const d = Math.hypot(dx, dz);
+      const k = Math.min(1, dt*6);
+      cat.g.position.x += dx*k;
+      cat.g.position.z += dz*k;
+      if (d > 0.05){
+        cat.g.rotation.y = Math.atan2(dx, dz);
+        cat.walkT += dt * 9;
+        cat.legs.forEach((l, i) => l.rotation.x = Math.sin(cat.walkT + (i % 2 ? Math.PI : 0)) * 0.6);
+      } else {
+        cat.legs.forEach(l => l.rotation.x *= 0.9);
+      }
+    }
+    return;
+  }
+  if (fb && currentUser) pushCat();
   if (cat.state === 'idle'){
     if (cat.t <= 0){
       // wander INSIDE the current room, or head for a doorway of this room (never through walls)
@@ -2615,7 +2645,27 @@ let fb = null, syncMuted = false;
 const remotePlayers = {};                      // role -> latest remote state (or null when offline)
 const remoteOnline = {};
 let remoteDrag = null;                         // live drag mirror from the partner
+let remoteCat = null, catPushAt = 0;           // one client simulates the cat, everyone else watches
+let remoteGuestName = null;                    // the name the visiting guest typed
 const sessionStart = Date.now();
+
+function catOwnerRole(){                       // highest-priority person online runs the cat brain
+  for (const r of ['husband','wife','guest']){
+    if ((currentUser && r === currentUser.role) || remoteOnline[r]) return r;
+  }
+  return null;
+}
+function pushCat(){
+  if (!fb || !currentUser || !cat) return;
+  const now = performance.now();
+  if (now - catPushAt < (cat.state === 'walk' ? 200 : 2500)) return;
+  catPushAt = now;
+  fb.D.set(fb.D.ref(fb.db, 'room/cat'), {
+    x:+cat.g.position.x.toFixed(2), z:+cat.g.position.z.toFixed(2),
+    rotY:+cat.g.rotation.y.toFixed(2), m:cat.state === 'walk' ? 1 : 0,
+    by:currentUser.role, ts:Date.now()
+  }).catch(() => {});
+}
 
 function pushLayout(){
   if (!fb || syncMuted || !canEdit()) return;
@@ -2709,15 +2759,25 @@ async function initSync(){
       for (const role of ['husband','wife','guest']){
         if (role === myRole) continue;
         remotePlayers[role] = all[role] || null;
+        if (role === 'guest' && all.guest?.name && all.guest.name !== remoteGuestName){
+          remoteGuestName = all.guest.name;      // show the visitor's typed name on their tag
+          refreshTags();
+        }
         if (all[role] && !remoteOnline[role]){
           remoteOnline[role] = true;
-          toast(`${role === 'guest' ? 'A guest' : nameFor(role)} just walked in ${role === 'wife' ? '💗' : role === 'husband' ? '💙' : '👁'}`);
+          const who = role === 'guest' ? (all.guest?.name || 'A guest') : nameFor(role);
+          toast(`${who} just walked in ${role === 'wife' ? '💗' : role === 'husband' ? '💙' : '👁'}`);
         } else if (!all[role]){
-          remoteOnline[role] = false;
+          remoteOnline[role] = false;            // left: their node is gone, character disappears
         }
       }
       updateCharVisibility();
     });
+    D.onValue(D.ref(fb.db, 'room/cat'), snap => {
+      const c = snap.val();
+      remoteCat = (c && c.by !== myRole) ? c : null;
+    });
+    setInterval(() => pushPlayer(true), 10000);  // heartbeat so a killed app is detected fast
     D.onValue(D.ref(fb.db, 'room/drag'), snap => {
       const d = snap.val();
       remoteDrag = (d && d.by !== myRole) ? d : null;
@@ -2743,7 +2803,23 @@ async function initSync(){
   }
 }
 
+let staleCheckAt = 0;
+function sweepStalePlayers(){
+  const now = performance.now();
+  if (now - staleCheckAt < 5000) return;
+  staleCheckAt = now;
+  for (const role in remotePlayers){
+    const t = remotePlayers[role];
+    if (t && Date.now() - (t.ts || 0) > 30000){   // no heartbeat for 30 s: they're gone
+      remotePlayers[role] = null;
+      remoteOnline[role] = false;
+      updateCharVisibility();
+    }
+  }
+}
+
 function updateRemoteChars(dt){
+  sweepStalePlayers();
   for (const role in remotePlayers){
     const t = remotePlayers[role], c = chars[role];
     if (!c) continue;
@@ -3097,15 +3173,25 @@ function askWho(){
 
 function askPassword(role){
   const expect = role === 'husband' ? 'miaad' : 'abdulla';
-  showWelcome(`<h2>${role === 'husband' ? '💙 Abdulla' : '💗 Miaad'}</h2>
-    <p class="wsub">Password — the name of your favourite person 😉</p>
-    <input type="password" id="wpass" autocomplete="off" style="margin-top:14px;text-align:center">
-    <button class="whobtn" style="background:${COLORS[role]}" id="wgo">Enter 🔐</button>`);
+  showWelcome(`
+    <div class="pwAvatar" style="background:${COLORS[role]}">${role === 'husband' ? '💙' : '💗'}</div>
+    <h2>${role === 'husband' ? 'Abdulla' : 'Miaad'}</h2>
+    <p class="wsub">Enter the magic word 🔐</p>
+    <div class="pwRow">
+      <input type="password" id="wpass" placeholder="••••••" autocomplete="off">
+      <button class="pwEye" id="pwEye" type="button">👁</button>
+    </div>
+    <button class="whobtn" style="background:${COLORS[role]}" id="wgo">Unlock</button>
+    <button class="backbtn" id="wback">← Back</button>`);
   const input = wcard.querySelector('#wpass');
   const go = () => {
     if (input.value.trim().toLowerCase() !== expect){
       input.value = '';
-      input.placeholder = 'wrong 💔 try again';
+      input.placeholder = 'try again 💔';
+      input.classList.remove('err');
+      void input.offsetWidth;                      // restart the shake animation
+      input.classList.add('err');
+      input.focus();
       return;
     }
     currentUser = {role};
@@ -3118,18 +3204,33 @@ function askPassword(role){
     initSync();
   };
   wcard.querySelector('#wgo').onclick = go;
+  wcard.querySelector('#wback').onclick = askWho;
+  wcard.querySelector('#pwEye').onclick = () => {
+    input.type = input.type === 'password' ? 'text' : 'password';
+    input.focus();
+  };
+  input.addEventListener('input', () => input.classList.remove('err'));
   input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
   setTimeout(() => input.focus(), 100);
 }
 
 function askGuestName(){
-  showWelcome(`<h2>👁 Welcome, guest</h2>
+  showWelcome(`
+    <div class="pwAvatar" style="background:#8a939e">👁</div>
+    <h2>Welcome, guest</h2>
     <p class="wsub">What's your name?</p>
-    <input type="text" id="wname" maxlength="20" placeholder="Your name" style="margin-top:14px;text-align:center">
-    <button class="whobtn" style="background:#8a939e" id="wgo">Come on in</button>`);
+    <div class="pwRow"><input type="text" id="wname" maxlength="20" placeholder="Your name" style="letter-spacing:normal"></div>
+    <button class="whobtn" style="background:#8a939e" id="wgo">Come on in</button>
+    <button class="backbtn" id="wback">← Back</button>`);
   const input = wcard.querySelector('#wname');
   const go = () => {
-    if (!input.value.trim()){ input.placeholder = 'please type a name 🙂'; return; }
+    if (!input.value.trim()){
+      input.placeholder = 'please type a name 🙂';
+      input.classList.remove('err');
+      void input.offsetWidth;
+      input.classList.add('err');
+      return;
+    }
     profile.guest = {name:input.value.trim()};
     jset(LS.profile, profile);
     currentUser = {role:'guest'};
@@ -3143,6 +3244,8 @@ function askGuestName(){
     initSync();
   };
   wcard.querySelector('#wgo').onclick = go;
+  wcard.querySelector('#wback').onclick = askWho;
+  input.addEventListener('input', () => input.classList.remove('err'));
   input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
   setTimeout(() => input.focus(), 100);
 }
@@ -3175,7 +3278,6 @@ applyTheme(theme);
 const savedLayout = jget(LS.layout, null);
 if (savedLayout) loadData(savedLayout); else buildPlan();
 spawnAllCharacters();
-groundCharacters();
 syncCharacters();
 onResize();
 frameCameras();
