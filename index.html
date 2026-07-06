@@ -54,8 +54,8 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .shead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
 .shead b{font-size:15px}
 .xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer}
-#catTabs{display:flex;gap:6px;padding:2px 14px 10px;overflow-x:auto;flex:none}
-.tab{padding:9px 15px;border-radius:20px;background:var(--btn);border:none;color:var(--text);font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer}
+#catTabs{display:flex;gap:6px;padding:2px 14px 10px;flex-wrap:wrap;flex:none}
+.tab{padding:7px 12px;border-radius:20px;background:var(--btn);border:none;color:var(--text);font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer}
 .tab.on{background:var(--accent);color:#fff}
 #modelGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:10px;padding:0 14px 14px;overflow-y:auto}
 .model{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;cursor:pointer;color:var(--text)}
@@ -2840,8 +2840,17 @@ async function initSync(){
       const all = snap.val() || {};
       for (const role of ['husband','wife','guest']){
         if (role === myRole) continue;
-        // stamp with OUR clock — phone clocks disagree, comparing them made people flicker in and out
-        remotePlayers[role] = all[role] ? {...all[role], _rx:performance.now()} : null;
+        // a node dead for over 5 minutes is a leftover from a killed app — ignore it and clean it up
+        if (all[role] && Date.now() - (all[role].ts || 0) > 300000){
+          D.remove(D.ref(fb.db, 'room/players/' + role)).catch(() => {});
+          all[role] = null;
+        }
+        // freshness stamp on OUR clock, but only when THIS person's data actually changed —
+        // otherwise our own movements kept phantom guests alive forever
+        const prev = remotePlayers[role];
+        remotePlayers[role] = all[role]
+          ? {...all[role], _rx:(prev && prev.ts === all[role].ts) ? prev._rx : performance.now()}
+          : null;
         if (role === 'guest' && all.guest?.name && all.guest.name !== remoteGuestName){
           remoteGuestName = all.guest.name;      // show the visitor's typed name on their tag
           refreshTags();
