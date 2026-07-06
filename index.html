@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Our New Home">
 <meta name="theme-color" content="#0f1317">
 <title>Our New Home</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>ðŸ¡</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>">
 <script>document.documentElement.dataset.theme = 'dark';</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -222,39 +222,39 @@ body.guest #guestNote{display:block}
 <div id="app"></div>
 
 <div id="topbar" class="bar">
-  <button class="iconbtn" id="roomsBtn" title="Rooms">ðŸ—ºï¸</button>
+  <button class="iconbtn" id="roomsBtn" title="Rooms">🗺️</button>
   <h1><span id="userDot"></span>Our New Home</h1>
   <button class="iconbtn" id="viewBtn" title="Toggle 2D / 3D view">2D</button>
-  <button class="iconbtn" id="themeBtn" title="Light / Dark">â˜€ï¸</button>
-  <button class="iconbtn" id="settingsBtn" title="Settings">âš™ï¸</button>
+  <button class="iconbtn" id="themeBtn" title="Light / Dark">☀️</button>
+  <button class="iconbtn" id="settingsBtn" title="Settings">⚙️</button>
 </div>
 
 <div id="bottombar" class="bar">
-  <button class="iconbtn" id="addBtn">ï¼‹ Add</button>
-  <button class="iconbtn" id="shotBtn" title="Screenshot">ðŸ“·</button>
-  <button class="iconbtn" id="achBtn" title="Achievements">ðŸ†</button>
-  <button class="iconbtn" id="actBtn" title="Activity">ðŸ””<span id="actBadge"></span></button>
+  <button class="iconbtn" id="addBtn">＋ Add</button>
+  <button class="iconbtn" id="shotBtn" title="Screenshot">📷</button>
+  <button class="iconbtn" id="achBtn" title="Achievements">🏆</button>
+  <button class="iconbtn" id="actBtn" title="Activity">🔔<span id="actBadge"></span></button>
 </div>
 
 <div id="viewMenu">
-  <button data-v="3d">ðŸ§Š 3D orbit</button>
-  <button data-v="2d">ðŸ—ºï¸ 2D plan</button>
-  <button data-v="fp">ðŸ‘ï¸ First person</button>
-  <button data-v="tp">ðŸš¶ Third person</button>
+  <button data-v="3d">🧊 3D orbit</button>
+  <button data-v="2d">🗺️ 2D plan</button>
+  <button data-v="fp">👁️ First person</button>
+  <button data-v="tp">🚶 Third person</button>
 </div>
 
 <div id="joy"><div id="joyNub"></div></div>
-<div id="walkHint">WASD / joystick to walk Â· drag to look</div>
+<div id="walkHint">WASD / joystick to walk · drag to look</div>
 
 <div id="achPop"><div class="apIcon"></div><div class="apTitle">ACHIEVEMENT UNLOCKED</div><div class="apName"></div></div>
 
 <div id="pill">
   <div class="pillrow">
-    <button class="pbtn" id="rotBtn" title="Rotate 45Â°">âŸ³</button>
+    <button class="pbtn" id="rotBtn" title="Rotate 45°">⟳</button>
     <label class="pbtn tint" title="Colour"><input type="color" id="tintInput"></label>
-    <button class="pbtn" id="sizeBtn" title="Resize">ðŸ“</button>
+    <button class="pbtn" id="sizeBtn" title="Resize">📐</button>
     <button class="pbtn" id="useBtn" title="Use" style="display:none"></button>
-    <button class="pbtn" id="delBtn" title="Delete">ðŸ—‘</button>
+    <button class="pbtn" id="delBtn" title="Delete">🗑</button>
   </div>
   <div id="measure"></div>
 </div>
@@ -262,21 +262,21 @@ body.guest #guestNote{display:block}
 <div id="wallPill">
   <span>Wall</span>
   <label class="pbtn tint" title="Paint this wall"><input type="color" id="wallTint"></label>
-  <button class="pbtn" id="wallReset" title="Reset">â†º</button>
-  <button class="pbtn" id="wallClose">âœ•</button>
+  <button class="pbtn" id="wallReset" title="Reset">↺</button>
+  <button class="pbtn" id="wallClose">✕</button>
 </div>
 
 <div id="radial"></div>
 
 <div id="sizePanel">
-  <div class="szrow"><span>Width</span><button class="szbtn" data-d="x" data-s="-1">âˆ’</button><b id="szX"></b><button class="szbtn" data-d="x" data-s="1">ï¼‹</button></div>
-  <div class="szrow"><span>Depth</span><button class="szbtn" data-d="z" data-s="-1">âˆ’</button><b id="szZ"></b><button class="szbtn" data-d="z" data-s="1">ï¼‹</button></div>
-  <div class="szrow"><span>Height</span><button class="szbtn" data-d="y" data-s="-1">âˆ’</button><b id="szY"></b><button class="szbtn" data-d="y" data-s="1">ï¼‹</button></div>
-  <div class="szrow" id="szHangRow"><span>Raise</span><button class="szbtn" data-d="hang" data-s="-1">â–¼</button><b id="szHang"></b><button class="szbtn" data-d="hang" data-s="1">â–²</button></div>
+  <div class="szrow"><span>Width</span><button class="szbtn" data-d="x" data-s="-1">−</button><b id="szX"></b><button class="szbtn" data-d="x" data-s="1">＋</button></div>
+  <div class="szrow"><span>Depth</span><button class="szbtn" data-d="z" data-s="-1">−</button><b id="szZ"></b><button class="szbtn" data-d="z" data-s="1">＋</button></div>
+  <div class="szrow"><span>Height</span><button class="szbtn" data-d="y" data-s="-1">−</button><b id="szY"></b><button class="szbtn" data-d="y" data-s="1">＋</button></div>
+  <div class="szrow" id="szHangRow"><span>Raise</span><button class="szbtn" data-d="hang" data-s="-1">▼</button><b id="szHang"></b><button class="szbtn" data-d="hang" data-s="1">▲</button></div>
 </div>
 
 <div id="addSheet" class="sheet">
-  <div class="shead"><b>Add furniture</b><button class="xbtn" id="closeAdd">âœ•</button></div>
+  <div class="shead"><b>Add furniture</b><button class="xbtn" id="closeAdd">✕</button></div>
   <div id="catTabs"></div>
   <div id="modelGrid"></div>
 </div>
@@ -284,50 +284,50 @@ body.guest #guestNote{display:block}
 <div id="scrim"></div>
 
 <aside id="settings" class="drawer">
-  <div class="dhead"><b>Settings</b><button class="xbtn" id="closeSettings">âœ•</button></div>
+  <div class="dhead"><b>Settings</b><button class="xbtn" id="closeSettings">✕</button></div>
   <div class="dbody">
     <section>
       <h3 class="sec">You</h3>
       <div id="userChip"></div>
-      <div id="guestNote">ðŸ‘ You're viewing as a guest â€” look around all you like, but editing is off.</div>
+      <div id="guestNote">👁 You're viewing as a guest — look around all you like, but editing is off.</div>
       <div id="secProfile">
-        <div class="field"><label id="msgLabel">Message your partner sees on entry</label><textarea id="msgInput" maxlength="140" placeholder="Write something sweetâ€¦"></textarea></div>
+        <div class="field"><label id="msgLabel">Message your partner sees on entry</label><textarea id="msgInput" maxlength="140" placeholder="Write something sweet…"></textarea></div>
       </div>
       <button class="btn" id="switchUser">Not you? Switch user</button>
     </section>
     <section id="secEnv">
       <h3 class="sec">Environment</h3>
-      <div class="field"><label>Sun direction â€” <span id="sunLabel"></span></label>
+      <div class="field"><label>Sun direction — <span id="sunLabel"></span></label>
         <input type="range" id="sunSlider" min="0" max="359" step="1">
         <div class="compass"><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span></div>
       </div>
-      <div class="field"><label>Wall colour â€” tap a wall in the room to paint just that one</label>
+      <div class="field"><label>Wall colour — tap a wall in the room to paint just that one</label>
         <div class="swrow" id="wallSwatches"></div>
         <input type="color" id="wallColorInput" value="#8fa1b3" hidden>
       </div>
     </section>
     <section id="secMp">
-      <h3 class="sec">Live together â€” multiplayer</h3>
-      <p id="mpStatus" style="font-size:12.5px;color:var(--muted)">Connectingâ€¦</p>
-      <p style="font-size:11.5px;color:var(--muted);line-height:1.55">Connects to our home automatically when you sign in â€” nothing to set up.</p>
+      <h3 class="sec">Live together — multiplayer</h3>
+      <p id="mpStatus" style="font-size:12.5px;color:var(--muted)">Connecting…</p>
+      <p style="font-size:11.5px;color:var(--muted);line-height:1.55">Connects to our home automatically when you sign in — nothing to set up.</p>
     </section>
     <section id="secLayout">
       <h3 class="sec">Layout</h3>
-      <div class="row"><button class="btn" id="saveBtn">ðŸ’¾ Save</button><button class="btn" id="loadBtn">ðŸ“‚ Load</button></div>
-      <div class="row"><button class="btn" id="exportBtn">ðŸ“¤ Export</button><button class="btn" id="importBtn">ðŸ“¥ Import</button></div>
-      <button class="btn danger" id="clearBtn">ðŸ§¹ Clear all furniture</button>
+      <div class="row"><button class="btn" id="saveBtn">💾 Save</button><button class="btn" id="loadBtn">📂 Load</button></div>
+      <div class="row"><button class="btn" id="exportBtn">📤 Export</button><button class="btn" id="importBtn">📥 Import</button></div>
+      <button class="btn danger" id="clearBtn">🧹 Clear all furniture</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
   </div>
 </aside>
 
 <aside id="activity" class="drawer">
-  <div class="dhead"><b>Activity</b><button class="xbtn" id="closeActivity">âœ•</button></div>
+  <div class="dhead"><b>Activity</b><button class="xbtn" id="closeActivity">✕</button></div>
   <div class="dbody" id="actList"></div>
 </aside>
 
 <aside id="rooms" class="drawer">
-  <div class="dhead"><b>Rooms</b><button class="xbtn" id="closeRooms">âœ•</button></div>
+  <div class="dhead"><b>Rooms</b><button class="xbtn" id="closeRooms">✕</button></div>
   <div class="dbody" id="roomList" style="gap:0"></div>
 </aside>
 
@@ -336,7 +336,7 @@ body.guest #guestNote{display:block}
 </div>
 
 <div id="achPanel">
-  <div class="dhead"><b>Achievements <span class="tag" id="achCount"></span></b><button class="xbtn" id="closeAch">âœ•</button></div>
+  <div class="dhead"><b>Achievements <span class="tag" id="achCount"></span></b><button class="xbtn" id="closeAch">✕</button></div>
   <div class="dbody" id="achList"></div>
 </div>
 
@@ -376,9 +376,9 @@ const CATALOG = {
   sidetable: {name:'Side table',   cat:'Tables',   w:0.50, d:0.50, h:0.55, color:'#9b8468', surface:true},
   desk:      {name:'Desk',         cat:'Tables',   w:1.40, d:0.70, h:0.75, color:'#8d8d94', surface:true},
   pcdesk:    {name:'PC desk',      cat:'Tables',   w:1.40, d:0.70, h:0.75, color:'#5b6472', surface:true},
-  bed:       {name:'Bed 160Ã—200',  cat:'Beds',     w:1.60, d:2.00, h:0.55, color:'#b87f96', bed:true},
-  bedk:      {name:'Bed 200Ã—200',  cat:'Beds',     w:2.00, d:2.00, h:0.55, color:'#a3798f', bed:true, slots:2},
-  beds:      {name:'Bed 90Ã—200',   cat:'Beds',     w:0.90, d:2.00, h:0.55, color:'#8f9bb0', bed:true},
+  bed:       {name:'Bed 160×200',  cat:'Beds',     w:1.60, d:2.00, h:0.55, color:'#b87f96', bed:true},
+  bedk:      {name:'Bed 200×200',  cat:'Beds',     w:2.00, d:2.00, h:0.55, color:'#a3798f', bed:true, slots:2},
+  beds:      {name:'Bed 90×200',   cat:'Beds',     w:0.90, d:2.00, h:0.55, color:'#8f9bb0', bed:true},
   nightstand:{name:'Nightstand',   cat:'Beds',     w:0.45, d:0.40, h:0.55, color:'#9b7e63', surface:true},
   vanity:    {name:'Dressing table',cat:'Beds',    w:1.10, d:0.45, h:1.45, color:'#b394a1'},
   wardrobe:  {name:'Wardrobe',     cat:'Storage',  w:1.50, d:0.60, h:2.20, color:'#8a6f57'},
@@ -426,21 +426,21 @@ const MODEL_DEFS = [
   {id:'xsofa7',  file:'Sofa/Sofa7.fbx',  name:'Sofa VII',  cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
   {id:'xsofa8',  file:'Sofa/Sofa8.fbx',  name:'Sofa VIII', cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
   {id:'xsofa9',  file:'Sofa/Sofa9.fbx',  name:'Sofa IX',   cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa10', file:'Sofa/Sofa10.fbx', name:'Sofa X', cat:'Seating', plain:1, w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa11', file:'Sofa/Sofa11.fbx', name:'Sofa XI', cat:'Seating', plain:1, w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa12', file:'Sofa/Sofa12.fbx', name:'Sofa XII', cat:'Seating', plain:1, w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa13', file:'Sofa/Sofa13.fbx', name:'Sofa XIII', cat:'Seating', plain:1, w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa14', file:'Sofa/Sofa14.fbx', name:'Sofa XIV', cat:'Seating', plain:1, w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa15', file:'Sofa/Sofa15.fbx', name:'Sofa XV', cat:'Seating', plain:1, w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa16', file:'Sofa/Sofa16.fbx', name:'Sofa XVI', cat:'Seating', plain:1, w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa17', file:'Sofa/Sofa17.fbx', name:'Sofa XVII', cat:'Seating', plain:1, w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa18', file:'Sofa/Sofa18.fbx', name:'Sofa XVIII',cat:'Seating', plain:1, w:2.40, d:1.60, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa19', file:'Sofa/Sofa19.fbx', name:'Sofa XIX', cat:'Seating', plain:1, w:2.40, d:1.60, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa20', file:'Sofa/Sofa20.fbx', name:'Sofa XX', cat:'Seating', plain:1, w:2.60, d:1.70, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa21', file:'Sofa/Sofa21.fbx', name:'Sofa XXI', cat:'Seating', plain:1, w:2.60, d:1.70, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa22', file:'Sofa/Sofa22.fbx', name:'Sofa XXII', cat:'Seating', plain:1, w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa23', file:'Sofa/Sofa23.fbx', name:'Sofa XXIII',cat:'Seating', plain:1, w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa0',  file:'Sofa/sofa_001.fbx', name:'Sofa mini', cat:'Seating', plain:1, w:1.80, d:0.90, h:0.80, seat:0.40, slots:2},
+  {id:'xsofa10', file:'Sofa/Sofa10.fbx', name:'Sofa X',    cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa11', file:'Sofa/Sofa11.fbx', name:'Sofa XI',   cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa12', file:'Sofa/Sofa12.fbx', name:'Sofa XII',  cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa13', file:'Sofa/Sofa13.fbx', name:'Sofa XIII', cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa14', file:'Sofa/Sofa14.fbx', name:'Sofa XIV',  cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa15', file:'Sofa/Sofa15.fbx', name:'Sofa XV',   cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa16', file:'Sofa/Sofa16.fbx', name:'Sofa XVI',  cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa17', file:'Sofa/Sofa17.fbx', name:'Sofa XVII', cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa18', file:'Sofa/Sofa18.fbx', name:'Sofa XVIII',cat:'Seating', w:2.40, d:1.60, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa19', file:'Sofa/Sofa19.fbx', name:'Sofa XIX',  cat:'Seating', w:2.40, d:1.60, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa20', file:'Sofa/Sofa20.fbx', name:'Sofa XX',   cat:'Seating', w:2.60, d:1.70, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa21', file:'Sofa/Sofa21.fbx', name:'Sofa XXI',  cat:'Seating', w:2.60, d:1.70, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa22', file:'Sofa/Sofa22.fbx', name:'Sofa XXII', cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa23', file:'Sofa/Sofa23.fbx', name:'Sofa XXIII',cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa0',  file:'Sofa/sofa_001.fbx', name:'Sofa mini', cat:'Seating', w:1.80, d:0.90, h:0.80, seat:0.40, slots:2},
   {id:'xlounge', file:'Chair/lounge_chair_001.fbx', name:'Lounge chair', cat:'Seating', w:0.90, d:0.90, h:0.85, seat:0.40},
   {id:'xbed',    file:'Bed/bed_001.fbx', name:'Bed classic', cat:'Beds', w:1.70, d:2.10, h:0.75, bed:true, slots:2},
   {id:'xcloset1',file:'Closets/closet_001.fbx', name:'Closet I',  cat:'Storage', w:1.20, d:0.60, h:2.10},
@@ -489,33 +489,33 @@ for (const k in CATALOG){
 const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Fun'];
 
 const ACHIEVEMENTS = [
-  {id:'first-piece',    icon:'ðŸ›‹ï¸', name:'First Piece',      desc:'Place your first furniture'},
-  {id:'housewarming',   icon:'ðŸ ', name:'Housewarming',     desc:'Have 5+ pieces in the room'},
-  {id:'full-catalog',   icon:'ðŸ“¦', name:'Full Catalog',     desc:'Use every furniture type once'},
-  {id:'say-cheese',     icon:'ðŸ“·', name:'Say Cheese',       desc:'Take your first screenshot'},
-  {id:'night-owl',      icon:'ðŸŒ™', name:'Night Owl',        desc:'Switch to the dark / night look'},
-  {id:'cant-decide',    icon:'ðŸ¤”', name:"Can't Decide",     desc:'Move the same piece 10 times', hidden:true},
-  {id:'first-kiss',     icon:'ðŸ’‹', name:'Sealed with a Kiss', desc:'Kiss your husband / wife'},
-  {id:'cat-person',     icon:'ðŸˆ', name:'Cat Person',       desc:'Pet the cat 5 times', hidden:true},
-  {id:'clean-sweep',    icon:'ðŸ§¹', name:'Spring Cleaning',  desc:'Clean up the whole mess'},
-  {id:'made-to-measure',icon:'ðŸ“', name:'Made to Measure',  desc:'Resize a piece to fit just right'},
-  {id:'lights-on',      icon:'ðŸ’¡', name:'Mood Lighting',    desc:'Turn on a ceiling light'},
-  {id:'grand-tour',     icon:'ðŸ—ºï¸', name:'The Grand Tour',   desc:'Use all four views'},
-  {id:'full-house',     icon:'ðŸ˜ï¸', name:'Full House',       desc:'Furnish every room in the floor plan'},
-  {id:'measure-twice',  icon:'ðŸ“', name:'Measure Twice',    desc:'Every walkway â‰¥ 60 cm', phase:'Phase 1'},
-  {id:'moving-day',     icon:'ðŸšš', name:'Moving Day',       desc:'Start a fresh room project', phase:'Phase 1'},
-  {id:'golden-hour',    icon:'ðŸŒ‡', name:'Golden Hour',      desc:'Set the time to sunset', phase:'Phase 3'},
-  {id:'better-together',icon:'ðŸ‘«', name:'Better Together',  desc:'Both online at the same time', phase:'Phase 2'},
-  {id:'two-hearts',     icon:'ðŸ’ž', name:'Two Hearts',       desc:'Both edit furniture in one session', phase:'Phase 2'},
-  {id:'our-home',       icon:'ðŸ”‘', name:'Our Home',         desc:'Save a layout finished together', phase:'Phase 2'},
-  {id:'home-sweet-home',icon:'ðŸ¡', name:'Home Sweet Home',  desc:'Complete the whole apartment together', phase:'Phase 2'}
+  {id:'first-piece',    icon:'🛋️', name:'First Piece',      desc:'Place your first furniture'},
+  {id:'housewarming',   icon:'🏠', name:'Housewarming',     desc:'Have 5+ pieces in the room'},
+  {id:'full-catalog',   icon:'📦', name:'Full Catalog',     desc:'Use every furniture type once'},
+  {id:'say-cheese',     icon:'📷', name:'Say Cheese',       desc:'Take your first screenshot'},
+  {id:'night-owl',      icon:'🌙', name:'Night Owl',        desc:'Switch to the dark / night look'},
+  {id:'cant-decide',    icon:'🤔', name:"Can't Decide",     desc:'Move the same piece 10 times', hidden:true},
+  {id:'first-kiss',     icon:'💋', name:'Sealed with a Kiss', desc:'Kiss your husband / wife'},
+  {id:'cat-person',     icon:'🐈', name:'Cat Person',       desc:'Pet the cat 5 times', hidden:true},
+  {id:'clean-sweep',    icon:'🧹', name:'Spring Cleaning',  desc:'Clean up the whole mess'},
+  {id:'made-to-measure',icon:'📐', name:'Made to Measure',  desc:'Resize a piece to fit just right'},
+  {id:'lights-on',      icon:'💡', name:'Mood Lighting',    desc:'Turn on a ceiling light'},
+  {id:'grand-tour',     icon:'🗺️', name:'The Grand Tour',   desc:'Use all four views'},
+  {id:'full-house',     icon:'🏘️', name:'Full House',       desc:'Furnish every room in the floor plan'},
+  {id:'measure-twice',  icon:'📏', name:'Measure Twice',    desc:'Every walkway ≥ 60 cm', phase:'Phase 1'},
+  {id:'moving-day',     icon:'🚚', name:'Moving Day',       desc:'Start a fresh room project', phase:'Phase 1'},
+  {id:'golden-hour',    icon:'🌇', name:'Golden Hour',      desc:'Set the time to sunset', phase:'Phase 3'},
+  {id:'better-together',icon:'👫', name:'Better Together',  desc:'Both online at the same time', phase:'Phase 2'},
+  {id:'two-hearts',     icon:'💞', name:'Two Hearts',       desc:'Both edit furniture in one session', phase:'Phase 2'},
+  {id:'our-home',       icon:'🔑', name:'Our Home',         desc:'Save a layout finished together', phase:'Phase 2'},
+  {id:'home-sweet-home',icon:'🏡', name:'Home Sweet Home',  desc:'Complete the whole apartment together', phase:'Phase 2'}
 ];
 
 const jget = (k, d) => {try {const v = JSON.parse(localStorage.getItem(k)); return v ?? d;} catch(e) {return d;}};
 const jset = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 const esc  = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-/* Floor plan traced from the real apartment drawing (AREA = 156.14 mÂ²).
+/* Floor plan traced from the real apartment drawing (AREA = 156.14 m²).
    Coordinates in meters; origin = top-left interior corner; +x east, +z south.
    Rooms are interior rects [x1,z1,x2,z2]; walls are centerlines, 0.2 m thick. */
 const PLAN = {
@@ -535,14 +535,14 @@ const PLAN = {
     /* the old laundry (x 1.2-3.5, z 11.1-13.3) is now a sealed empty space, like the void by the master toilet */
   ],
   /* d:'h' runs along x at z=pos; d:'v' runs along z at x=pos. ops: door / win / arch / glasswall, at = world coord of centre.
-     The space south of the master toilet (x 6.6-8.3, z 6.1-7.7) is a walled void â€” no floor on purpose. */
+     The space south of the master toilet (x 6.6-8.3, z 6.1-7.7) is a walled void — no floor on purpose. */
   walls: [
     // exterior
     {d:'h', pos:-0.1, from:-0.2, to:10.0, ops:[{t:'win', at:1.75, w:1.8},{t:'win', at:5.95, w:2.2}]},
     {d:'v', pos:10.0, from:-0.1, to:0.5},
     {d:'h', pos:0.5,  from:9.9,  to:13.7},                                 // bedroom 1: window on the east side only
     {d:'v', pos:13.6, from:0.5,  to:9.1,  ops:[{t:'win', at:2.4, w:1.6},{t:'win', at:6.3, w:1.6}]},
-    {d:'h', pos:8.3,  from:9.9,  to:13.7},                                   // bedroom 2 wall facing the living room â€” clean run
+    {d:'h', pos:8.3,  from:9.9,  to:13.7},                                   // bedroom 2 wall facing the living room — clean run
     {d:'h', pos:9.0,  from:1.2,  to:3.6,  ops:[{t:'door', at:2.4, w:0.9}]},  // maid room: door faces the men's sitting side
     {d:'h', pos:9.0,  from:13.6, to:14.8},                                   // balcony north edge
     {d:'v', pos:-0.1, from:-0.2, to:13.4, ops:[{t:'win', at:2.1, w:1.6},{t:'win', at:6.7, w:0.6},{t:'door', at:12.7, w:1.0}]},
@@ -841,7 +841,7 @@ function buildPlan(){
     label.position.set((rc[0]+rc[2])/2, 0.15, (rc[1]+rc[3])/2);
     labels.push(label);
     roomGroup.add(label);
-    // ceiling light fixtures per room (no shadows â€” iPhone perf budget); rooms may define several
+    // ceiling light fixtures per room (no shadows — iPhone perf budget); rooms may define several
     const on = !!lightsState[r.id];
     const spots = r.lightPos || [[(rc[0]+rc[2])/2, (rc[1]+rc[3])/2]];
     roomLights[r.id] = [];
@@ -1016,7 +1016,7 @@ async function getThumb(def){
   return url;
 }
 
-/* every painting gets its own little abstract artwork â€” Miaad can imagine hers on the canvas */
+/* every painting gets its own little abstract artwork — Miaad can imagine hers on the canvas */
 function makeArtTexture(){
   const c = document.createElement('canvas');
   c.width = 128; c.height = 128;
@@ -1562,7 +1562,7 @@ function attachFaceMarker(inner, role){
     l.position.set(-0.042, 0.035, 0.115); l.rotation.z = 0.22; acc.add(l);
     const r = l.clone(); r.position.x = 0.042; r.rotation.z = -0.22; acc.add(r);
   } else if (role === 'wife'){
-    // a flower over her ear â€” girly, and it marks the front of her face
+    // a flower over her ear — girly, and it marks the front of her face
     const petalM = new THREE.MeshStandardMaterial({color:0xff9fc4, roughness:0.5});
     const centerM = new THREE.MeshStandardMaterial({color:0xffd35c, roughness:0.5});
     const flower = new THREE.Group();
@@ -1581,7 +1581,7 @@ function attachFaceMarker(inner, role){
     flower.rotation.set(-0.5, 0.55, 0);
     acc.add(flower);
     const lashM = new THREE.MeshStandardMaterial({color:0x3a2a24, roughness:0.6});
-    for (const sx of [-1, 1]){                        // lashes at EYE height (head origin is the neck â€” low = accidental mustache)
+    for (const sx of [-1, 1]){                        // lashes at EYE height (head origin is the neck — low = accidental mustache)
       const lash = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.008, 0.008), lashM);
       lash.position.set(sx*0.042, Math.max(0.1, topY - 0.115), 0.115);
       lash.rotation.z = sx*0.35;
@@ -1640,7 +1640,7 @@ function makeCharacter(role){
     lShin:findBone(inner, 'LeftLeg'),  rShin:findBone(inner, 'RightLeg'),
     lArm:findBone(inner, 'LeftArm'),   rArm:findBone(inner, 'RightArm')
   };
-  // relax the T-pose arms to the sides â€” rig axes are unknown/mirrored, so sweep all axes and keep what lowers the elbow
+  // relax the T-pose arms to the sides — rig axes are unknown/mirrored, so sweep all axes and keep what lowers the elbow
   holder.updateMatrixWorld(true);
   const relaxArm = bone => {
     if (!bone) return;
@@ -1663,7 +1663,7 @@ function makeCharacter(role){
   relaxArm(bones.rArm);
   attachFaceMarker(inner, role);                   // mustache / ribbon / visor shows which way they face
   // measure both leg joints: which rotation swings the thigh FORWARD, and which folds the shin DOWN.
-  // (this rig's bone axes are mirrored and unpredictable â€” never assume.)
+  // (this rig's bone axes are mirrored and unpredictable — never assume.)
   const boneTip = bone => {
     const child = bone.children.find(ch => ch.isBone);
     return child ? child.getWorldPosition(new THREE.Vector3())
@@ -1713,7 +1713,7 @@ function spawnAllCharacters(){
   for (const role of ['husband','wife','guest']) if (!chars[role]) makeCharacter(role);
   groundCharacters();                                        // measure feet in rest pose FIRST
   for (const role of ['husband','wife','guest']){
-    players[role].pose = 'stand';                            // never respawn mid-sit â€” that looks like floating
+    players[role].pose = 'stand';                            // never respawn mid-sit — that looks like floating
     setPoseVisual(role, 'stand');
   }
   updateCharVisibility();
@@ -1841,7 +1841,7 @@ function smartPose(pose){
   if (!me) return;
   const best = findPoseTarget(pose);
   if (!best){
-    toast(pose === 'sit' ? 'Nothing to sit on here ðŸª‘ â€” get near a chair or sofa' : 'No bed nearby ðŸ›ï¸');
+    toast(pose === 'sit' ? 'Nothing to sit on here 🪑 — get near a chair or sofa' : 'No bed nearby 🛏️');
     return;
   }
   me.g.rotation.y = best.rotY;
@@ -1874,7 +1874,7 @@ function makeHeartSprite(){
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
   const ctx = c.getContext('2d');
   ctx.font = '52px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('ðŸ’—', 32, 36);
+  ctx.fillText('💗', 32, 36);
   const s = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), transparent:true, depthTest:false}));
   s.renderOrder = 12;
   return s;
@@ -1910,14 +1910,14 @@ function doKiss(){
   if (!a || !b) return;
   const dx = b.g.position.x - a.g.position.x, dz = b.g.position.z - a.g.position.z;
   const d = Math.hypot(dx, dz) || 1;
-  if (d > 1.5){                                    // no teleporting â€” walk over to your love first
-    toast(`Get closer to ${nameFor(pR)} first ðŸ’•`);
+  if (d > 1.5){                                    // no teleporting — walk over to your love first
+    toast(`Get closer to ${nameFor(pR)} first 💕`);
     return;
   }
   playKissEffect();
   if (fb) fb.D.set(fb.D.ref(fb.db, 'room/kiss'), {by:meR, ts:Date.now()}).catch(() => {});
   unlock('first-kiss');
-  logActivity('kiss', `kissed ${nameFor(pR)} ðŸ’‹`);
+  logActivity('kiss', `kissed ${nameFor(pR)} 💋`);
   players[meR] = {x:+a.g.position.x.toFixed(3), z:+a.g.position.z.toFixed(3), rotY:+a.g.rotation.y.toFixed(3), pose:a.pose || 'stand'};
   scheduleSave();
   pushPlayer(true);
@@ -2045,13 +2045,13 @@ function doGesture(type){
     const other = currentUser.role === 'husband' ? 'wife' : 'husband';
     const a = chars[currentUser.role], b = chars[other];
     if (a && b && Math.hypot(b.g.position.x - a.g.position.x, b.g.position.z - a.g.position.z) > 1.6){
-      toast(`Get closer to ${nameFor(other)} first ðŸ¤—`);
+      toast(`Get closer to ${nameFor(other)} first 🤗`);
       return;
     }
   }
   playGesture(currentUser.role, type);
   if (fb) fb.D.set(fb.D.ref(fb.db, 'room/gesture'), {t:type, by:currentUser.role, ts:Date.now()}).catch(() => {});
-  logActivity(type, type === 'wave' ? 'waved ðŸ‘‹' : `hugged ${nameFor(partnerRole())} ðŸ¤—`);
+  logActivity(type, type === 'wave' ? 'waved 👋' : `hugged ${nameFor(partnerRole())} 🤗`);
 }
 
 function feedCat(){
@@ -2060,7 +2060,7 @@ function feedCat(){
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
   const ctx = c.getContext('2d');
   ctx.font = '48px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('ðŸŸ', 32, 36);
+  ctx.fillText('🐟', 32, 36);
   const s = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), transparent:true, depthTest:false}));
   s.scale.setScalar(0.28);
   s.position.set(cat.g.position.x, 0.45, cat.g.position.z);
@@ -2239,7 +2239,7 @@ function select(g){
   const useBtn = $('useBtn');
   if (def.seat || def.bed){                        // sit or sleep by choosing the furniture
     useBtn.style.display = 'flex';
-    useBtn.textContent = def.bed ? 'ðŸ˜´' : 'ðŸª‘';
+    useBtn.textContent = def.bed ? '😴' : '🪑';
     useBtn.onclick = () => { smartPoseAtItem(g, def.bed ? 'sleep' : 'sit'); deselect(); };
   } else {
     useBtn.style.display = 'none';
@@ -2290,7 +2290,7 @@ function updateMeasure(){
     sel.position.z - (r.z1 + hd), (r.z2 - hd) - sel.position.z
   )) * 100);
   const warn = gap < 60;
-  measureEl.textContent = `${Math.round(def.w*100*sel.scale.x)}Ã—${Math.round(def.d*100*sel.scale.z)} cm Â· wall ${gap} cm${warn ? ' âš ï¸' : ''}`;
+  measureEl.textContent = `${Math.round(def.w*100*sel.scale.x)}×${Math.round(def.d*100*sel.scale.z)} cm · wall ${gap} cm${warn ? ' ⚠️' : ''}`;
   measureEl.classList.toggle('warn', warn);
 }
 
@@ -2465,7 +2465,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   if (!floorPoint(e, _p)) return;
   if (Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) > 4) moved = true;
   const ox = sel.position.x, oz = sel.position.z;
-  sel.position.x = Math.round((_p.x + dragOff.x) * 100) / 100;   // 1 cm â€” light snap so the lean feels natural
+  sel.position.x = Math.round((_p.x + dragOff.x) * 100) / 100;   // 1 cm — light snap so the lean feels natural
   sel.position.z = Math.round((_p.z + dragOff.z) * 100) / 100;
   clampToRoom(sel);
   if (!CATALOG[sel.userData.type].wall){                       // lean back against the motion, like real dragging
@@ -2561,7 +2561,7 @@ renderer.domElement.addEventListener('pointerup', e => {
       } else if (seatTap && currentUser){
         const me = chars[currentUser.role];
         if (me && Math.hypot(me.g.position.x - seatTap.it.position.x, me.g.position.z - seatTap.it.position.z) > 2.6){
-          toast('Walk a little closer first ðŸ™‚');
+          toast('Walk a little closer first 🙂');
         } else {
           smartPoseAtItem(seatTap.it, seatTap.pose);
         }
@@ -2622,14 +2622,14 @@ function animateCharFalls(dt){
 /* -------- radial menus: yourself, your love, the cat -------- */
 const radial = $('radial');
 const RADIAL_MENUS = {
-  self:    [['stand','ðŸ§','Stand up'], ['wave','ðŸ‘‹','Wave']],
-  partner: [['kiss','ðŸ’‹','Kiss'], ['hug','ðŸ¤—','Hug'], ['wave','ðŸ‘‹','Wave']],
-  other:   [['wave','ðŸ‘‹','Wave']],
-  cat:     [['pet','ðŸ–ï¸','Pet'], ['feed','ðŸŸ','Feed']]
+  self:    [['stand','🧍','Stand up'], ['wave','👋','Wave']],
+  partner: [['kiss','💋','Kiss'], ['hug','🤗','Hug'], ['wave','👋','Wave']],
+  other:   [['wave','👋','Wave']],
+  cat:     [['pet','🖐️','Pet'], ['feed','🐟','Feed']]
 };
 function openRadial(x, y, kind = 'self'){
   radial.innerHTML = '';
-  const list = [...RADIAL_MENUS[kind], ['close','âœ•','Close']];
+  const list = [...RADIAL_MENUS[kind], ['close','✕','Close']];
   const n = list.length;
   list.forEach(([act, icon, title], i) => {
     const b = document.createElement('button');
@@ -2751,14 +2751,14 @@ function exportLayout(){
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   logActivity('export', 'exported the layout');
-  toast('Layout exported ðŸ“¤');
+  toast('Layout exported 📤');
 }
 
 /* ============================== activity feed ============================== */
 
-const ACT_ICONS = {add:'ðŸ›‹ï¸', move:'âœ¥', rotate:'â†»', delete:'ðŸ—‘ï¸', save:'ðŸ’¾', load:'ðŸ“‚', export:'ðŸ“¤', import:'ðŸ“¥',
-  clear:'ðŸ§¹', rename:'ðŸ·ï¸', screenshot:'ðŸ“·', open:'ðŸšª', theme:'ðŸŒ—', sun:'â˜€ï¸', edit:'ðŸŽ¨', light:'ðŸ’¡', kiss:'ðŸ’‹',
-  wave:'ðŸ‘‹', hug:'ðŸ¤—', clean:'âœ¨', achievement:'ðŸ†'};
+const ACT_ICONS = {add:'🛋️', move:'✥', rotate:'↻', delete:'🗑️', save:'💾', load:'📂', export:'📤', import:'📥',
+  clear:'🧹', rename:'🏷️', screenshot:'📷', open:'🚪', theme:'🌗', sun:'☀️', edit:'🎨', light:'💡', kiss:'💋',
+  wave:'👋', hug:'🤗', clean:'✨', achievement:'🏆'};
 
 function logActivity(type, text){
   if (!currentUser || isGuest()) return;      // guests leave no trace
@@ -2781,7 +2781,7 @@ function fmtAgo(ts){
 
 function renderActivity(){
   if (!activity.length){
-    actList.innerHTML = '<p class="empty">Nothing yet â€” start placing furniture ðŸ›‹ï¸</p>';
+    actList.innerHTML = '<p class="empty">Nothing yet — start placing furniture 🛋️</p>';
     return;
   }
   actList.innerHTML = '';
@@ -2830,7 +2830,7 @@ function unlock(id){
   achQueue.push(def);
   playSound('ach');
   showAchPop();
-  logActivity('achievement', `unlocked â€œ${def.name}â€`);
+  logActivity('achievement', `unlocked “${def.name}”`);
   renderAchievements();
 }
 
@@ -2844,13 +2844,13 @@ function renderAchievements(){
     const hidden = a.hidden && !un;
     const el = document.createElement('div');
     el.className = 'ach' + (un ? ' un' : '');
-    el.innerHTML = `<div class="aicon">${hidden ? 'â“' : a.icon}</div>
+    el.innerHTML = `<div class="aicon">${hidden ? '❓' : a.icon}</div>
       <div class="atxt">
         <div class="anm">${hidden ? '???' : esc(a.name)}${a.phase && !un ? ` <span class="tag">${a.phase}</span>` : ''}</div>
-        <div class="ads">${hidden ? 'A hidden surpriseâ€¦' : esc(a.desc)}</div>
+        <div class="ads">${hidden ? 'A hidden surprise…' : esc(a.desc)}</div>
         ${un ? `<div class="adt">Unlocked ${new Date(st.at).toLocaleDateString()}</div>` : ''}
       </div>
-      <div class="alock">${un ? 'âœ…' : 'ðŸ”’'}</div>`;
+      <div class="alock">${un ? '✅' : '🔒'}</div>`;
     achList.appendChild(el);
   });
   achCount.textContent = `${n}/${ACHIEVEMENTS.length}`;
@@ -2880,7 +2880,7 @@ function applyTheme(t, {log = false} = {}){
   hemi.intensity = s.hemi;
   sun.intensity = s.sun;
   sun.color.set(s.sunColor);
-  themeBtn.textContent = t === 'dark' ? 'â˜€ï¸' : 'ðŸŒ™';
+  themeBtn.textContent = t === 'dark' ? '☀️' : '🌙';
   buildPlan();
   if (log){
     logActivity('theme', `switched to ${t} mode`);
@@ -3069,7 +3069,7 @@ function updateCat(dt){
     cat.legs.forEach((l, i) => l.rotation.x = -0.6 + Math.sin(performance.now()/120 + i)*0.25);
     return;
   }
-  if (!cat.carried && cat.state === 'idle') cat.g.position.y += (0 - cat.g.position.y) * Math.min(1, dt*8);
+  if (cat.state === 'idle') cat.g.position.y += (0 - cat.g.position.y) * Math.min(1, dt*8);
   // when someone else runs the cat brain, just mirror what their cat does
   if (fb && currentUser && catOwnerRole() !== currentUser.role){
     if (remoteCat){
@@ -3180,7 +3180,7 @@ function spawnDirt(){
     scene.add(m);
     dirtSpots.push({m, hits:0});
   }
-  toast('The house got messy ðŸ§¹ tap the dirt to clean it!');
+  toast('The house got messy 🧹 tap the dirt to clean it!');
 }
 function scrubDirt(mesh){
   const i = dirtSpots.findIndex(d => d.m === mesh);
@@ -3194,10 +3194,10 @@ function scrubDirt(mesh){
     d.m.material.dispose();
     dirtSpots.splice(i, 1);
     if (!dirtSpots.length){
-      toast('Sparkling clean âœ¨');
+      toast('Sparkling clean ✨');
       playSound('ach');
       unlock('clean-sweep');
-      logActivity('clean', 'cleaned the whole house âœ¨');
+      logActivity('clean', 'cleaned the whole house ✨');
     }
   } else {
     d.m.scale.setScalar(0.7);
@@ -3216,7 +3216,7 @@ function updateDirt(dt){
 /* ============================== live sync (Firebase, optional) ============================== */
 
 const FB_KEY = 'roomplanner.firebase';
-const DEFAULT_FB = {databaseURL:'https://our-new-home-2f608-default-rtdb.firebaseio.com'};   // our home â€” connects automatically
+const DEFAULT_FB = {databaseURL:'https://our-new-home-2f608-default-rtdb.firebaseio.com'};   // our home — connects automatically
 let fb = null, syncMuted = false;
 const remotePlayers = {};                      // role -> latest remote state (or null when offline)
 const remoteOnline = {};
@@ -3385,9 +3385,9 @@ function applyRemoteLayout(data){
 async function initSync(){
   if (fb || !currentUser) return;
   const st = $('mpStatus');
-  const cfg = jget(FB_KEY, null) || DEFAULT_FB;    // signs in automatically â€” no setup needed
+  const cfg = jget(FB_KEY, null) || DEFAULT_FB;    // signs in automatically — no setup needed
   try{
-    st.textContent = 'Connectingâ€¦';
+    st.textContent = 'Connecting…';
     const {initializeApp} = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
     const D = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
     fb = {D, db:D.getDatabase(initializeApp(cfg))};
@@ -3401,12 +3401,12 @@ async function initSync(){
       const all = snap.val() || {};
       for (const role of ['husband','wife','guest']){
         if (role === myRole) continue;
-        // a node dead for over 5 minutes is a leftover from a killed app â€” ignore it and clean it up
+        // a node dead for over 5 minutes is a leftover from a killed app — ignore it and clean it up
         if (all[role] && Date.now() - (all[role].ts || 0) > 300000){
           D.remove(D.ref(fb.db, 'room/players/' + role)).catch(() => {});
           all[role] = null;
         }
-        // freshness stamp on OUR clock, but only when THIS person's data actually changed â€”
+        // freshness stamp on OUR clock, but only when THIS person's data actually changed —
         // otherwise our own movements kept phantom guests alive forever
         const prev = remotePlayers[role];
         remotePlayers[role] = all[role]
@@ -3419,7 +3419,7 @@ async function initSync(){
         if (all[role] && !remoteOnline[role]){
           remoteOnline[role] = true;
           const who = role === 'guest' ? (all.guest?.name || 'A guest') : nameFor(role);
-          toast(`${who} just walked in ${role === 'wife' ? 'ðŸ’—' : role === 'husband' ? 'ðŸ’™' : 'ðŸ‘'}`);
+          toast(`${who} just walked in ${role === 'wife' ? '💗' : role === 'husband' ? '💙' : '👁'}`);
         } else if (!all[role]){
           remoteOnline[role] = false;            // left: their node is gone, character disappears
           if (role === 'guest' && remoteGuestName){ remoteGuestName = null; refreshTags(); }
@@ -3446,7 +3446,7 @@ async function initSync(){
         lastGestTs = g.ts;
         playGesture(g.by, g.t);
         const who = g.by === 'guest' ? (remoteGuestName || 'A guest') : nameFor(g.by);
-        toast(g.t === 'wave' ? `${who} waves at you ðŸ‘‹` : `${who} hugs you ðŸ¤—`);
+        toast(g.t === 'wave' ? `${who} waves at you 👋` : `${who} hugs you 🤗`);
       }
     });
     setInterval(() => pushPlayer(true), 10000);  // heartbeat so a killed app is detected fast
@@ -3467,11 +3467,11 @@ async function initSync(){
       updateBadge();
     });
     pushPlayer(true);
-    st.textContent = 'ðŸŸ¢ Live â€” you\'ll see each other move and edit in real time';
+    st.textContent = '🟢 Live — you\'ll see each other move and edit in real time';
   }catch(e){
     console.warn('firebase connect failed', e);
     fb = null;
-    st.textContent = 'âš ï¸ Could not connect â€” double-check the pasted config.';
+    st.textContent = '⚠️ Could not connect — double-check the pasted config.';
   }
 }
 
@@ -3539,7 +3539,7 @@ function buildAddSheet(){
     el.className = 'model';
     el.innerHTML = `<div class="sw" style="background:${d.color}"></div>
       <div class="nm">${d.name}</div>
-      <div class="dm">${Math.round(d.w*100)}Ã—${Math.round(d.d*100)} cm</div>`;
+      <div class="dm">${Math.round(d.w*100)}×${Math.round(d.d*100)} cm</div>`;
     let trayDragged = false;
     el.onclick = () => { if (trayDragged){ trayDragged = false; return; } addFurniture(type); };
     el.addEventListener('pointerdown', e => {      // or DRAG it straight out of the tray into the room
@@ -3643,7 +3643,7 @@ function startRename(row, r){
     if (v && v !== getName(r)){
       roomNames[r.id] = v;
       scheduleSave();
-      logActivity('rename', `renamed a room to â€œ${v}â€`);
+      logActivity('rename', `renamed a room to “${v}”`);
       buildPlan();                                   // refresh the 2D label
     }
     renderRooms();
@@ -3661,15 +3661,15 @@ function renderRooms(){
     const area = r.rects.reduce((a, rc) => a + (rc[2]-rc[0])*(rc[3]-rc[1]), 0);
     const row = document.createElement('div');
     row.className = 'roomrow';
-    row.innerHTML = `<div class="rinfo"><div class="rname">${esc(getName(r))}</div><div class="rdim">â‰ˆ ${area.toFixed(1)} mÂ²</div></div>
-      <button class="rbtn" data-a="lt" title="Ceiling light">${lightsState[r.id] ? 'ðŸ’¡' : 'ðŸ”…'}</button>
+    row.innerHTML = `<div class="rinfo"><div class="rname">${esc(getName(r))}</div><div class="rdim">≈ ${area.toFixed(1)} m²</div></div>
+      <button class="rbtn" data-a="lt" title="Ceiling light">${lightsState[r.id] ? '💡' : '🔅'}</button>
       <button class="rbtn" data-a="2d">2D</button>
       <button class="rbtn" data-a="3d">3D</button>
-      <button class="rbtn" data-a="rn" title="Rename">âœï¸</button>`;
+      <button class="rbtn" data-a="rn" title="Rename">✏️</button>`;
     row.querySelector('.rinfo').onclick = () => { teleport(r); closeOverlays(); };
     row.querySelector('[data-a="lt"]').onclick = ev => {
       toggleLight(r.id);
-      ev.target.textContent = lightsState[r.id] ? 'ðŸ’¡' : 'ðŸ”…';
+      ev.target.textContent = lightsState[r.id] ? '💡' : '🔅';
       if (lightsState[r.id]) unlock('lights-on');
     };
     row.querySelector('[data-a="2d"]').onclick = () => { setView('2d'); teleport(r); closeOverlays(); };
@@ -3809,13 +3809,13 @@ function renderWallSwatches(){
   }
   const pick = document.createElement('button');
   pick.className = 'wsw util';
-  pick.textContent = 'ðŸŽ¨';
+  pick.textContent = '🎨';
   pick.title = 'Custom colour';
   pick.onclick = () => wallColorInput.click();
   row.appendChild(pick);
   const reset = document.createElement('button');
   reset.className = 'wsw util' + (wallColor === null ? ' on' : '');
-  reset.textContent = 'â†º';
+  reset.textContent = '↺';
   reset.title = 'Back to default';
   reset.onclick = () => applyWallColor(null);
   row.appendChild(reset);
@@ -3829,7 +3829,7 @@ const compass8 = az => ['N','NE','E','SE','S','SW','W','NW'][Math.round(az/45) %
 
 function syncSettingsUI(){
   sunSlider.value = sunAz;
-  sunLabel.textContent = `${compass8(sunAz)} ${sunAz}Â°`;
+  sunLabel.textContent = `${compass8(sunAz)} ${sunAz}°`;
   wallColorInput.value = wallColor || '#8fa1b3';
   renderWallSwatches();
   syncProfileUI();
@@ -3837,13 +3837,13 @@ function syncSettingsUI(){
 
 function syncProfileUI(){
   const me = currentUser?.role;
-  if (!me){ userChip.textContent = 'â€”'; return; }
+  if (!me){ userChip.textContent = '—'; return; }
   if (me === 'guest'){
-    userChip.innerHTML = `<span class="dot" style="background:#8a939e"></span>ðŸ‘ ${esc(nameFor('guest'))} <span style="color:var(--muted);font-weight:600">(viewing)</span>`;
+    userChip.innerHTML = `<span class="dot" style="background:#8a939e"></span>👁 ${esc(nameFor('guest'))} <span style="color:var(--muted);font-weight:600">(viewing)</span>`;
     userDot.style.background = '#8a939e';
     return;
   }
-  const heart = me === 'wife' ? 'ðŸ’—' : 'ðŸ’™';
+  const heart = me === 'wife' ? '💗' : '💙';
   userChip.innerHTML = `<span class="dot" style="background:${COLORS[me]}"></span>${heart} ${esc(nameFor(me))} <span style="color:var(--muted);font-weight:600">(you)</span>`;
   userDot.style.background = COLORS[me];
   msgLabel.textContent = `Message ${nameFor(partnerRole())} sees on entry`;
@@ -3855,7 +3855,7 @@ msgInput.addEventListener('change', () => {
   messages[currentUser.role] = msgInput.value.trim();
   jset(LS.messages, messages);
   scheduleSave();                                  // syncs the love note to the partner's device when live
-  toast(`Saved â€” ${nameFor(partnerRole())} will see it on entry ðŸ’Œ`);
+  toast(`Saved — ${nameFor(partnerRole())} will see it on entry 💌`);
 });
 
 $('switchUser').onclick = () => { closeOverlays(); askWho(); };
@@ -3863,7 +3863,7 @@ $('switchUser').onclick = () => { closeOverlays(); askWho(); };
 
 sunSlider.addEventListener('input', () => {
   sunAz = +sunSlider.value;
-  sunLabel.textContent = `${compass8(sunAz)} ${sunAz}Â°`;
+  sunLabel.textContent = `${compass8(sunAz)} ${sunAz}°`;
   updateSun();
 });
 sunSlider.addEventListener('change', () => {
@@ -3871,10 +3871,10 @@ sunSlider.addEventListener('change', () => {
   logActivity('sun', `moved the sun to ${compass8(sunAz)}`);
 });
 
-$('saveBtn').onclick = () => { saveLocal(); toast('Saved âœ“'); logActivity('save', 'saved the layout'); };
+$('saveBtn').onclick = () => { saveLocal(); toast('Saved ✓'); logActivity('save', 'saved the layout'); };
 $('loadBtn').onclick = () => {
   const d = jget(LS.layout, null);
-  if (d){ loadData(d); toast('Layout loaded ðŸ“‚'); logActivity('load', 'loaded the saved layout'); }
+  if (d){ loadData(d); toast('Layout loaded 📂'); logActivity('load', 'loaded the saved layout'); }
   else toast('No saved layout yet');
 };
 $('exportBtn').onclick = exportLayout;
@@ -3887,8 +3887,8 @@ $('importFile').addEventListener('change', e => {
       loadData(JSON.parse(t));
       saveLocal();
       logActivity('import', 'imported a layout');
-      toast('Layout imported ðŸ“¥');
-    } catch(err){ toast('Could not read that file ðŸ˜•'); }
+      toast('Layout imported 📥');
+    } catch(err){ toast('Could not read that file 😕'); }
   });
   e.target.value = '';
 });
@@ -3921,13 +3921,13 @@ function doClearAll(alsoCharacters){
 function askPartnerPermission(alsoCharacters){
   const partner = nameFor(partnerRole());
   showConfirm(`
-    <h2>One more thingâ€¦ ðŸ’</h2>
+    <h2>One more thing… 💍</h2>
     <p class="wsub">Did you take <b>${esc(partner)}</b>'s permission?</p>
-    <button class="btn primary" id="cfYes">Yes â€” ${esc(partner)} approved ðŸ’š</button>
-    <button class="btn" id="cfNo">Noâ€¦ ðŸ™ˆ</button>`,
+    <button class="btn primary" id="cfYes">Yes — ${esc(partner)} approved 💚</button>
+    <button class="btn" id="cfNo">No… 🙈</button>`,
     [
-      ['cfYes', () => { hideConfirm(); doClearAll(alsoCharacters); toast('All clear â€” fresh start ðŸ§¹'); }],
-      ['cfNo', () => { hideConfirm(); toast(`Take ${esc(partner)}'s permission first ðŸ’•`); }]
+      ['cfYes', () => { hideConfirm(); doClearAll(alsoCharacters); toast('All clear — fresh start 🧹'); }],
+      ['cfNo', () => { hideConfirm(); toast(`Take ${esc(partner)}'s permission first 💕`); }]
     ]);
 }
 
@@ -3935,10 +3935,10 @@ $('clearBtn').onclick = () => {
   if (!canEdit() || !items.length) return;
   closeOverlays();
   showConfirm(`
-    <h2>Clear everything? ðŸ§¹</h2>
+    <h2>Clear everything? 🧹</h2>
     <p class="wsub">What exactly should go?</p>
-    <button class="btn primary" id="cfFurn">ðŸ›‹ï¸ Furniture only</button>
-    <button class="btn" id="cfBoth">ðŸ›‹ï¸ + ðŸ§ Furniture and character positions</button>
+    <button class="btn primary" id="cfFurn">🛋️ Furniture only</button>
+    <button class="btn" id="cfBoth">🛋️ + 🧍 Furniture and character positions</button>
     <button class="btn" id="cfCancel">Cancel</button>`,
     [
       ['cfFurn', () => askPartnerPermission(false)],
@@ -3966,9 +3966,9 @@ function applyGuestMode(){
 function askWho(){
   clearTimeout(greetT);
   showWelcome(`<h2>Who's using this?</h2>
-    <button class="whobtn" style="background:${COLORS.husband}" data-role="husband">ðŸ’™ Abdulla</button>
-    <button class="whobtn" style="background:${COLORS.wife}" data-role="wife">ðŸ’— Miaad</button>
-    <button class="whobtn" style="background:#8a939e" data-role="guest">ðŸ‘ Guest</button>`);
+    <button class="whobtn" style="background:${COLORS.husband}" data-role="husband">💙 Abdulla</button>
+    <button class="whobtn" style="background:${COLORS.wife}" data-role="wife">💗 Miaad</button>
+    <button class="whobtn" style="background:#8a939e" data-role="guest">👁 Guest</button>`);
   wcard.querySelectorAll('.whobtn').forEach(b => b.onclick = () => {
     if (b.dataset.role === 'guest') askGuestName();
     else askPassword(b.dataset.role);
@@ -3978,20 +3978,20 @@ function askWho(){
 function askPassword(role){
   const expect = role === 'husband' ? 'miaad' : 'abdulla';
   showWelcome(`
-    <div class="pwAvatar" style="background:${COLORS[role]}">${role === 'husband' ? 'ðŸ’™' : 'ðŸ’—'}</div>
+    <div class="pwAvatar" style="background:${COLORS[role]}">${role === 'husband' ? '💙' : '💗'}</div>
     <h2>${role === 'husband' ? 'Abdulla' : 'Miaad'}</h2>
-    <p class="wsub">Enter the magic word ðŸ”</p>
+    <p class="wsub">Enter the magic word 🔐</p>
     <div class="pwRow">
-      <input type="password" id="wpass" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢" autocomplete="off">
-      <button class="pwEye" id="pwEye" type="button">ðŸ‘</button>
+      <input type="password" id="wpass" placeholder="••••••" autocomplete="off">
+      <button class="pwEye" id="pwEye" type="button">👁</button>
     </div>
     <button class="whobtn" style="background:${COLORS[role]}" id="wgo">Unlock</button>
-    <button class="backbtn" id="wback">â† Back</button>`);
+    <button class="backbtn" id="wback">← Back</button>`);
   const input = wcard.querySelector('#wpass');
   const go = () => {
     if (input.value.trim().toLowerCase() !== expect){
       input.value = '';
-      input.placeholder = 'try again ðŸ’”';
+      input.placeholder = 'try again 💔';
       input.classList.remove('err');
       void input.offsetWidth;                      // restart the shake animation
       input.classList.add('err');
@@ -4020,16 +4020,16 @@ function askPassword(role){
 
 function askGuestName(){
   showWelcome(`
-    <div class="pwAvatar" style="background:#8a939e">ðŸ‘</div>
+    <div class="pwAvatar" style="background:#8a939e">👁</div>
     <h2>Welcome, guest</h2>
     <p class="wsub">What's your name?</p>
     <div class="pwRow"><input type="text" id="wname" maxlength="20" placeholder="Your name" style="letter-spacing:normal"></div>
     <button class="whobtn" style="background:#8a939e" id="wgo">Come on in</button>
-    <button class="backbtn" id="wback">â† Back</button>`);
+    <button class="backbtn" id="wback">← Back</button>`);
   const input = wcard.querySelector('#wname');
   const go = () => {
     if (!input.value.trim()){
-      input.placeholder = 'please type a name ðŸ™‚';
+      input.placeholder = 'please type a name 🙂';
       input.classList.remove('err');
       void input.offsetWidth;
       input.classList.add('err');
@@ -4044,7 +4044,7 @@ function askGuestName(){
     hideWelcome();
     syncProfileUI();
     refreshTags();
-    toast(`Welcome ${esc(profile.guest.name)} ðŸ‘ â€” look around, editing is off`);
+    toast(`Welcome ${esc(profile.guest.name)} 👁 — look around, editing is off`);
     initSync();
   };
   wcard.querySelector('#wgo').onclick = go;
@@ -4058,17 +4058,17 @@ function greetingText(){
   const me = currentUser.role, p = partnerRole();
   const custom = (messages[p] || '').trim();
   if (custom) return {text:custom, custom:true};
-  const heart = p === 'husband' ? 'ðŸ’™' : 'ðŸ’—';
-  return {text:`Hi ${nameFor(me)} ${heart} â€” ${nameFor(p)} loves you`, custom:false};
+  const heart = p === 'husband' ? '💙' : '💗';
+  return {text:`Hi ${nameFor(me)} ${heart} — ${nameFor(p)} loves you`, custom:false};
 }
 
 function greet(){
   if (isGuest()){ hideWelcome(); return; }
   const p = partnerRole();
   const g = greetingText();
-  showWelcome(`<div class="big-heart">${p === 'husband' ? 'ðŸ’™' : 'ðŸ’—'}</div>
+  showWelcome(`<div class="big-heart">${p === 'husband' ? '💙' : '💗'}</div>
     <h2 style="margin-top:10px">${esc(g.text)}</h2>
-    ${g.custom ? `<p class="wsub">â€” ${esc(nameFor(p))}</p>` : ''}`);
+    ${g.custom ? `<p class="wsub">— ${esc(nameFor(p))}</p>` : ''}`);
   syncProfileUI();
   logActivity('open', 'entered the home');
   welcome.onclick = hideWelcome;
