@@ -41,8 +41,8 @@ button{font-family:inherit;touch-action:manipulation}
 #measure{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap;padding:0 4px 2px}
 #measure.warn{color:#e05563}
 
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--panel);border-radius:18px 18px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.3);transform:translateY(105%);transition:transform .25s;padding-bottom:env(safe-area-inset-bottom);max-height:55%;display:flex;flex-direction:column}
-.sheet.on{transform:none}
+.sheet{position:fixed;left:50%;top:50%;z-index:30;background:var(--panel);border-radius:18px;box-shadow:var(--shadow);width:min(540px,94vw);max-height:68vh;display:flex;flex-direction:column;transform:translate(-50%,-47%) scale(.96);opacity:0;pointer-events:none;transition:transform .2s,opacity .2s}
+.sheet.on{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
 .shead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
 .shead b{font-size:15px}
 .xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer}
@@ -177,8 +177,8 @@ body.guest #guestNote{display:block}
 <div id="app"></div>
 
 <div id="topbar" class="bar">
-  <h1><span id="userDot"></span>Our New Home</h1>
   <button class="iconbtn" id="roomsBtn" title="Rooms">🗺️</button>
+  <h1><span id="userDot"></span>Our New Home</h1>
   <button class="iconbtn" id="viewBtn" title="Toggle 2D / 3D view">2D</button>
   <button class="iconbtn" id="themeBtn" title="Light / Dark">☀️</button>
   <button class="iconbtn" id="settingsBtn" title="Settings">⚙️</button>
@@ -250,7 +250,6 @@ body.guest #guestNote{display:block}
       <div id="userChip"></div>
       <div id="guestNote">👁 You're viewing as a guest — look around all you like, but editing is off.</div>
       <div id="secProfile">
-        <div class="field"><label>Your name tag</label><input type="text" id="nameInput" maxlength="20" placeholder="Your name"></div>
         <div class="field"><label id="msgLabel">Message your partner sees on entry</label><textarea id="msgInput" maxlength="140" placeholder="Write something sweet…"></textarea></div>
       </div>
       <button class="btn" id="switchUser">Not you? Switch user</button>
@@ -268,12 +267,8 @@ body.guest #guestNote{display:block}
     </section>
     <section id="secMp">
       <h3 class="sec">Live together — multiplayer</h3>
-      <p id="mpStatus" style="font-size:12.5px;color:var(--muted)"></p>
-      <div class="field"><label>Firebase config (paste once per device)</label>
-        <textarea id="mpConfig" placeholder='{ "apiKey": "...", "databaseURL": "https://....firebasedatabase.app", ... }'></textarea>
-      </div>
-      <button class="btn primary" id="mpConnect">Connect</button>
-      <p style="font-size:11.5px;color:var(--muted);line-height:1.55">Free setup (once): console.firebase.google.com → Create project → Build → <b>Realtime Database</b> → Create (test mode) → Project settings → Your apps → <b>Web</b> → copy the <b>config</b> object here. Use the same config on Miaad's phone.</p>
+      <p id="mpStatus" style="font-size:12.5px;color:var(--muted)">Connecting…</p>
+      <p style="font-size:11.5px;color:var(--muted);line-height:1.55">Connects to our home automatically when you sign in — nothing to set up.</p>
     </section>
     <section id="secLayout">
       <h3 class="sec">Layout</h3>
@@ -483,7 +478,7 @@ let activity    = jget(LS.activity, []);
 let achState    = jget(LS.ach, {});
 let progress    = jget(LS.progress, {typesUsed:{}, moves:{}});
 
-const nameFor     = r => (profile[r]?.name || '').trim() || (r === 'husband' ? 'Abdulla' : r === 'wife' ? 'Miaad' : 'Guest');
+const nameFor     = r => r === 'husband' ? 'Abdulla' : r === 'wife' ? 'Miaad' : ((profile.guest?.name || '').trim() || 'Guest');
 const partnerRole = () => currentUser?.role === 'wife' ? 'husband' : 'wife';
 
 /* ============================== dom refs ============================== */
@@ -496,14 +491,14 @@ const settingsEl = $('settings'), activityEl = $('activity'), achPanel = $('achP
 const roomsEl = $('rooms'), roomList = $('roomList');
 const actList = $('actList'), actBadge = $('actBadge'), achList = $('achList'), achCount = $('achCount');
 const welcome = $('welcome'), wcard = $('wcard'), toasts = $('toasts');
-const nameInput = $('nameInput'), msgInput = $('msgInput'), msgLabel = $('msgLabel'), userChip = $('userChip'), userDot = $('userDot');
+const msgInput = $('msgInput'), msgLabel = $('msgLabel'), userChip = $('userChip'), userDot = $('userDot');
 const sunSlider = $('sunSlider'), sunLabel = $('sunLabel');
 
 /* ============================== three.js scene ============================== */
 
 /* scene modes: dark = night, light = the building lit up like the sun is out. The UI itself always stays dark. */
 const SCENES = {
-  dark: {bg:0x10151b, floor:0x2a323d, grid:0x46525f, wall:0x8fa1b3, glass:0x9fd0f0, hemi:0.50, sun:0.9, sunColor:0xcfd9ff},
+  dark: {bg:0x1a212b, floor:0x525c68, grid:0x6b7684, wall:0xaab5c2, glass:0xa8d4ee, hemi:0.95, sun:1.0, sunColor:0xd9e0ff},
   light:{bg:0x8fa9c4, floor:0xdedbd6, grid:0xb0a692, wall:0xd7dde4, glass:0xaad4f2, hemi:1.05, sun:1.9, sunColor:0xfff1d6}
 };
 
@@ -1485,18 +1480,28 @@ function groundCharacters(){
   const any = chars.husband || chars.wife || chars.guest;
   if (!any) return;
   any.g.updateMatrixWorld(true);
-  // skinned meshes report bind-pose bounds via setFromObject — ask the skeleton for the real ones
-  let minY = Infinity;
-  any.inner.traverse(o => {
-    if (o.isSkinnedMesh && o.computeBoundingBox){
-      o.computeBoundingBox();
-      const bb = o.boundingBox.clone().applyMatrix4(o.matrixWorld);
-      minY = Math.min(minY, bb.min.y);
-    }
-  });
-  if (!isFinite(minY)) minY = new THREE.Box3().setFromObject(any.inner).min.y;
-  if (Math.abs(minY) > 0.005){
-    charProtoYOff -= minY;
+  // ground on the ANKLE bone: probe both directions along the shin and take the lower end
+  let ref = null;
+  const shin = any.bones.lShin || any.bones.rShin;
+  if (shin){
+    const child = shin.children.find(c => c.isBone);
+    let tipY;
+    if (child) tipY = child.getWorldPosition(new THREE.Vector3()).y;
+    else tipY = Math.min(shin.localToWorld(new THREE.Vector3(0, 30, 0)).y, shin.localToWorld(new THREE.Vector3(0, -30, 0)).y);
+    ref = tipY - 0.05;                             // sole sits ~5 cm below the ankle
+  }
+  if (ref === null){
+    let minY = Infinity;
+    any.inner.traverse(o => {
+      if (o.isSkinnedMesh && o.computeBoundingBox){
+        o.computeBoundingBox();
+        minY = Math.min(minY, o.boundingBox.clone().applyMatrix4(o.matrixWorld).min.y);
+      }
+    });
+    if (isFinite(minY)) ref = minY;
+  }
+  if (ref !== null && Math.abs(ref) > 0.005){
+    charProtoYOff -= ref;
     for (const r in chars) chars[r].inner.position.y = charProtoYOff;
   }
 }
@@ -2035,6 +2040,7 @@ renderer.domElement.addEventListener('pointermove', e => {
     dragTilt.z = THREE.MathUtils.clamp(dragTilt.z + (sel.position.x - ox) * 1.4, -0.16, 0.16);
     dragTilt.x = THREE.MathUtils.clamp(dragTilt.x - (sel.position.z - oz) * 1.4, -0.16, 0.16);
   }
+  pushDrag();
   updateDropMarker();
   updateMeasure();
   e.stopPropagation();
@@ -2068,6 +2074,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     orbit.enabled = view === '3d';
     pan.enabled = view === '2d';
     dropMarker.visible = false;
+    if (moved) clearDrag();
     if (moved && sel && !CATALOG[sel.userData.type].wall){
       smokePuff(sel.position.x, sel.position.z, 4, 0.2);   // settle puff
       playSound('drop');
@@ -2548,9 +2555,20 @@ function updateCat(dt){
   cat.tail.rotation.x = -0.7 + Math.sin(performance.now()/1000 * 2.2) * 0.25;   // always wagging a little
   if (cat.state === 'idle'){
     if (cat.t <= 0){
-      const r = RECTS[Math.floor(Math.random()*RECTS.length)];
-      cat.tx = THREE.MathUtils.clamp(r.x1 + Math.random()*(r.x2 - r.x1), r.x1 + 0.25, r.x2 - 0.25);
-      cat.tz = THREE.MathUtils.clamp(r.z1 + Math.random()*(r.z2 - r.z1), r.z1 + 0.25, r.z2 - 0.25);
+      // wander INSIDE the current room, or head for a doorway of this room (never through walls)
+      const cur = rectAt(cat.g.position.x, cat.g.position.z) || nearestRect(cat.g.position.x, cat.g.position.z);
+      const doors = DOOR_RECTS.filter(dr =>
+        !(dr.x2 < cur.x1 - 0.05 || dr.x1 > cur.x2 + 0.05 || dr.z2 < cur.z1 - 0.05 || dr.z1 > cur.z2 + 0.05));
+      if (doors.length && Math.random() < 0.4){
+        const dr = doors[Math.floor(Math.random()*doors.length)];
+        cat.tx = (dr.x1 + dr.x2)/2;
+        cat.tz = (dr.z1 + dr.z2)/2;
+        cat.throughDoor = true;                   // pause briefly at the door, then explore the next room
+      } else {
+        cat.tx = cur.x1 + 0.3 + Math.random()*Math.max(0.1, cur.x2 - cur.x1 - 0.6);
+        cat.tz = cur.z1 + 0.3 + Math.random()*Math.max(0.1, cur.z2 - cur.z1 - 0.6);
+        cat.throughDoor = false;
+      }
       cat.state = 'walk';
       cat.stuck = 0;
     }
@@ -2558,7 +2576,11 @@ function updateCat(dt){
   }
   const dx = cat.tx - cat.g.position.x, dz = cat.tz - cat.g.position.z;
   const d = Math.hypot(dx, dz);
-  if (d < 0.15){ cat.state = 'idle'; cat.t = 2 + Math.random()*5; return; }
+  if (d < 0.15){
+    cat.state = 'idle';
+    cat.t = cat.throughDoor ? 0.3 : 2 + Math.random()*5;        // at a doorway: barely pause, keep exploring
+    return;
+  }
   const sp = 0.85 * dt;
   const nx = cat.g.position.x + dx/d*sp, nz = cat.g.position.z + dz/d*sp;
   let moved2 = false;
@@ -2566,8 +2588,9 @@ function updateCat(dt){
   if (walkable(cat.g.position.x, nz, cat.g.position.x, cat.g.position.z)){ cat.g.position.z = nz; moved2 = true; }
   if (!moved2){
     cat.stuck += dt;
-    if (cat.stuck > 1.2){ cat.state = 'idle'; cat.t = 1; }      // blocked: nap, then pick somewhere else
+    if (cat.stuck > 0.5){ cat.state = 'idle'; cat.t = 0.2; }    // blocked: immediately pick a reachable spot instead
   } else {
+    cat.stuck = 0;
     cat.g.rotation.y = Math.atan2(dx, dz);
     cat.walkT += dt * 9;
     cat.legs.forEach((l, i) => l.rotation.x = Math.sin(cat.walkT + (i % 2 ? Math.PI : 0)) * 0.6);
@@ -2587,9 +2610,11 @@ function petCat(){
 /* ============================== live sync (Firebase, optional) ============================== */
 
 const FB_KEY = 'roomplanner.firebase';
+const DEFAULT_FB = {databaseURL:'https://our-new-home-2f608-default-rtdb.firebaseio.com'};   // our home — connects automatically
 let fb = null, syncMuted = false;
 const remotePlayers = {};                      // role -> latest remote state (or null when offline)
 const remoteOnline = {};
+let remoteDrag = null;                         // live drag mirror from the partner
 const sessionStart = Date.now();
 
 function pushLayout(){
@@ -2615,6 +2640,30 @@ function pushPlayer(force){
 
 function pushActivity(a){
   if (fb && !syncMuted) fb.D.push(fb.D.ref(fb.db, 'room/activity'), a).catch(() => {});
+}
+
+let dragPushAt = 0;
+function pushDrag(){                             // stream the piece being dragged so the partner sees it slide live
+  if (!fb || !sel || !currentUser) return;
+  const now = performance.now();
+  if (now - dragPushAt < 100) return;            // ~10 Hz
+  dragPushAt = now;
+  fb.D.set(fb.D.ref(fb.db, 'room/drag'), {
+    id:sel.userData.id, x:+sel.position.x.toFixed(2), z:+sel.position.z.toFixed(2),
+    rotY:+sel.rotation.y.toFixed(2), by:currentUser.role, ts:Date.now()
+  }).catch(() => {});
+}
+function clearDrag(){
+  if (fb && currentUser) fb.D.set(fb.D.ref(fb.db, 'room/drag'), null).catch(() => {});
+}
+function updateRemoteDrag(dt){
+  if (!remoteDrag) return;
+  const it = items.find(i => i.userData.id === remoteDrag.id);
+  if (!it) return;
+  const k = Math.min(1, dt*12);
+  it.position.x += (remoteDrag.x - it.position.x)*k;
+  it.position.z += (remoteDrag.z - it.position.z)*k;
+  if (typeof remoteDrag.rotY === 'number') it.rotation.y += (remoteDrag.rotY - it.rotation.y)*k;
 }
 
 function applyRemoteLayout(data){
@@ -2643,8 +2692,7 @@ function applyRemoteLayout(data){
 async function initSync(){
   if (fb || !currentUser) return;
   const st = $('mpStatus');
-  const cfg = jget(FB_KEY, null);
-  if (!cfg){ st.textContent = 'Offline — paste your Firebase config below to go live together.'; return; }
+  const cfg = jget(FB_KEY, null) || DEFAULT_FB;    // signs in automatically — no setup needed
   try{
     st.textContent = 'Connecting…';
     const {initializeApp} = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
@@ -2669,6 +2717,10 @@ async function initSync(){
         }
       }
       updateCharVisibility();
+    });
+    D.onValue(D.ref(fb.db, 'room/drag'), snap => {
+      const d = snap.val();
+      remoteDrag = (d && d.by !== myRole) ? d : null;
     });
     const meRef = D.ref(fb.db, 'room/players/' + myRole);
     D.onDisconnect(meRef).remove();
@@ -2949,27 +3001,16 @@ function syncProfileUI(){
   const me = currentUser?.role;
   if (!me){ userChip.textContent = '—'; return; }
   if (me === 'guest'){
-    userChip.innerHTML = `<span class="dot" style="background:#8a939e"></span>👁 Guest <span style="color:var(--muted);font-weight:600">(viewing)</span>`;
+    userChip.innerHTML = `<span class="dot" style="background:#8a939e"></span>👁 ${esc(nameFor('guest'))} <span style="color:var(--muted);font-weight:600">(viewing)</span>`;
     userDot.style.background = '#8a939e';
     return;
   }
   const heart = me === 'wife' ? '💗' : '💙';
   userChip.innerHTML = `<span class="dot" style="background:${COLORS[me]}"></span>${heart} ${esc(nameFor(me))} <span style="color:var(--muted);font-weight:600">(you)</span>`;
   userDot.style.background = COLORS[me];
-  nameInput.value = profile[me].name || '';
   msgLabel.textContent = `Message ${nameFor(partnerRole())} sees on entry`;
   msgInput.value = messages[me] || '';
 }
-
-nameInput.addEventListener('change', () => {
-  if (!canEdit()) return;
-  profile[currentUser.role].name = nameInput.value.trim();
-  jset(LS.profile, profile);
-  syncProfileUI();
-  refreshTags();
-  scheduleSave();
-  pushPlayer(true);
-});
 
 msgInput.addEventListener('change', () => {
   if (!canEdit()) return;
@@ -2981,17 +3022,6 @@ msgInput.addEventListener('change', () => {
 
 $('switchUser').onclick = () => { closeOverlays(); askWho(); };
 
-$('mpConnect').onclick = () => {
-  const txt = $('mpConfig').value.trim();
-  if (!txt){ toast('Paste the Firebase config first'); return; }
-  let cfg = null;
-  try { cfg = JSON.parse(txt); }
-  catch(e){ try { cfg = (new Function('return (' + txt + ')'))(); } catch(e2){} }
-  if (!cfg || !cfg.databaseURL){ toast('That config needs a databaseURL 🤔'); return; }
-  jset(FB_KEY, cfg);
-  initSync();
-  toast('Connecting…');
-};
 
 sunSlider.addEventListener('input', () => {
   sunAz = +sunSlider.value;
@@ -3056,46 +3086,60 @@ function applyGuestMode(){
 function askWho(){
   clearTimeout(greetT);
   showWelcome(`<h2>Who's using this?</h2>
-    <p class="wsub">So the app knows who to greet 🙂</p>
     <button class="whobtn" style="background:${COLORS.husband}" data-role="husband">💙 Abdulla</button>
     <button class="whobtn" style="background:${COLORS.wife}" data-role="wife">💗 Miaad</button>
     <button class="whobtn" style="background:#8a939e" data-role="guest">👁 Guest</button>`);
   wcard.querySelectorAll('.whobtn').forEach(b => b.onclick = () => {
-    currentUser = {role:b.dataset.role};
-    jset(LS.user, currentUser);
-    applyGuestMode();
-    if (isGuest()){
-      deselect();
-      hideWelcome();
-      syncProfileUI();
-      toast('Viewing as guest 👁 — look around, editing is off');
-      initSync();
-    } else if ((profile[b.dataset.role].name || '').trim()){
-      hideWelcome();                               // switching back: name already set, no editing
-      syncProfileUI();
-      refreshTags();
-      greet();
-      initSync();
-    } else {
-      askName();                                   // first time only
-    }
+    if (b.dataset.role === 'guest') askGuestName();
+    else askPassword(b.dataset.role);
   });
 }
 
-function askName(){
-  const r = currentUser.role;
-  showWelcome(`<h2>What should we call you?</h2>
-    <p class="wsub">This becomes your name tag 🏷️</p>
-    <input type="text" id="wname" maxlength="20" placeholder="${r === 'husband' ? 'Abdulla' : 'Your name'}"
-      value="${esc(profile[r].name || '')}" style="margin-top:14px;text-align:center">
-    <button class="whobtn" style="background:${COLORS[r]}" id="wgo">That's me ✨</button>`);
-  const input = wcard.querySelector('#wname');
+function askPassword(role){
+  const expect = role === 'husband' ? 'miaad' : 'abdulla';
+  showWelcome(`<h2>${role === 'husband' ? '💙 Abdulla' : '💗 Miaad'}</h2>
+    <p class="wsub">Password — the name of your favourite person 😉</p>
+    <input type="password" id="wpass" autocomplete="off" style="margin-top:14px;text-align:center">
+    <button class="whobtn" style="background:${COLORS[role]}" id="wgo">Enter 🔐</button>`);
+  const input = wcard.querySelector('#wpass');
   const go = () => {
-    profile[r].name = input.value.trim();
-    jset(LS.profile, profile);
+    if (input.value.trim().toLowerCase() !== expect){
+      input.value = '';
+      input.placeholder = 'wrong 💔 try again';
+      return;
+    }
+    currentUser = {role};
+    jset(LS.user, currentUser);
+    applyGuestMode();
+    hideWelcome();
     syncProfileUI();
     refreshTags();
     greet();
+    initSync();
+  };
+  wcard.querySelector('#wgo').onclick = go;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  setTimeout(() => input.focus(), 100);
+}
+
+function askGuestName(){
+  showWelcome(`<h2>👁 Welcome, guest</h2>
+    <p class="wsub">What's your name?</p>
+    <input type="text" id="wname" maxlength="20" placeholder="Your name" style="margin-top:14px;text-align:center">
+    <button class="whobtn" style="background:#8a939e" id="wgo">Come on in</button>`);
+  const input = wcard.querySelector('#wname');
+  const go = () => {
+    if (!input.value.trim()){ input.placeholder = 'please type a name 🙂'; return; }
+    profile.guest = {name:input.value.trim()};
+    jset(LS.profile, profile);
+    currentUser = {role:'guest'};
+    jset(LS.user, currentUser);
+    applyGuestMode();
+    deselect();
+    hideWelcome();
+    syncProfileUI();
+    refreshTags();
+    toast(`Welcome ${esc(profile.guest.name)} 👁 — look around, editing is off`);
     initSync();
   };
   wcard.querySelector('#wgo').onclick = go;
@@ -3157,6 +3201,7 @@ function animate(){
   else if (view === '2d') pan.update();
   updateWalk(dt);
   updateRemoteChars(dt);
+  updateRemoteDrag(dt);
   animateChars(dt);
   animateHearts(dt);
   animatePuffs(dt);
