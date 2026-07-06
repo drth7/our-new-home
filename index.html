@@ -41,8 +41,16 @@ button{font-family:inherit;touch-action:manipulation}
 #measure{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap;padding:0 4px 2px}
 #measure.warn{color:#e05563}
 
-.sheet{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));z-index:30;background:var(--panel);border-radius:18px;box-shadow:var(--shadow);width:min(540px,94vw);max-height:52vh;display:flex;flex-direction:column;transform:translate(-50%,calc(100% + 140px));transition:transform .3s cubic-bezier(.2,.9,.3,1);pointer-events:none}
+.sheet{position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));z-index:19;background:var(--panel);border-radius:20px;box-shadow:var(--shadow);width:min(560px,95vw);height:min(44vh,330px);display:flex;flex-direction:column;transform:translate(-50%,130%);transition:transform .32s cubic-bezier(.2,.9,.3,1);pointer-events:none}
 .sheet.on{transform:translate(-50%,0);pointer-events:auto}
+#bottombar{transition:transform .32s cubic-bezier(.2,.9,.3,1)}
+body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
+#catTabs{scrollbar-width:none}
+#catTabs::-webkit-scrollbar{display:none}
+#modelGrid,.dbody{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#modelGrid::-webkit-scrollbar,.dbody::-webkit-scrollbar{width:5px}
+#modelGrid::-webkit-scrollbar-thumb,.dbody::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+#modelGrid::-webkit-scrollbar-track,.dbody::-webkit-scrollbar-track{background:transparent}
 .shead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
 .shead b{font-size:15px}
 .xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer}
@@ -80,6 +88,11 @@ input[type=text],input[type=number],textarea,select{width:100%;background:var(--
 textarea{resize:vertical;min-height:64px}
 input[type=range]{width:100%;accent-color:var(--accent)}
 .compass{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);font-weight:700;padding:0 2px}
+.swrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:4px}
+.wsw{width:40px;height:40px;border-radius:13px;border:2px solid var(--line);cursor:pointer;transition:transform .12s,border-color .12s}
+.wsw:hover{transform:scale(1.08)}
+.wsw.on{border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,134,214,.25)}
+.wsw.util{display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--btn);color:var(--text);border-style:dashed}
 .row{display:flex;gap:8px}
 .btn{flex:1;padding:11px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-weight:600;font-size:13.5px;cursor:pointer}
 .btn:active{transform:scale(.97)}
@@ -92,6 +105,11 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
 #achPanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-48%) scale(.96);opacity:0;pointer-events:none;transition:all .2s;width:min(430px,92vw);max-height:78vh;z-index:40;background:var(--panel);border-radius:18px;box-shadow:var(--shadow);display:flex;flex-direction:column}
 #achPanel.on{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
+#confirm{position:fixed;left:50%;top:50%;transform:translate(-50%,-48%) scale(.96);opacity:0;pointer-events:none;transition:all .2s;width:min(380px,92vw);z-index:55;background:var(--panel);border-radius:18px;box-shadow:var(--shadow)}
+#confirm.on{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
+#confirm h2{font-size:18px;line-height:1.4}
+#confirm .wsub{margin-top:-2px}
+#confirm .btn{width:100%}
 #achPanel .dhead{padding-top:14px}
 .tag{font-size:10px;background:var(--btn);color:var(--muted);border-radius:6px;padding:2px 6px;font-weight:700;vertical-align:1px}
 .ach{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);opacity:.55}
@@ -174,6 +192,21 @@ body.guest #addBtn,body.guest #achBtn,body.guest .rbtn[data-a="rn"],body.guest .
 body.guest #secProfile,body.guest #secEnv,body.guest #secLayout{display:none!important}
 #guestNote{display:none;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted)}
 body.guest #guestNote{display:block}
+
+/* modern glass pass */
+.drawer,.sheet,#achPanel,#confirm,#pill,#viewMenu,#wallPill,#sizePanel,.wcard,#radial button,.iconbtn,#walkHint{
+  background:rgba(22,28,36,.86);
+  backdrop-filter:blur(18px) saturate(1.3);
+  -webkit-backdrop-filter:blur(18px) saturate(1.3);
+  border:1px solid rgba(255,255,255,.08);
+}
+#topbar h1{background:rgba(22,28,36,.86);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.08)}
+#addBtn,.btn.primary{background:linear-gradient(135deg,#4b86d8,#6aa4f2);border:none;color:#fff}
+#addBtn:hover{filter:brightness(1.08)}
+.iconbtn,.btn,.tab,.model,.rbtn,.pbtn{transition:transform .12s,background .15s,filter .15s}
+.model:hover{transform:translateY(-2px)}
+.tab.on{background:linear-gradient(135deg,#4b86d8,#6aa4f2)}
+#viewMenu button.on{background:linear-gradient(135deg,#4b86d8,#6aa4f2)}
 
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -269,9 +302,9 @@ body.guest #guestNote{display:block}
         <input type="range" id="sunSlider" min="0" max="359" step="1">
         <div class="compass"><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span></div>
       </div>
-      <div class="field"><label>Wall colour</label>
-        <div class="row"><label class="pbtn tint" style="flex:none"><input type="color" id="wallColorInput" value="#8fa1b3"></label>
-        <button class="btn" id="wallColorReset">Reset to default</button></div>
+      <div class="field"><label>Wall colour — tap a wall in the room to paint just that one</label>
+        <div class="swrow" id="wallSwatches"></div>
+        <input type="color" id="wallColorInput" value="#8fa1b3" hidden>
       </div>
     </section>
     <section id="secMp">
@@ -298,6 +331,10 @@ body.guest #guestNote{display:block}
   <div class="dhead"><b>Rooms</b><button class="xbtn" id="closeRooms">✕</button></div>
   <div class="dbody" id="roomList" style="gap:0"></div>
 </aside>
+
+<div id="confirm">
+  <div class="dbody" id="cfBody" style="text-align:center;gap:10px"></div>
+</div>
 
 <div id="achPanel">
   <div class="dhead"><b>Achievements <span class="tag" id="achCount"></span></b><button class="xbtn" id="closeAch">✕</button></div>
@@ -1640,10 +1677,8 @@ function doKiss(){
     toast(`Get closer to ${nameFor(pR)} first 💕`);
     return;
   }
-  a.g.rotation.y = Math.atan2(dx, dz);
-  b.g.rotation.y = Math.atan2(-dx, -dz);
-  heartBurst((a.g.position.x + b.g.position.x)/2, 1.45, (a.g.position.z + b.g.position.z)/2);
-  playSound('kiss');
+  playKissEffect();
+  if (fb) fb.D.set(fb.D.ref(fb.db, 'room/kiss'), {by:meR, ts:Date.now()}).catch(() => {});
   unlock('first-kiss');
   logActivity('kiss', `kissed ${nameFor(pR)} 💋`);
   players[meR] = {x:+a.g.position.x.toFixed(3), z:+a.g.position.z.toFixed(3), rotY:+a.g.rotation.y.toFixed(3), pose:a.pose || 'stand'};
@@ -1772,6 +1807,11 @@ function animateChars(dt){
   for (const role in chars){
     const c = chars[role];
     const rx = k => c.rest[k] ? c.rest[k].x : 0;
+    // ground failsafe: a standing character always settles back onto the floor
+    if (!c.dragFall && !(c.landT > 0) && (c.pose || 'stand') === 'stand' &&
+        Math.abs(c.g.position.y) > 0.002 && !charFalls.some(f => f.c === c)){
+      c.g.position.y += (0 - c.g.position.y) * Math.min(1, dt*10);
+    }
     if (c.dragFall){                               // carried: flail like falling
       c.walkT += dt * 16;
       const s = Math.sin(c.walkT);
@@ -2647,7 +2687,19 @@ const remoteOnline = {};
 let remoteDrag = null;                         // live drag mirror from the partner
 let remoteCat = null, catPushAt = 0;           // one client simulates the cat, everyone else watches
 let remoteGuestName = null;                    // the name the visiting guest typed
+let kissHoldUntil = 0;                         // while kissing, nobody's rotation gets overridden
 const sessionStart = Date.now();
+
+function playKissEffect(){
+  const a = chars.husband, b = chars.wife;
+  if (!a || !b) return;
+  const dx = b.g.position.x - a.g.position.x, dz = b.g.position.z - a.g.position.z;
+  a.g.rotation.y = Math.atan2(dx, dz);
+  b.g.rotation.y = Math.atan2(-dx, -dz);
+  kissHoldUntil = performance.now() + 2600;
+  heartBurst((a.g.position.x + b.g.position.x)/2, 1.45, (a.g.position.z + b.g.position.z)/2);
+  playSound('kiss');
+}
 
 function catOwnerRole(){                       // highest-priority person online runs the cat brain
   for (const r of ['husband','wife','guest']){
@@ -2706,10 +2758,39 @@ function pushDrag(){                             // stream the piece being dragg
 function clearDrag(){
   if (fb && currentUser) fb.D.set(fb.D.ref(fb.db, 'room/drag'), null).catch(() => {});
 }
+const dragFx = {id:null, item:null, restore:[], label:null};
+function clearDragFx(){
+  if (!dragFx.item) return;
+  for (const [m, em, ei] of dragFx.restore){ m.emissive.copy(em); m.emissiveIntensity = ei; }
+  if (dragFx.label){
+    dragFx.item.remove(dragFx.label);
+    dragFx.label.material.map.dispose();
+    dragFx.label.material.dispose();
+  }
+  dragFx.id = null; dragFx.item = null; dragFx.restore = []; dragFx.label = null;
+}
 function updateRemoteDrag(dt){
-  if (!remoteDrag) return;
+  if (!remoteDrag){ clearDragFx(); return; }
   const it = items.find(i => i.userData.id === remoteDrag.id);
-  if (!it) return;
+  if (!it){ clearDragFx(); return; }
+  if (dragFx.id !== remoteDrag.id){
+    clearDragFx();                                 // the partner grabbed it: tint it their colour + show who
+    dragFx.id = remoteDrag.id;
+    dragFx.item = it;
+    const col = new THREE.Color(CHAR_COLORS[remoteDrag.by] || '#8a939e');
+    it.traverse(o => {
+      if (o.isMesh && o.material && o.material.emissive){
+        dragFx.restore.push([o.material, o.material.emissive.clone(), o.material.emissiveIntensity]);
+        o.material.emissive.copy(col);
+        o.material.emissiveIntensity = 0.5;
+      }
+    });
+    const who = remoteDrag.by === 'guest' ? (remoteGuestName || 'Guest') : nameFor(remoteDrag.by);
+    dragFx.label = makeLabel(who, CHAR_COLORS[remoteDrag.by] || '#ffffff');
+    dragFx.label.scale.set(1.7, 0.4, 1);
+    dragFx.label.position.y = CATALOG[it.userData.type].h * it.scale.y + 0.55;
+    it.add(dragFx.label);
+  }
   const k = Math.min(1, dt*12);
   it.position.x += (remoteDrag.x - it.position.x)*k;
   it.position.z += (remoteDrag.z - it.position.z)*k;
@@ -2731,6 +2812,7 @@ function applyRemoteLayout(data){
     wallColors = {...(data.wallColors || {})};
     lightsState = {...(data.lights || {})};
     deselect();
+    clearDragFx();
     while (items.length){ const g = items.pop(); furnGroup.remove(g); disposeGroup(g); }
     (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));
     if (planChanged) buildPlan(); else { applyLightsLive(); updateSun(); }
@@ -2758,7 +2840,8 @@ async function initSync(){
       const all = snap.val() || {};
       for (const role of ['husband','wife','guest']){
         if (role === myRole) continue;
-        remotePlayers[role] = all[role] || null;
+        // stamp with OUR clock — phone clocks disagree, comparing them made people flicker in and out
+        remotePlayers[role] = all[role] ? {...all[role], _rx:performance.now()} : null;
         if (role === 'guest' && all.guest?.name && all.guest.name !== remoteGuestName){
           remoteGuestName = all.guest.name;      // show the visitor's typed name on their tag
           refreshTags();
@@ -2775,7 +2858,15 @@ async function initSync(){
     });
     D.onValue(D.ref(fb.db, 'room/cat'), snap => {
       const c = snap.val();
-      remoteCat = (c && c.by !== myRole) ? c : null;
+      remoteCat = (c && c.by !== myRole) ? {...c, _rx:performance.now()} : null;
+    });
+    let lastKissTs = 0;
+    D.onValue(D.ref(fb.db, 'room/kiss'), snap => {
+      const k = snap.val();
+      if (k && k.by !== myRole && k.ts !== lastKissTs && Date.now() - k.ts < 15000){
+        lastKissTs = k.ts;
+        playKissEffect();                          // her kiss plays on your screen too
+      }
     });
     setInterval(() => pushPlayer(true), 10000);  // heartbeat so a killed app is detected fast
     D.onValue(D.ref(fb.db, 'room/drag'), snap => {
@@ -2810,7 +2901,7 @@ function sweepStalePlayers(){
   staleCheckAt = now;
   for (const role in remotePlayers){
     const t = remotePlayers[role];
-    if (t && Date.now() - (t.ts || 0) > 30000){   // no heartbeat for 30 s: they're gone
+    if (t && performance.now() - (t._rx || 0) > 35000){   // nothing received for 35 s: they're gone
       remotePlayers[role] = null;
       remoteOnline[role] = false;
       updateCharVisibility();
@@ -2827,13 +2918,15 @@ function updateRemoteChars(dt){
     const dx = t.x - c.g.position.x, dz = t.z - c.g.position.z;
     const d = Math.hypot(dx, dz);
     c.moving = d > 0.06;
-    c.g.position.y += ((t.y || 0) - c.g.position.y) * Math.min(1, dt*6);
+    const ty = (t.pose === 'sit' || t.pose === 'sleep') ? (t.y || 0) : 0;   // standing partners belong on the floor
+    c.g.position.y += (ty - c.g.position.y) * Math.min(1, dt*6);
+    const kissing = performance.now() < kissHoldUntil;
     if (c.moving){
       const k = Math.min(1, dt*6);                 // interpolate: remote partners glide, never teleport
       c.g.position.x += dx*k;
       c.g.position.z += dz*k;
-      c.g.rotation.y = Math.atan2(dx, dz);
-    } else if (typeof t.rotY === 'number'){
+      if (!kissing) c.g.rotation.y = Math.atan2(dx, dz);
+    } else if (typeof t.rotY === 'number' && !kissing){
       c.g.rotation.y += (t.rotY - c.g.rotation.y)*0.15;
     }
     if (!c.moving && (t.pose || 'stand') !== (c.pose || 'stand')) setPoseVisual(role, t.pose || 'stand');
@@ -2953,7 +3046,7 @@ function renderRooms(){
 }
 
 $('roomsBtn').onclick = () => {
-  addSheet.classList.remove('on');
+  setAddOpen(false);
   closeOverlays();
   renderRooms();
   roomsEl.classList.add('on');
@@ -2961,11 +3054,15 @@ $('roomsBtn').onclick = () => {
 };
 $('closeRooms').onclick = closeOverlays;
 
-$('addBtn').onclick = () => { closeOverlays(); addSheet.classList.toggle('on'); };
-$('closeAdd').onclick = () => addSheet.classList.remove('on');
+function setAddOpen(open){
+  addSheet.classList.toggle('on', open);
+  document.body.classList.toggle('addopen', open);   // the toolbar lifts and the tray sits underneath it
+}
+$('addBtn').onclick = () => { closeOverlays(); setAddOpen(!addSheet.classList.contains('on')); };
+$('closeAdd').onclick = () => setAddOpen(false);
 
 $('settingsBtn').onclick = () => {
-  addSheet.classList.remove('on');
+  setAddOpen(false);
   closeOverlays();
   syncSettingsUI();
   settingsEl.classList.add('on');
@@ -2974,7 +3071,7 @@ $('settingsBtn').onclick = () => {
 $('closeSettings').onclick = closeOverlays;
 
 $('actBtn').onclick = () => {
-  addSheet.classList.remove('on');
+  setAddOpen(false);
   closeOverlays();
   renderActivity();
   activityEl.classList.add('on');
@@ -2985,7 +3082,7 @@ $('actBtn').onclick = () => {
 $('closeActivity').onclick = closeOverlays;
 
 $('achBtn').onclick = () => {
-  addSheet.classList.remove('on');
+  setAddOpen(false);
   closeOverlays();
   renderAchievements();
   achPanel.classList.add('on');
@@ -3045,22 +3142,43 @@ sizePanel.querySelectorAll('.szbtn').forEach(b => b.onclick = () => {
 /* -------- wall colour -------- */
 
 const wallColorInput = $('wallColorInput');
-wallColorInput.addEventListener('change', () => {
+const WALL_PRESETS = ['#f2ede4','#e8dcc8','#d9c6a5','#aab5c2','#9db5a0','#d8aab8','#a9c7dd','#5a6572'];
+
+function applyWallColor(c){
   if (!canEdit()) return;
-  wallColor = wallColorInput.value;
-  wallColors = {};                                 // repaint ALL walls: clear per-wall paint too
-  buildPlan();
-  scheduleSave();
-  logActivity('edit', 'repainted the walls');
-});
-$('wallColorReset').onclick = () => {
-  if (!canEdit()) return;
-  wallColor = null;
+  wallColor = c;                                   // null = theme default; always clears per-wall paint
   wallColors = {};
-  wallColorInput.value = '#8fa1b3';
   buildPlan();
   scheduleSave();
-};
+  renderWallSwatches();
+  logActivity('edit', 'repainted the walls');
+}
+
+function renderWallSwatches(){
+  const row = $('wallSwatches');
+  row.innerHTML = '';
+  for (const c of WALL_PRESETS){
+    const b = document.createElement('button');
+    b.className = 'wsw' + (wallColor === c ? ' on' : '');
+    b.style.background = c;
+    b.onclick = () => applyWallColor(c);
+    row.appendChild(b);
+  }
+  const pick = document.createElement('button');
+  pick.className = 'wsw util';
+  pick.textContent = '🎨';
+  pick.title = 'Custom colour';
+  pick.onclick = () => wallColorInput.click();
+  row.appendChild(pick);
+  const reset = document.createElement('button');
+  reset.className = 'wsw util' + (wallColor === null ? ' on' : '');
+  reset.textContent = '↺';
+  reset.title = 'Back to default';
+  reset.onclick = () => applyWallColor(null);
+  row.appendChild(reset);
+}
+wallColorInput.addEventListener('change', () => applyWallColor(wallColorInput.value));
+renderWallSwatches();
 
 /* ============================== settings wiring ============================== */
 
@@ -3070,6 +3188,7 @@ function syncSettingsUI(){
   sunSlider.value = sunAz;
   sunLabel.textContent = `${compass8(sunAz)} ${sunAz}°`;
   wallColorInput.value = wallColor || '#8fa1b3';
+  renderWallSwatches();
   syncProfileUI();
 }
 
@@ -3130,17 +3249,59 @@ $('importFile').addEventListener('change', e => {
   });
   e.target.value = '';
 });
-$('clearBtn').onclick = () => {
-  if (!items.length) return;
-  if (!confirm('Remove all furniture?')) return;
+const confirmEl = $('confirm');
+function showConfirm(html, actions){
+  $('cfBody').innerHTML = html;
+  actions.forEach(([id, fn]) => { $('cfBody').querySelector('#' + id).onclick = fn; });
+  confirmEl.classList.add('on');
+}
+function hideConfirm(){ confirmEl.classList.remove('on'); }
+
+function doClearAll(alsoCharacters){
   deselect();
   while (items.length){
     const g = items.pop();
     furnGroup.remove(g);
     disposeGroup(g);
   }
+  if (alsoCharacters){
+    players = {husband:{x:9.5, z:11.0, rotY:0, pose:'stand'}, wife:{x:10.6, z:11.0, rotY:0, pose:'stand'}, guest:{x:8.4, z:11.4, rotY:0, pose:'stand'}};
+    syncCharacters();
+    for (const r in chars) setPoseVisual(r, 'stand');
+    pushPlayer(true);
+  }
   saveLocal();
-  logActivity('clear', 'cleared all furniture');
+  pushLayout();
+  logActivity('clear', alsoCharacters ? 'cleared the furniture and reset everyone' : 'cleared all furniture');
+}
+
+function askPartnerPermission(alsoCharacters){
+  const partner = nameFor(partnerRole());
+  showConfirm(`
+    <h2>One more thing… 💍</h2>
+    <p class="wsub">Did you take <b>${esc(partner)}</b>'s permission?</p>
+    <button class="btn primary" id="cfYes">Yes — ${esc(partner)} approved 💚</button>
+    <button class="btn" id="cfNo">No… 🙈</button>`,
+    [
+      ['cfYes', () => { hideConfirm(); doClearAll(alsoCharacters); toast('All clear — fresh start 🧹'); }],
+      ['cfNo', () => { hideConfirm(); toast(`Take ${esc(partner)}'s permission first 💕`); }]
+    ]);
+}
+
+$('clearBtn').onclick = () => {
+  if (!canEdit() || !items.length) return;
+  closeOverlays();
+  showConfirm(`
+    <h2>Clear everything? 🧹</h2>
+    <p class="wsub">What exactly should go?</p>
+    <button class="btn primary" id="cfFurn">🛋️ Furniture only</button>
+    <button class="btn" id="cfBoth">🛋️ + 🧍 Furniture and character positions</button>
+    <button class="btn" id="cfCancel">Cancel</button>`,
+    [
+      ['cfFurn', () => askPartnerPermission(false)],
+      ['cfBoth', () => askPartnerPermission(true)],
+      ['cfCancel', hideConfirm]
+    ]);
 };
 
 /* ============================== identity & welcome ============================== */
