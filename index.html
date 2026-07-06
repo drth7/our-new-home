@@ -250,6 +250,7 @@ body.guest #guestNote{display:block}
     <button class="pbtn" id="rotBtn" title="Rotate 45°">⟳</button>
     <label class="pbtn tint" title="Colour"><input type="color" id="tintInput"></label>
     <button class="pbtn" id="sizeBtn" title="Resize">📐</button>
+    <button class="pbtn" id="useBtn" title="Use" style="display:none"></button>
     <button class="pbtn" id="delBtn" title="Delete">🗑</button>
   </div>
   <div id="measure"></div>
@@ -262,18 +263,13 @@ body.guest #guestNote{display:block}
   <button class="pbtn" id="wallClose">✕</button>
 </div>
 
-<div id="radial">
-  <button data-pose="stand" title="Stand" style="transform:translate(0,-64px)">🧍</button>
-  <button data-pose="sit" title="Sit" style="transform:translate(61px,-20px)">🪑</button>
-  <button data-pose="sleep" title="Sleep" style="transform:translate(38px,52px)">😴</button>
-  <button data-act="kiss" title="Kiss" style="transform:translate(-38px,52px)">💋</button>
-  <button data-act="close" title="Close" style="transform:translate(-61px,-20px)">✕</button>
-</div>
+<div id="radial"></div>
 
 <div id="sizePanel">
   <div class="szrow"><span>Width</span><button class="szbtn" data-d="x" data-s="-1">−</button><b id="szX"></b><button class="szbtn" data-d="x" data-s="1">＋</button></div>
   <div class="szrow"><span>Depth</span><button class="szbtn" data-d="z" data-s="-1">−</button><b id="szZ"></b><button class="szbtn" data-d="z" data-s="1">＋</button></div>
   <div class="szrow"><span>Height</span><button class="szbtn" data-d="y" data-s="-1">−</button><b id="szY"></b><button class="szbtn" data-d="y" data-s="1">＋</button></div>
+  <div class="szrow" id="szHangRow"><span>Raise</span><button class="szbtn" data-d="hang" data-s="-1">▼</button><b id="szHang"></b><button class="szbtn" data-d="hang" data-s="1">▲</button></div>
 </div>
 
 <div id="addSheet" class="sheet">
@@ -371,23 +367,23 @@ const CATALOG = {
   chair:     {name:'Chair',        cat:'Seating',  w:0.55, d:0.55, h:0.90, color:'#c9a86a', seat:0.45},
   ochair:    {name:'Office chair', cat:'Seating',  w:0.62, d:0.62, h:1.05, color:'#3f454d', seat:0.48},
   stool:     {name:'Stool',        cat:'Seating',  w:0.40, d:0.40, h:0.45, color:'#b08a5d', seat:0.45},
-  table:     {name:'Dining table', cat:'Tables',   w:1.60, d:0.90, h:0.75, color:'#a97d4f'},
-  coffee:    {name:'Coffee table', cat:'Tables',   w:1.00, d:0.60, h:0.45, color:'#b08a5d'},
-  sidetable: {name:'Side table',   cat:'Tables',   w:0.50, d:0.50, h:0.55, color:'#9b8468'},
-  desk:      {name:'Desk',         cat:'Tables',   w:1.40, d:0.70, h:0.75, color:'#8d8d94'},
-  pcdesk:    {name:'PC desk',      cat:'Tables',   w:1.40, d:0.70, h:0.75, color:'#5b6472'},
+  table:     {name:'Dining table', cat:'Tables',   w:1.60, d:0.90, h:0.75, color:'#a97d4f', surface:true},
+  coffee:    {name:'Coffee table', cat:'Tables',   w:1.00, d:0.60, h:0.45, color:'#b08a5d', surface:true},
+  sidetable: {name:'Side table',   cat:'Tables',   w:0.50, d:0.50, h:0.55, color:'#9b8468', surface:true},
+  desk:      {name:'Desk',         cat:'Tables',   w:1.40, d:0.70, h:0.75, color:'#8d8d94', surface:true},
+  pcdesk:    {name:'PC desk',      cat:'Tables',   w:1.40, d:0.70, h:0.75, color:'#5b6472', surface:true},
   bed:       {name:'Bed 160×200',  cat:'Beds',     w:1.60, d:2.00, h:0.55, color:'#b87f96', bed:true},
   bedk:      {name:'Bed 200×200',  cat:'Beds',     w:2.00, d:2.00, h:0.55, color:'#a3798f', bed:true, slots:2},
   beds:      {name:'Bed 90×200',   cat:'Beds',     w:0.90, d:2.00, h:0.55, color:'#8f9bb0', bed:true},
-  nightstand:{name:'Nightstand',   cat:'Beds',     w:0.45, d:0.40, h:0.55, color:'#9b7e63'},
+  nightstand:{name:'Nightstand',   cat:'Beds',     w:0.45, d:0.40, h:0.55, color:'#9b7e63', surface:true},
   vanity:    {name:'Dressing table',cat:'Beds',    w:1.10, d:0.45, h:1.45, color:'#b394a1'},
   wardrobe:  {name:'Wardrobe',     cat:'Storage',  w:1.50, d:0.60, h:2.20, color:'#8a6f57'},
-  dresser:   {name:'Dresser',      cat:'Storage',  w:1.20, d:0.50, h:0.85, color:'#a58a6f'},
+  dresser:   {name:'Dresser',      cat:'Storage',  w:1.20, d:0.50, h:0.85, color:'#a58a6f', surface:true},
   bookshelf: {name:'Bookshelf',    cat:'Storage',  w:0.90, d:0.35, h:1.90, color:'#9a7b5c'},
   tvstand:   {name:'TV stand',     cat:'Storage',  w:1.60, d:0.45, h:0.50, color:'#5f6670'},
   tvwall:    {name:'Wall TV',      cat:'Storage',  w:1.45, d:0.08, h:0.85, color:'#23282e', wall:true},
-  counter:   {name:'Counter',      cat:'Kitchen',  w:1.80, d:0.62, h:0.90, color:'#8f9aa5'},
-  island:    {name:'Island',       cat:'Kitchen',  w:1.50, d:0.80, h:0.90, color:'#7d8894'},
+  counter:   {name:'Counter',      cat:'Kitchen',  w:1.80, d:0.62, h:0.90, color:'#8f9aa5', surface:true},
+  island:    {name:'Island',       cat:'Kitchen',  w:1.50, d:0.80, h:0.90, color:'#7d8894', surface:true},
   stove:     {name:'Stove',        cat:'Kitchen',  w:0.60, d:0.62, h:0.90, color:'#4d545c'},
   ksink:     {name:'Sink unit',    cat:'Kitchen',  w:0.80, d:0.62, h:0.90, color:'#9aa5b0'},
   fridge:    {name:'Fridge',       cat:'Kitchen',  w:0.70, d:0.70, h:1.80, color:'#c8ccd2'},
@@ -403,13 +399,80 @@ const CATALOG = {
   mirrorw:   {name:'Wall mirror',  cat:'Art',      w:0.55, d:0.06, h:1.20, color:'#b8a988', wall:true},
   easel:     {name:'Easel',        cat:'Art',      w:0.70, d:0.70, h:1.65, color:'#a58a5f'},
   rug:       {name:'Rug',          cat:'Decor',    w:2.00, d:1.40, h:0.02, color:'#7a6aa0'},
-  plant:     {name:'Plant',        cat:'Decor',    w:0.45, d:0.45, h:1.20, color:'#5f9d68'},
+  plant:     {name:'Plant',        cat:'Decor',    w:0.45, d:0.45, h:1.20, color:'#5f9d68', stack:true},
   lamp1:     {name:'Floor lamp',   cat:'Decor',    w:0.35, d:0.35, h:1.55, color:'#8a7a5e'},
   lamp2:     {name:'Tripod lamp',  cat:'Decor',    w:0.48, d:0.48, h:1.45, color:'#c9a86a'},
   lamp3:     {name:'Arc lamp',     cat:'Decor',    w:0.90, d:0.35, h:1.80, color:'#9aa5b0'},
-  tlamp:     {name:'Table lamp',   cat:'Decor',    w:0.24, d:0.24, h:0.45, color:'#c9b06a'}
+  tlamp:     {name:'Table lamp',   cat:'Decor',    w:0.24, d:0.24, h:0.45, color:'#c9b06a', stack:true}
 };
-const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor'];
+
+/* ---------- external model library (assets/Extra Furniture) ----------
+   Drop a file in the folder, add one line here: it gets auto-scaled to the
+   footprint, re-originated to floor-centre, atlas-textured, and thumbnailed. */
+const MODEL_BASE = 'assets/Extra Furniture/';
+const MODEL_DEFS = [
+  {id:'xsofa1',  file:'Sofa/Sofa1.fbx',  name:'Sofa I',    cat:'Seating', w:2.10, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa2',  file:'Sofa/Sofa2.fbx',  name:'Sofa II',   cat:'Seating', w:2.10, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa3',  file:'Sofa/Sofa3.fbx',  name:'Sofa III',  cat:'Seating', w:2.10, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa4',  file:'Sofa/Sofa4.fbx',  name:'Sofa IV',   cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa5',  file:'Sofa/Sofa5.fbx',  name:'Sofa V',    cat:'Seating', w:1.80, d:0.90, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa6',  file:'Sofa/Sofa6.fbx',  name:'Sofa VI',   cat:'Seating', w:1.80, d:0.90, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa7',  file:'Sofa/Sofa7.fbx',  name:'Sofa VII',  cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa8',  file:'Sofa/Sofa8.fbx',  name:'Sofa VIII', cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa9',  file:'Sofa/Sofa9.fbx',  name:'Sofa IX',   cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa10', file:'Sofa/Sofa10.fbx', name:'Sofa X',    cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa11', file:'Sofa/Sofa11.fbx', name:'Sofa XI',   cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa12', file:'Sofa/Sofa12.fbx', name:'Sofa XII',  cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa13', file:'Sofa/Sofa13.fbx', name:'Sofa XIII', cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa14', file:'Sofa/Sofa14.fbx', name:'Sofa XIV',  cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa15', file:'Sofa/Sofa15.fbx', name:'Sofa XV',   cat:'Seating', w:2.00, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa16', file:'Sofa/Sofa16.fbx', name:'Sofa XVI',  cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa17', file:'Sofa/Sofa17.fbx', name:'Sofa XVII', cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa18', file:'Sofa/Sofa18.fbx', name:'Sofa XVIII',cat:'Seating', w:2.40, d:1.60, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa19', file:'Sofa/Sofa19.fbx', name:'Sofa XIX',  cat:'Seating', w:2.40, d:1.60, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa20', file:'Sofa/Sofa20.fbx', name:'Sofa XX',   cat:'Seating', w:2.60, d:1.70, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa21', file:'Sofa/Sofa21.fbx', name:'Sofa XXI',  cat:'Seating', w:2.60, d:1.70, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa22', file:'Sofa/Sofa22.fbx', name:'Sofa XXII', cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa23', file:'Sofa/Sofa23.fbx', name:'Sofa XXIII',cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa0',  file:'Sofa/sofa_001.fbx', name:'Sofa mini', cat:'Seating', w:1.80, d:0.90, h:0.80, seat:0.40, slots:2},
+  {id:'xlounge', file:'Chair/lounge_chair_001.fbx', name:'Lounge chair', cat:'Seating', w:0.90, d:0.90, h:0.85, seat:0.40},
+  {id:'xbed',    file:'Bed/bed_001.fbx', name:'Bed classic', cat:'Beds', w:1.70, d:2.10, h:0.75, bed:true, slots:2},
+  {id:'xcloset1',file:'Closets/closet_001.fbx', name:'Closet I',  cat:'Storage', w:1.20, d:0.60, h:2.10},
+  {id:'xcloset2',file:'Closets/closet_002.fbx', name:'Closet II', cat:'Storage', w:1.20, d:0.60, h:2.10},
+  {id:'xclothes1',file:'Closets/clothes_001.fbx', name:'Clothes rack I',  cat:'Storage', w:1.10, d:0.50, h:1.70},
+  {id:'xclothes2',file:'Closets/clothes_002.fbx', name:'Clothes rack II', cat:'Storage', w:1.10, d:0.50, h:1.70},
+  {id:'xdresser',file:'Closets/dresser_001.fbx', name:'Dresser wood', cat:'Storage', w:1.20, d:0.50, h:0.90, surface:true},
+  {id:'xbath',   file:'Bathroom/bathroom_item_001.fbx', name:'Bath set', cat:'Bathroom', w:0.60, d:0.45, h:0.90},
+  {id:'xtable1', file:'Table/coffee_table_001.fbx', name:'Coffee table W', cat:'Tables', w:1.00, d:0.60, h:0.45, surface:true},
+  {id:'xtable2', file:'Table/office_table_001.fbx', name:'Office table', cat:'Tables', w:1.40, d:0.70, h:0.75, surface:true},
+  {id:'xtv',     file:'TV/tv_wall_001.fbx', name:'Wall TV II', cat:'Storage', w:1.30, d:0.10, h:0.75, wall:true},
+  {id:'xfridge', file:'Kitchen/fridge_001.fbx', name:'Fridge II', cat:'Kitchen', w:0.75, d:0.75, h:1.85},
+  {id:'xsink',   file:'Kitchen/kitchen_sink_001.fbx', name:'Sink unit II', cat:'Kitchen', w:0.90, d:0.62, h:0.90, surface:true},
+  {id:'xktable', file:'Kitchen/kitchen_table_001.fbx', name:'Kitchen table', cat:'Kitchen', w:1.40, d:0.80, h:0.90, surface:true},
+  {id:'xwasher', file:'Kitchen/washing_machine_001.fbx', name:'Washer II', cat:'Kitchen', w:0.62, d:0.62, h:0.85},
+  {id:'xcoffee', file:'Kitchen/coffee_machine_001.fbx', name:'Coffee machine', cat:'Kitchen', w:0.30, d:0.35, h:0.40, stack:true},
+  {id:'xmicro',  file:'Kitchen/microwave_oven_001.fbx', name:'Microwave', cat:'Kitchen', w:0.50, d:0.38, h:0.32, stack:true},
+  {id:'xlamp1',  file:'Lamp/lamp_001.fbx', name:'Lamp wood', cat:'Decor', w:0.40, d:0.40, h:1.50},
+  {id:'xlamp2',  file:'Lamp/lamp_002.fbx', name:'Lamp small', cat:'Decor', w:0.28, d:0.28, h:0.50, stack:true},
+  {id:'xflower', file:'Decor/flower_001.fbx', name:'Flowers', cat:'Decor', w:0.30, d:0.30, h:0.55, stack:true},
+  {id:'xbox',    file:'Decor/box_001.fbx', name:'Box', cat:'Decor', w:0.50, d:0.40, h:0.35, stack:true},
+  {id:'xcamera', file:'Decor/camera_001.fbx', name:'Camera', cat:'Decor', w:0.25, d:0.15, h:0.18, stack:true},
+  {id:'xdish1',  file:'Decor/dish_001.fbx', name:'Dishes I', cat:'Decor', w:0.30, d:0.30, h:0.15, stack:true},
+  {id:'xdish2',  file:'Decor/dish_002.fbx', name:'Dishes II', cat:'Decor', w:0.30, d:0.30, h:0.15, stack:true},
+  {id:'xdrink1', file:'Decor/drink_001.fbx', name:'Drink I', cat:'Decor', w:0.15, d:0.15, h:0.25, stack:true},
+  {id:'xdrink2', file:'Decor/drink_002.fbx', name:'Drink II', cat:'Decor', w:0.15, d:0.15, h:0.25, stack:true},
+  {id:'xhockey', file:'Extra/air_hockey_001.fbx', name:'Air hockey', cat:'Fun', w:1.90, d:1.00, h:0.80},
+  {id:'xdumb1',  file:'Extra/dumbbell_001.fbx', name:'Dumbbells I', cat:'Fun', w:0.45, d:0.30, h:0.30},
+  {id:'xdumb2',  file:'Extra/dumbbell_002.fbx', name:'Dumbbells II', cat:'Fun', w:0.45, d:0.30, h:0.30},
+  {id:'xmusic',  file:'Extra/musical_instrument_001.fbx', name:'Instrument', cat:'Fun', w:0.55, d:0.40, h:1.20},
+  {id:'xscratch',file:'Extra/scratching_post_001.fbx', name:'Cat post', cat:'Fun', w:0.50, d:0.50, h:1.10},
+  {id:'xtoy1',   file:'Extra/toy_001.fbx', name:'Toy I', cat:'Fun', w:0.40, d:0.40, h:0.40, stack:true},
+  {id:'xtoy2',   file:'Extra/toy_002.fbx', name:'Toy II', cat:'Fun', w:0.40, d:0.40, h:0.40, stack:true},
+  {id:'xtrain1', file:'Extra/training_item_001.fbx', name:'Gym I', cat:'Fun', w:0.90, d:0.60, h:1.00},
+  {id:'xtrain2', file:'Extra/training_item_002.fbx', name:'Gym II', cat:'Fun', w:1.10, d:0.60, h:1.20}
+];
+for (const m of MODEL_DEFS) CATALOG[m.id] = {...m, color:'#9aa8b5', model:m.file};
+const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Fun'];
 
 const ACHIEVEMENTS = [
   {id:'first-piece',    icon:'🛋️', name:'First Piece',      desc:'Place your first furniture'},
@@ -420,6 +483,7 @@ const ACHIEVEMENTS = [
   {id:'cant-decide',    icon:'🤔', name:"Can't Decide",     desc:'Move the same piece 10 times', hidden:true},
   {id:'first-kiss',     icon:'💋', name:'Sealed with a Kiss', desc:'Kiss your husband / wife'},
   {id:'cat-person',     icon:'🐈', name:'Cat Person',       desc:'Pet the cat 5 times', hidden:true},
+  {id:'clean-sweep',    icon:'🧹', name:'Spring Cleaning',  desc:'Clean up the whole mess'},
   {id:'made-to-measure',icon:'📐', name:'Made to Measure',  desc:'Resize a piece to fit just right'},
   {id:'lights-on',      icon:'💡', name:'Mood Lighting',    desc:'Turn on a ceiling light'},
   {id:'grand-tour',     icon:'🗺️', name:'The Grand Tour',   desc:'Use all four views'},
@@ -442,7 +506,7 @@ const esc  = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>
    Rooms are interior rects [x1,z1,x2,z2]; walls are centerlines, 0.2 m thick. */
 const PLAN = {
   rooms: [
-    {id:'living',  name:'Living Hall',    rects:[[3.6,8.9,13.5,13.2],[9.9,8.4,13.5,8.9]], furnishable:true},  // kitchen + living + hallway side: one big open space
+    {id:'living',  name:'Living Hall',    rects:[[3.6,8.9,13.5,13.2],[9.9,8.4,13.5,8.9]], furnishable:true, lightPos:[[5.0,11.0],[10.6,11.0]]},  // one big open space: a light over the kitchen side and one over the lounge
     {id:'dining',  name:'Dining',         rects:[[3.7,3.8,6.5,7.6]], furnishable:true},
     {id:'master',  name:'Master Bedroom', rects:[[3.7,0,8.2,3.6]], furnishable:true},
     {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.6,13.5,4.3]], furnishable:true},
@@ -620,13 +684,15 @@ scene.add(sun.target);
 const furnGroup = new THREE.Group();
 scene.add(furnGroup);
 
-let roomGroup = null, wallSegs = [], labels = [], roomLights = {};
+let roomGroup = null, wallSegs = [], labels = [], roomLights = {}, lightDiscs = [], floorMeshes = [];
 
 function applyLightsLive(){
   for (const id in roomLights){
     const on = !!lightsState[id];
-    roomLights[id].pt.intensity = on ? 6 : 0;
-    roomLights[id].mat.emissiveIntensity = on ? 1.6 : 0;
+    for (const rl of roomLights[id]){
+      rl.pt.intensity = on ? 6 : 0;
+      rl.mat.emissiveIntensity = on ? 1.6 : 0;
+    }
   }
 }
 
@@ -637,6 +703,7 @@ function toggleLight(id){
   scheduleSave();
   const r = PLAN.rooms.find(x => x.id === id);
   logActivity('light', `turned the ${getName(r)} light ${lightsState[id] ? 'on' : 'off'}`);
+  if (lightsState[id]) unlock('lights-on');
 }
 
 function disposeGroup(g){
@@ -726,7 +793,7 @@ function makeLabel(text, color){
 function buildPlan(){
   if (roomGroup){ scene.remove(roomGroup); disposeGroup(roomGroup); }
   roomGroup = new THREE.Group();
-  wallSegs = []; labels = [];
+  wallSegs = []; labels = []; lightDiscs = []; floorMeshes = [];
   const t = SCENES[theme];
   const glassMat = new THREE.MeshStandardMaterial({color:t.glass, transparent:true, opacity:0.28, roughness:0.15, metalness:0.1});
   roomLights = {};
@@ -745,7 +812,9 @@ function buildPlan(){
       const f = new THREE.Mesh(new THREE.BoxGeometry(rw + WALL_T*0.82, 0.1, rl + WALL_T*0.82), mat);  // inset under walls: no coplanar seams
       f.position.set((rc[0]+rc[2])/2, -0.05 - i*0.002, (rc[1]+rc[3])/2);
       f.receiveShadow = true;
+      f.userData.floor = true;
       roomGroup.add(f);
+      floorMeshes.push(f);
       const grid = makeGrid(rw, rl, 0.5, t.grid);
       grid.position.set((rc[0]+rc[2])/2, 0.003, (rc[1]+rc[3])/2);
       grid.visible = view === '2d';
@@ -758,17 +827,22 @@ function buildPlan(){
     label.position.set((rc[0]+rc[2])/2, 0.15, (rc[1]+rc[3])/2);
     labels.push(label);
     roomGroup.add(label);
-    // ceiling light fixture per room (no shadows — iPhone perf budget)
-    const cx = (rc[0]+rc[2])/2, cz = (rc[1]+rc[3])/2;
+    // ceiling light fixtures per room (no shadows — iPhone perf budget); rooms may define several
     const on = !!lightsState[r.id];
-    const lm = new THREE.MeshStandardMaterial({color:0x8a9099, emissive:0xffd9a0, emissiveIntensity:on ? 1.6 : 0});
-    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.06, 16), lm);
-    disc.position.set(cx, 2.52, cz);
-    roomGroup.add(disc);
-    const pt = new THREE.PointLight(0xffd9a6, on ? 6 : 0, Math.max(rc[2]-rc[0], rc[3]-rc[1]) * 2.6, 1.6);
-    pt.position.set(cx, 2.3, cz);
-    roomGroup.add(pt);
-    roomLights[r.id] = {pt, mat:lm};
+    const spots = r.lightPos || [[(rc[0]+rc[2])/2, (rc[1]+rc[3])/2]];
+    roomLights[r.id] = [];
+    for (const [cx, cz] of spots){
+      const lm = new THREE.MeshStandardMaterial({color:0x8a9099, emissive:0xffd9a0, emissiveIntensity:on ? 1.6 : 0});
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.06, 16), lm);
+      disc.position.set(cx, 2.52, cz);
+      disc.userData.lightRoom = r.id;              // tap a fixture to flip its switch
+      roomGroup.add(disc);
+      lightDiscs.push(disc);
+      const pt = new THREE.PointLight(0xffd9a6, on ? 6 : 0, Math.max(rc[2]-rc[0], rc[3]-rc[1]) * 1.8, 1.6);
+      pt.position.set(cx, 2.3, cz);
+      roomGroup.add(pt);
+      roomLights[r.id].push({pt, mat:lm});
+    }
     if (r.id !== 'balcony'){                       // ceilings show in first/third person only
       for (const rc2 of r.rects){
         const ceil = new THREE.Mesh(
@@ -847,6 +921,82 @@ function block(w, h, d, mat){
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.castShadow = true; m.receiveShadow = true;
   return m;
+}
+
+/* ---------- model library runtime: load, normalize, texture, thumbnail ---------- */
+
+let atlasTex = null;
+function getAtlas(){
+  if (!atlasTex){
+    atlasTex = new THREE.TextureLoader().load(MODEL_BASE + 'Textures.png');
+    atlasTex.colorSpace = THREE.SRGBColorSpace;
+    atlasTex.flipY = false;                        // FBX UVs expect un-flipped
+  }
+  return atlasTex;
+}
+const modelCache = {};
+function loadModel(file){
+  if (!modelCache[file]){
+    modelCache[file] = new Promise(res => {
+      const loader = file.toLowerCase().endsWith('.fbx') ? new FBXLoader() : null;
+      if (!loader) return res(null);
+      loader.load(MODEL_BASE + file, obj => res(obj), undefined, err => { console.warn('model failed', file, err); res(null); });
+    });
+  }
+  return modelCache[file];
+}
+function instantiateModel(proto, def){
+  const inst = proto.clone(true);
+  const box = new THREE.Box3().setFromObject(inst);
+  const size = box.getSize(new THREE.Vector3());
+  const s = Math.min(def.w/(size.x || 1), def.d/(size.z || 1), def.h/(size.y || 1));
+  inst.scale.multiplyScalar(s);
+  box.setFromObject(inst);
+  const c = box.getCenter(new THREE.Vector3());
+  inst.position.x -= c.x;                          // origin: centre of footprint, feet on the floor
+  inst.position.z -= c.z;
+  inst.position.y -= box.min.y;
+  inst.traverse(o => {
+    if (o.isMesh){
+      o.castShadow = true;
+      o.receiveShadow = true;
+      o.material = new THREE.MeshStandardMaterial({map:getAtlas(), roughness:0.85});
+    }
+  });
+  return inst;
+}
+
+/* thumbnails render once into a tiny offscreen canvas and are cached */
+let thumbKit = null;
+const thumbMem = {};
+async function getThumb(def){
+  if (thumbMem[def.id]) return thumbMem[def.id];
+  const key = 'roomplanner.thumb.' + def.id;
+  try { const c = localStorage.getItem(key); if (c){ thumbMem[def.id] = c; return c; } } catch(e){}
+  const proto = await loadModel(def.model);
+  if (!proto) return null;
+  if (!thumbKit){
+    const r = new THREE.WebGLRenderer({antialias:true, alpha:true});
+    r.setSize(96, 96);
+    const sc = new THREE.Scene();
+    sc.add(new THREE.HemisphereLight(0xffffff, 0x55606c, 1.1));
+    const dl = new THREE.DirectionalLight(0xffffff, 1.6);
+    dl.position.set(2, 3, 2.5);
+    sc.add(dl);
+    const cam = new THREE.PerspectiveCamera(32, 1, 0.01, 30);
+    thumbKit = {r, sc, cam};
+  }
+  const inst = instantiateModel(proto, def);
+  const size = Math.max(def.w, def.d, def.h);
+  thumbKit.cam.position.set(size*1.15, size*0.95, size*1.5);
+  thumbKit.cam.lookAt(0, def.h*0.42, 0);
+  thumbKit.sc.add(inst);
+  thumbKit.r.render(thumbKit.sc, thumbKit.cam);
+  const url = thumbKit.r.domElement.toDataURL('image/png');
+  thumbKit.sc.remove(inst);
+  thumbMem[def.id] = url;
+  try { localStorage.setItem(key, url); } catch(e){}
+  return url;
 }
 
 /* every painting gets its own little abstract artwork — Miaad can imagine hers on the canvas */
@@ -1182,7 +1332,21 @@ function buildFurniture(type){
       break;
     }
     default: {
-      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);
+      if (def.model){
+        const ph = block(w, h, d, new THREE.MeshStandardMaterial({color:0x9aa8b5, transparent:true, opacity:0.35, roughness:0.9}));
+        ph.position.y = def.wall ? 1.5 : h/2;
+        g.add(ph);
+        loadModel(def.model).then(proto => {
+          if (!proto || !g.parent) return;         // deleted before it arrived
+          const inst = instantiateModel(proto, def);
+          if (def.wall) inst.position.y += 1.5 - def.h/2;   // wall models hang at painting height
+          g.remove(ph);
+          ph.geometry.dispose(); ph.material.dispose();
+          g.add(inst);
+        });
+      } else {
+        const b = block(w, h, d, main); b.position.y = h/2; g.add(b);
+      }
     }
   }
   return g;
@@ -1228,6 +1392,21 @@ function clampToRoom(g){
   g.position.x = x1 > x2 ? (r.x1 + r.x2)/2 : THREE.MathUtils.clamp(g.position.x, x1, x2);
   g.position.z = z1 > z2 ? (r.z1 + r.z2)/2 : THREE.MathUtils.clamp(g.position.z, z1, z2);
   g.userData.room = r.room.id;
+  if (def.stack) applyStackY(g);                   // small items ride on tabletops
+}
+
+function applyStackY(g){
+  let top = 0;
+  for (const it of items){
+    if (it === g) continue;
+    const d2 = CATALOG[it.userData.type];
+    if (!d2.surface) continue;
+    const {hw, hd} = halfExtents(it);
+    if (Math.abs(g.position.x - it.position.x) < hw && Math.abs(g.position.z - it.position.z) < hd){
+      top = Math.max(top, d2.h * it.scale.y);
+    }
+  }
+  g.position.y = top;
 }
 
 function spawnPos(){
@@ -1240,9 +1419,22 @@ function spawnPos(){
       pz = me.g.position.z + Math.cos(me.g.rotation.y) * 1.3;
     }
   } else {
+    // cast at what's actually on screen: if the centre of view is a wall, spawn just in FRONT of it
     ray.setFromCamera(new THREE.Vector2(0, 0), activeCam());
-    const p = new THREE.Vector3();
-    if (ray.ray.intersectPlane(floorPlane, p)){ px = p.x; pz = p.z; }
+    const solid = wallSegs.filter(m => m.visible && !m.userData.glass && !m.userData.ceiling && !m.userData.grid);
+    const hits = ray.intersectObjects([...floorMeshes, ...solid], false);
+    if (hits.length){
+      const h = hits[0];
+      if (h.object.userData.floor){
+        px = h.point.x; pz = h.point.z;
+      } else {
+        const back = h.point.clone().sub(ray.ray.direction.clone().multiplyScalar(0.6));
+        px = back.x; pz = back.z;
+      }
+    } else {
+      const p = new THREE.Vector3();
+      if (ray.ray.intersectPlane(floorPlane, p)){ px = p.x; pz = p.z; }
+    }
   }
   if (px === undefined){ px = orbit.target.x; pz = orbit.target.z; }
   const r = rectAt(px, pz) || nearestRect(px, pz);
@@ -1340,8 +1532,9 @@ function attachFaceMarker(inner, role){
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.026, 10, 8), centerM);
     core.position.z = 0.012;
     flower.add(core);
-    flower.position.set(0.085, topY - 0.09, 0.075);   // front-right, by her temple
-    flower.rotation.y = 0.7;
+    flower.scale.setScalar(1.35);
+    flower.position.set(0.07, topY - 0.02, 0.06);     // sitting proudly on top, tilted toward the front
+    flower.rotation.set(-0.5, 0.55, 0);
     acc.add(flower);
     const lashM = new THREE.MeshStandardMaterial({color:0x3a2a24, roughness:0.6});
     for (const sx of [-1, 1]){                        // lashes at EYE height (head origin is the neck — low = accidental mustache)
@@ -1642,8 +1835,8 @@ function makeHeartSprite(){
   s.renderOrder = 12;
   return s;
 }
-function heartBurst(x, y, z){
-  for (let i = 0; i < 7; i++){
+function heartBurst(x, y, z, n = 7){
+  for (let i = 0; i < n; i++){
     const s = makeHeartSprite();
     const sc = 0.16 + Math.random()*0.14;
     s.scale.set(sc, sc, 1);
@@ -1762,8 +1955,9 @@ function animateDrops(dt){
     }
     d.v += dt * 12;
     d.g.position.y -= d.v * dt;
-    if (d.g.position.y <= 0){
-      d.g.position.y = 0;
+    const floorY = d.floorY || 0;
+    if (d.g.position.y <= floorY){
+      d.g.position.y = floorY;
       if (d.v > 1.6 && !d.bounced){                // fake physics: one small bounce
         d.bounced = true;
         d.v = -d.v * 0.32;
@@ -1776,6 +1970,96 @@ function animateDrops(dt){
       }
     }
   }
+}
+
+/* -------- gestures: wave & hug, replicated to the partner's screen -------- */
+
+function playGesture(role, type){
+  const c = chars[role];
+  if (!c) return;
+  if (type === 'wave'){
+    c.gesture = {t:'wave', until:performance.now() + 1600};
+  } else if (type === 'hug'){
+    const other = role === 'husband' ? 'wife' : 'husband';
+    const a = chars[role], b = chars[other];
+    if (a && b){
+      const dx = b.g.position.x - a.g.position.x, dz = b.g.position.z - a.g.position.z;
+      a.g.rotation.y = Math.atan2(dx, dz);
+      b.g.rotation.y = Math.atan2(-dx, -dz);
+      kissHoldUntil = performance.now() + 2000;
+      heartBurst((a.g.position.x + b.g.position.x)/2, 1.3, (a.g.position.z + b.g.position.z)/2, 3);
+      playSound('pop');
+    }
+  }
+}
+
+function doGesture(type){
+  if (!currentUser) return;
+  if (type === 'hug'){
+    const other = currentUser.role === 'husband' ? 'wife' : 'husband';
+    const a = chars[currentUser.role], b = chars[other];
+    if (a && b && Math.hypot(b.g.position.x - a.g.position.x, b.g.position.z - a.g.position.z) > 1.6){
+      toast(`Get closer to ${nameFor(other)} first 🤗`);
+      return;
+    }
+  }
+  playGesture(currentUser.role, type);
+  if (fb) fb.D.set(fb.D.ref(fb.db, 'room/gesture'), {t:type, by:currentUser.role, ts:Date.now()}).catch(() => {});
+  logActivity(type, type === 'wave' ? 'waved 👋' : `hugged ${nameFor(partnerRole())} 🤗`);
+}
+
+function feedCat(){
+  if (!cat) return;
+  playSound('meow');
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.font = '48px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🐟', 32, 36);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), transparent:true, depthTest:false}));
+  s.scale.setScalar(0.28);
+  s.position.set(cat.g.position.x, 0.45, cat.g.position.z);
+  s.renderOrder = 12;
+  scene.add(s);
+  hearts.push({s, vy:0.25, wob:0, life:1.4});
+  const me = currentUser && chars[currentUser.role];
+  if (me){                                          // dinner time: the cat trots over to you
+    cat.tx = me.g.position.x + 0.4;
+    cat.tz = me.g.position.z + 0.4;
+    cat.state = 'walk';
+    cat.throughDoor = false;
+    cat.stuck = 0;
+  }
+  progress.pets = (progress.pets || 0) + 1;
+  jset(LS.progress, progress);
+  if (progress.pets >= 5) unlock('cat-person');
+}
+
+/* -------- sit or sleep by choosing the furniture itself -------- */
+
+function smartPoseAtItem(it, pose){
+  if (!currentUser) return;
+  const me = chars[currentUser.role];
+  if (!me) return;
+  const def = CATALOG[it.userData.type];
+  const nSlots = def.slots || 1;
+  let best = null, bd = Infinity;
+  for (let si = 0; si < nSlots; si++){
+    const lx = nSlots === 1 ? 0 : (si === 0 ? -1 : 1) * def.w * it.scale.x / 4;
+    const sx = it.position.x + Math.cos(it.rotation.y)*lx;
+    const sz = it.position.z - Math.sin(it.rotation.y)*lx;
+    const d = (me.g.position.x - sx)**2 + (me.g.position.z - sz)**2;
+    if (d < bd){ bd = d; best = {x:sx, z:sz}; }
+  }
+  me.g.rotation.y = it.rotation.y;
+  setPoseVisual(currentUser.role, pose);
+  if (pose === 'sleep'){
+    me.g.position.set(best.x, def.h * it.scale.y - 0.06, best.z);
+  } else {
+    me.g.position.set(best.x + Math.sin(it.rotation.y)*0.12, Math.max(0, (def.seat || 0.45) * it.scale.y - 0.3), best.z + Math.cos(it.rotation.y)*0.12);
+  }
+  players[currentUser.role] = {x:+me.g.position.x.toFixed(3), z:+me.g.position.z.toFixed(3), rotY:+it.rotation.y.toFixed(3), pose};
+  if (canEdit()) scheduleSave();
+  pushPlayer(true);
 }
 
 /* -------- tiny synth sounds (no assets) -------- */
@@ -1826,6 +2110,12 @@ function animateChars(dt){
       c.inner.position.y = (charProto ? charProtoYOff : 0) - Math.sin(Math.max(0, c.landT)/0.25*Math.PI)*0.1;
       continue;
     }
+    if (c.gesture && performance.now() < c.gesture.until){
+      if (c.gesture.t === 'wave' && c.bones.rArm){
+        c.bones.rArm.rotation.x = rx('rArm') - 2.0 + Math.sin(performance.now()/90)*0.35;
+      }
+      continue;
+    }
     if (!c.moving && c.pose && c.pose !== 'stand') continue;   // hold sit/sleep pose
     if (c.moving){
       c.walkT += dt * 7;
@@ -1860,12 +2150,20 @@ function addFurniture(type, opts = {}){
   g.position.set(opts.x ?? sp.x, 0, opts.z ?? sp.z);
   g.rotation.y = opts.rotY || 0;
   g.scale.set(opts.sx || 1, opts.sy || 1, opts.sz || 1);
+  if (def.wall){
+    g.userData.hangY = opts.hy || 1.5;
+    g.position.y = g.userData.hangY - 1.5;
+  }
   applyTint(g, opts.tint || def.color);
   clampToRoom(g);
   furnGroup.add(g);
   items.push(g);
   if (!opts.silent){
-    if (!def.wall){ g.position.y = 0.9; dropping.push({g, v:0}); }   // new pieces drop in
+    if (!def.wall){
+      const floorY = g.position.y;                 // stacked items land on the tabletop, not the floor
+      g.position.y = floorY + 0.9;
+      dropping.push({g, v:0, floorY});
+    }
     select(g);
     logActivity('add', `added a ${def.name}`);
     scheduleSave();
@@ -1891,6 +2189,15 @@ function select(g){
   scene.add(selBox);
   pill.classList.add('on');
   tintInput.value = g.userData.tint || '#888888';
+  const def = CATALOG[g.userData.type];
+  const useBtn = $('useBtn');
+  if (def.seat || def.bed){                        // sit or sleep by choosing the furniture
+    useBtn.style.display = 'flex';
+    useBtn.textContent = def.bed ? '😴' : '🪑';
+    useBtn.onclick = () => { smartPoseAtItem(g, def.bed ? 'sleep' : 'sit'); deselect(); };
+  } else {
+    useBtn.style.display = 'none';
+  }
   updateMeasure();
 }
 
@@ -1966,7 +2273,7 @@ function deleteSel(){
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 let dragging = false, moved = false, downAt = null, downOnItem = false;
-let dragChar = null, looking = false, lookLast = null;
+let dragChar = null, looking = false, lookLast = null, downCat = false, downCharRole = null;
 const dragOff = new THREE.Vector3(), _p = new THREE.Vector3();
 const dragTilt = {x:0, z:0};                        // inertia lean while sliding furniture
 const charFalls = [];                               // characters dropping back to the floor
@@ -1994,12 +2301,12 @@ function pickChar(e){
   if (!currentUser) return null;
   setNdc(e);
   ray.setFromCamera(ndc, activeCam());
-  const hits = ray.intersectObjects(charGroup.children, true);
+  const hits = ray.intersectObjects(charGroup.children.filter(c => c.visible), true);
   if (!hits.length) return null;
   let o = hits[0].object;
   while (o.parent && o.parent !== charGroup) o = o.parent;
   if (o.parent !== charGroup) return null;
-  return o.userData.role === currentUser.role ? chars[o.userData.role] : null;  // only your own character
+  return {c:chars[o.userData.role], role:o.userData.role};
 }
 
 renderer.domElement.addEventListener('pointerdown', e => {
@@ -2007,22 +2314,36 @@ renderer.domElement.addEventListener('pointerdown', e => {
   downAt = {x:e.clientX, y:e.clientY};
   moved = false;
   downOnItem = false;
-  if (cat){                                                  // pet the cat 🐈
+  downCat = false;
+  downCharRole = null;
+  if (cat){                                                  // tap the cat -> pet/feed menu
     setNdc(e);
     ray.setFromCamera(ndc, activeCam());
     if (ray.intersectObject(cat.g, true).length){
-      petCat();
+      downCat = true;
       e.stopPropagation();
       return;
     }
   }
   if (view !== 'fp'){
-    const c = pickChar(e);                                   // drag your character = set the player start; tap = pose menu
-    if (c){
-      dragChar = c;
+    const pc = pickChar(e);
+    if (pc && currentUser && pc.role === currentUser.role){  // your own: drag = set the player start; tap = menu
+      dragChar = pc.c;
       orbit.enabled = false; pan.enabled = false;
-      if (floorPoint(e, _p)) dragOff.subVectors(c.g.position, _p); else dragOff.set(0, 0, 0);
+      if (floorPoint(e, _p)) dragOff.subVectors(pc.c.g.position, _p); else dragOff.set(0, 0, 0);
       renderer.domElement.setPointerCapture(e.pointerId);
+      e.stopPropagation();
+      return;
+    }
+    if (pc){                                                 // someone else's character: tap = interact
+      downCharRole = pc.role;
+      e.stopPropagation();
+      return;
+    }
+  } else {
+    const pc = pickChar(e);                                  // first person: you can still tap the others
+    if (pc && currentUser && pc.role !== currentUser.role){
+      downCharRole = pc.role;
       e.stopPropagation();
       return;
     }
@@ -2139,17 +2460,51 @@ renderer.domElement.addEventListener('pointerup', e => {
       if (progress.moves[id] >= 10) unlock('cant-decide');
     }
     e.stopPropagation();
-  } else if (downAt && !downOnItem && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) < 6){
+  } else if (downAt && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) < 6){
     radial.classList.remove('on');
-    const wi = canEdit() ? pickWall(e) : null;
-    if (wi != null){
-      openWallPill(wi, e.clientX, e.clientY);      // tap a wall -> paint just that wall
-    } else {
-      deselect();
-      wallPill.classList.remove('on');
-      selWallIdx = null;
+    if (downCat){                                            // cat menu
+      openRadial(e.clientX, e.clientY, 'cat');
+    } else if (downCharRole){                                // partner (or guest) menu
+      const kind = (currentUser && currentUser.role !== 'guest' && downCharRole === partnerRole()) ? 'partner' : 'other';
+      openRadial(e.clientX, e.clientY, kind);
+    } else if (!downOnItem){
+      setNdc(e);
+      ray.setFromCamera(ndc, activeCam());
+      const lh = ray.intersectObjects(lightDiscs, false);    // tap a ceiling light to flip it
+      const dh = ray.intersectObjects(dirtSpots.map(d => d.m), false);
+      let seatTap = null;
+      if (view === 'fp' || view === 'tp'){                   // play mode: tap a chair or bed to use it
+        const it = pickItem(e);
+        if (it){
+          const d2 = CATALOG[it.userData.type];
+          if (d2.seat || d2.bed) seatTap = {it, pose:d2.bed ? 'sleep' : 'sit'};
+        }
+      }
+      if (lh.length && canEdit()){
+        toggleLight(lh[0].object.userData.lightRoom);
+      } else if (dh.length){
+        scrubDirt(dh[0].object);
+      } else if (seatTap && currentUser){
+        const me = chars[currentUser.role];
+        if (me && Math.hypot(me.g.position.x - seatTap.it.position.x, me.g.position.z - seatTap.it.position.z) > 2.6){
+          toast('Walk a little closer first 🙂');
+        } else {
+          smartPoseAtItem(seatTap.it, seatTap.pose);
+        }
+      } else {
+        const wi = canEdit() ? pickWall(e) : null;
+        if (wi != null){
+          openWallPill(wi, e.clientX, e.clientY);            // tap a wall -> paint just that wall
+        } else {
+          deselect();
+          wallPill.classList.remove('on');
+          selWallIdx = null;
+        }
+      }
     }
   }
+  downCat = false;
+  downCharRole = null;
   downAt = null;
 }, true);
 
@@ -2190,21 +2545,39 @@ function animateCharFalls(dt){
   }
 }
 
-/* -------- radial pose menu -------- */
+/* -------- radial menus: yourself, your love, the cat -------- */
 const radial = $('radial');
-function openRadial(x, y){
+const RADIAL_MENUS = {
+  self:    [['stand','🧍','Stand up'], ['wave','👋','Wave']],
+  partner: [['kiss','💋','Kiss'], ['hug','🤗','Hug'], ['wave','👋','Wave']],
+  other:   [['wave','👋','Wave']],
+  cat:     [['pet','🖐️','Pet'], ['feed','🐟','Feed']]
+};
+function openRadial(x, y, kind = 'self'){
+  radial.innerHTML = '';
+  const list = [...RADIAL_MENUS[kind], ['close','✕','Close']];
+  const n = list.length;
+  list.forEach(([act, icon, title], i) => {
+    const b = document.createElement('button');
+    b.textContent = icon;
+    b.title = title;
+    const a = -Math.PI/2 + i * (Math.PI*2/n);
+    b.style.transform = `translate(${Math.round(Math.cos(a)*64)}px, ${Math.round(Math.sin(a)*64)}px)`;
+    b.onclick = () => { radial.classList.remove('on'); doRadialAct(act); };
+    radial.appendChild(b);
+  });
   radial.style.left = Math.min(Math.max(x, 80), innerWidth - 80) + 'px';
   radial.style.top = Math.min(Math.max(y, 110), innerHeight - 110) + 'px';
-  radial.querySelector('[data-pose="sit"]').classList.toggle('dis', !findPoseTarget('sit'));
-  radial.querySelector('[data-pose="sleep"]').classList.toggle('dis', !findPoseTarget('sleep'));
   radial.classList.add('on');
 }
-radial.querySelectorAll('button').forEach(b => b.onclick = () => {
-  radial.classList.remove('on');
-  if (b.dataset.pose === 'stand') setPose('stand');
-  else if (b.dataset.pose) smartPose(b.dataset.pose);   // sit/sleep snap onto nearby seats & beds
-  else if (b.dataset.act === 'kiss') doKiss();
-});
+function doRadialAct(act){
+  if (act === 'stand') setPose('stand');
+  else if (act === 'wave') doGesture('wave');
+  else if (act === 'hug') doGesture('hug');
+  else if (act === 'kiss') doKiss();
+  else if (act === 'pet') petCat();
+  else if (act === 'feed') feedCat();
+}
 
 /* -------- per-wall paint pill -------- */
 const wallPill = $('wallPill'), wallTint = $('wallTint');
@@ -2261,7 +2634,8 @@ function serialize(){
       id:g.userData.id, type:g.userData.type,
       x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3),
       rotY:+g.rotation.y.toFixed(3), tint:g.userData.tint,
-      sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3)
+      sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3),
+      hy:+(g.userData.hangY || 1.5).toFixed(2)
     }))
   };
 }
@@ -2282,6 +2656,7 @@ function loadData(data){
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   buildPlan();
   (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));
+  items.forEach(g => { if (CATALOG[g.userData.type].stack) applyStackY(g); });   // surfaces may load after their riders
   syncCharacters();
   syncSettingsUI();
   renderRooms();
@@ -2308,7 +2683,8 @@ function exportLayout(){
 /* ============================== activity feed ============================== */
 
 const ACT_ICONS = {add:'🛋️', move:'✥', rotate:'↻', delete:'🗑️', save:'💾', load:'📂', export:'📤', import:'📥',
-  clear:'🧹', rename:'🏷️', screenshot:'📷', open:'🚪', theme:'🌗', sun:'☀️', edit:'🎨', light:'💡', kiss:'💋', achievement:'🏆'};
+  clear:'🧹', rename:'🏷️', screenshot:'📷', open:'🚪', theme:'🌗', sun:'☀️', edit:'🎨', light:'💡', kiss:'💋',
+  wave:'👋', hug:'🤗', clean:'✨', achievement:'🏆'};
 
 function logActivity(type, text){
   if (!currentUser || isGuest()) return;      // guests leave no trace
@@ -2609,6 +2985,7 @@ function updateCat(dt){
     if (remoteCat){
       const dx = remoteCat.x - cat.g.position.x, dz = remoteCat.z - cat.g.position.z;
       const d = Math.hypot(dx, dz);
+      if (d > 3){ cat.g.position.x = remoteCat.x; cat.g.position.z = remoteCat.z; return; }   // don't glide cats through walls
       const k = Math.min(1, dt*6);
       cat.g.position.x += dx*k;
       cat.g.position.z += dz*k;
@@ -2675,6 +3052,73 @@ function petCat(){
   progress.pets = (progress.pets || 0) + 1;
   jset(LS.progress, progress);
   if (progress.pets >= 5) unlock('cat-person');
+}
+
+/* ============================== housework: the place gets messy ============================== */
+
+let dirtSpots = [];
+let dirtTimer = 180 + Math.random()*180;           // first mess a few minutes in
+let dirtTexCache = null;
+function dirtTex(){
+  if (dirtTexCache) return dirtTexCache;
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d');
+  for (let i = 0; i < 9; i++){
+    ctx.fillStyle = `rgba(${95 + Math.random()*30|0},${70 + Math.random()*20|0},${50 + Math.random()*15|0},${0.35 + Math.random()*0.3})`;
+    ctx.beginPath();
+    ctx.ellipse(32 + (Math.random()-0.5)*26, 32 + (Math.random()-0.5)*26, 6 + Math.random()*12, 4 + Math.random()*9, Math.random()*Math.PI, 0, Math.PI*2);
+    ctx.fill();
+  }
+  dirtTexCache = new THREE.CanvasTexture(c);
+  return dirtTexCache;
+}
+function spawnDirt(){
+  const rooms = PLAN.rooms.filter(r => r.furnishable);
+  const n = 3 + Math.floor(Math.random()*3);
+  for (let i = 0; i < n; i++){
+    const r = rooms[Math.floor(Math.random()*rooms.length)];
+    const rc = r.rects[Math.floor(Math.random()*r.rects.length)];
+    const m = new THREE.Mesh(
+      new THREE.CircleGeometry(0.22 + Math.random()*0.16, 14),
+      new THREE.MeshBasicMaterial({map:dirtTex(), transparent:true, depthWrite:false})
+    );
+    m.rotation.x = -Math.PI/2;
+    m.rotation.z = Math.random()*Math.PI*2;
+    m.position.set(rc[0] + 0.4 + Math.random()*(rc[2]-rc[0]-0.8), 0.015, rc[1] + 0.4 + Math.random()*(rc[3]-rc[1]-0.8));
+    scene.add(m);
+    dirtSpots.push({m, hits:0});
+  }
+  toast('The house got messy 🧹 tap the dirt to clean it!');
+}
+function scrubDirt(mesh){
+  const i = dirtSpots.findIndex(d => d.m === mesh);
+  if (i < 0) return;
+  const d = dirtSpots[i];
+  d.hits++;
+  playSound('pop');
+  smokePuff(d.m.position.x, d.m.position.z, 3, 0.15);
+  if (d.hits >= 2){
+    scene.remove(d.m);
+    d.m.material.dispose();
+    dirtSpots.splice(i, 1);
+    if (!dirtSpots.length){
+      toast('Sparkling clean ✨');
+      playSound('ach');
+      unlock('clean-sweep');
+      logActivity('clean', 'cleaned the whole house ✨');
+    }
+  } else {
+    d.m.scale.setScalar(0.7);
+  }
+}
+function updateDirt(dt){
+  if (!canEdit()) return;
+  if (dirtSpots.length) return;
+  dirtTimer -= dt;
+  if (dirtTimer <= 0){
+    spawnDirt();
+    dirtTimer = 300 + Math.random()*300;           // next mess in 5-10 minutes
+  }
 }
 
 /* ============================== live sync (Firebase, optional) ============================== */
@@ -2815,6 +3259,7 @@ function applyRemoteLayout(data){
     clearDragFx();
     while (items.length){ const g = items.pop(); furnGroup.remove(g); disposeGroup(g); }
     (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));
+    items.forEach(g => { if (CATALOG[g.userData.type].stack) applyStackY(g); });
     if (planChanged) buildPlan(); else { applyLightsLive(); updateSun(); }
     jset(LS.layout, serialize());
     syncSettingsUI(); renderRooms(); refreshTags();
@@ -2861,6 +3306,7 @@ async function initSync(){
           toast(`${who} just walked in ${role === 'wife' ? '💗' : role === 'husband' ? '💙' : '👁'}`);
         } else if (!all[role]){
           remoteOnline[role] = false;            // left: their node is gone, character disappears
+          if (role === 'guest' && remoteGuestName){ remoteGuestName = null; refreshTags(); }
         }
       }
       updateCharVisibility();
@@ -2875,6 +3321,16 @@ async function initSync(){
       if (k && k.by !== myRole && k.ts !== lastKissTs && Date.now() - k.ts < 15000){
         lastKissTs = k.ts;
         playKissEffect();                          // her kiss plays on your screen too
+      }
+    });
+    let lastGestTs = 0;
+    D.onValue(D.ref(fb.db, 'room/gesture'), snap => {
+      const g = snap.val();
+      if (g && g.by !== myRole && g.ts !== lastGestTs && Date.now() - g.ts < 15000){
+        lastGestTs = g.ts;
+        playGesture(g.by, g.t);
+        const who = g.by === 'guest' ? (remoteGuestName || 'A guest') : nameFor(g.by);
+        toast(g.t === 'wave' ? `${who} waves at you 👋` : `${who} hugs you 🤗`);
       }
     });
     setInterval(() => pushPlayer(true), 10000);  // heartbeat so a killed app is detected fast
@@ -2926,6 +3382,12 @@ function updateRemoteChars(dt){
     if (!t){ c.moving = false; continue; }
     const dx = t.x - c.g.position.x, dz = t.z - c.g.position.z;
     const d = Math.hypot(dx, dz);
+    if (d > 3.5){                                  // way off (tab was asleep): snap instead of gliding through walls
+      c.g.position.x = t.x;
+      c.g.position.z = t.z;
+      c.moving = false;
+      continue;
+    }
     c.moving = d > 0.06;
     const ty = (t.pose === 'sit' || t.pose === 'sleep') ? (t.y || 0) : 0;   // standing partners belong on the floor
     c.g.position.y += (ty - c.g.position.y) * Math.min(1, dt*6);
@@ -2964,6 +3426,14 @@ function buildAddSheet(){
       <div class="dm">${Math.round(d.w*100)}×${Math.round(d.d*100)} cm</div>`;
     el.onclick = () => addFurniture(type);
     modelGrid.appendChild(el);
+    if (d.model){                                  // real 3D thumbnail, rendered once then cached
+      getThumb(d).then(url => {
+        if (!url) return;
+        const sw = el.querySelector('.sw');
+        sw.style.background = 'var(--panel2)';
+        sw.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain">`;
+      });
+    }
   });
 }
 
@@ -3125,6 +3595,8 @@ function refreshSizePanel(){
   $('szX').textContent = Math.round(def.w * 100 * sel.scale.x) + ' cm';
   $('szZ').textContent = Math.round(def.d * 100 * sel.scale.z) + ' cm';
   $('szY').textContent = Math.round(def.h * 100 * sel.scale.y) + ' cm';
+  $('szHangRow').style.display = def.wall ? 'flex' : 'none';
+  if (def.wall) $('szHang').textContent = Math.round((sel.userData.hangY || 1.5) * 100) + ' cm';
 }
 
 $('sizeBtn').onclick = () => {
@@ -3137,6 +3609,13 @@ sizePanel.querySelectorAll('.szbtn').forEach(b => b.onclick = () => {
   if (!sel) return;
   const def = CATALOG[sel.userData.type];
   const axis = b.dataset.d, dir = +b.dataset.s;
+  if (axis === 'hang'){                            // wall art rides up and down the wall
+    sel.userData.hangY = THREE.MathUtils.clamp((sel.userData.hangY || 1.5) + dir*0.1, 0.7, 2.2);
+    sel.position.y = sel.userData.hangY - 1.5;
+    refreshSizePanel();
+    scheduleSave();
+    return;
+  }
   const base = axis === 'x' ? def.w : axis === 'z' ? def.d : def.h;
   const cur = sel.scale[axis];
   const next = Math.min(3, Math.max(0.3, (Math.round(base * 100 * cur / 5) * 5 + dir * 5) / (base * 100)));
@@ -3458,12 +3937,16 @@ updateBadge();
 renderAchievements();
 renderRooms();
 buildAddSheet();
+currentUser = null;                                // sessions don't persist: every open asks for the password
 applyGuestMode();
-if (currentUser){
-  if (isGuest()){ syncProfileUI(); toast('Viewing as guest 👁'); }
-  else greet();
-  initSync();
-} else askWho();
+askWho();
+
+let lastActivityAt = performance.now();            // 45 quiet minutes ends the session
+for (const ev of ['pointerdown','keydown']) addEventListener(ev, () => lastActivityAt = performance.now(), true);
+setInterval(() => { if (performance.now() - lastActivityAt > 45*60000) location.reload(); }, 60000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && currentUser){ pushPlayer(true); catPushAt = 0; }
+});
 
 const clock = new THREE.Clock();
 function animate(){
@@ -3481,6 +3964,7 @@ function animate(){
   animateTilt(dt);
   animateCharFalls(dt);
   updateCat(dt);
+  updateDirt(dt);
   if (view === 'fp' || view === 'tp') updateWalkCamera();
   if (selBox) selBox.update();
   updateSelPos();
