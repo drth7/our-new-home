@@ -566,7 +566,7 @@ const PLAN = {
     {id:'mtoi',    name:'Bathroom',       rects:[[8.4,0,9.9,2.1]], tone:0.1},              // shared by bedrooms 1 & 2
     {id:'toi2',    name:'Master Toilet',  rects:[[6.7,3.8,8.2,6.0]], tone:0.1},            // 1.5 x 2.2, door from master
     {id:'toiL',    name:'Guest Toilet',   rects:[[0,5.9,1.4,7.6]], tone:0.1},              // tucked in the corner of men's sitting
-    {id:'balcony', name:'Balcony',        rects:[[13.7,9.1,14.7,13.3]], tone:-0.15}
+    {id:'balcony', name:'Balcony',        rects:[[13.7,8.45,14.7,12.65]], tone:-0.15}   // centred on the living-hall east wall
     /* the old laundry (x 1.2-3.5, z 11.1-13.3) is now a sealed empty space, like the void by the master toilet */
   ],
   /* d:'h' runs along x at z=pos; d:'v' runs along z at x=pos. ops: door / win / arch / glasswall, at = world coord of centre.
@@ -576,15 +576,16 @@ const PLAN = {
     {d:'h', pos:-0.1, from:-0.2, to:10.0, ops:[{t:'win', at:1.75, w:1.8},{t:'win', at:5.95, w:2.2}]},
     {d:'v', pos:10.0, from:-0.1, to:0.5},
     {d:'h', pos:-0.1, from:10.0, to:13.7},                                 // bedroom 1 north wall — flush with the building top (setback filled)
-    {d:'v', pos:13.6, from:-0.1, to:9.1,  ops:[{t:'win', at:1.95, w:1.6},{t:'win', at:5.85, w:1.6}]},   // bedroom windows, centred on each room
+    {d:'v', pos:13.6, from:-0.1, to:8.45, ops:[{t:'win', at:1.95, w:1.6},{t:'win', at:5.85, w:1.6}]},   // bedroom windows, centred on each room
     {d:'h', pos:7.8,  from:9.9,  to:13.7},                                   // bedroom 2 south wall — on the hallway line
     {d:'h', pos:9.0,  from:1.2,  to:3.6,  ops:[{t:'door', at:2.4, w:0.9}]},  // maid room: door faces the men's sitting side
-    {d:'h', pos:9.0,  from:13.6, to:14.8},                                   // balcony north edge
+    {d:'h', pos:8.35, from:13.6, to:14.8},                                   // balcony north edge
     {d:'v', pos:-0.1, from:-0.2, to:13.4, ops:[{t:'win', at:6.7, w:0.6},{t:'door', at:12.7, w:1.0}]},   // no window on the men's-sitting west side
     {d:'h', pos:13.3, from:-0.2, to:13.7},                                 // south side of kitchen & living: no windows
-    {d:'v', pos:13.6, from:9.1,  to:13.3, ops:[{t:'glasswall'}]},          // balcony: full-wall window
-    {d:'v', pos:14.7, from:9.0,  to:13.4, rail:true},
-    {d:'h', pos:13.4, from:13.6, to:14.8, rail:true},
+    {d:'v', pos:13.6, from:8.45, to:12.65, ops:[{t:'glasswall'}]},         // balcony glass door, centred on the living-hall east wall
+    {d:'v', pos:13.6, from:12.65, to:13.3},                                // solid wall below the balcony
+    {d:'v', pos:14.7, from:8.35, to:12.75, rail:true},
+    {d:'h', pos:12.75, from:13.6, to:14.8, rail:true},
     // interior
     {d:'v', pos:3.6,  from:-0.1, to:4.4},
     {d:'h', pos:5.8,  from:-0.2, to:1.5},                                  // guest toilet, now in the corner of men's sitting
