@@ -4649,7 +4649,9 @@ function greet(){
     ${g.custom ? `<p class="wsub">— ${esc(nameFor(p))}</p>` : ''}`);
   syncProfileUI();
   logActivity('open', 'entered the home');
-  welcome.onclick = hideWelcome;
+  // arm tap-to-dismiss on the NEXT tick: the unlock tap bubbles up here and would otherwise
+  // close the greeting the instant it opens (which is why the phone never showed it)
+  setTimeout(() => { welcome.onclick = hideWelcome; }, 0);
   greetAt = Date.now();
   greetedCustom = g.custom;
   clearTimeout(greetT);
