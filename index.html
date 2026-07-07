@@ -3542,19 +3542,36 @@ function buildAddSheet(){
       <div class="dm">${Math.round(d.w*100)}×${Math.round(d.d*100)} cm</div>`;
     let trayDragged = false;
     el.onclick = () => { if (trayDragged){ trayDragged = false; return; } addFurniture(type); };
-    el.addEventListener('pointerdown', e => {      // or DRAG it straight out of the tray into the room
+    // Drag straight out of the tray. On touch, a quick swipe must SCROLL the list —
+    // so the finger has to hold still for a moment to pick the item up first.
+    el.addEventListener('pointerdown', e => {
       if (!canEdit()) return;
+      const isTouch = e.pointerType !== 'mouse';
       const sx = e.clientX, sy = e.clientY;
-      let g = null;
+      let g = null, armed = !isTouch, holdTimer = null;
+      const cleanup = () => {
+        clearTimeout(holdTimer);
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+        document.removeEventListener('pointercancel', up);
+        el.removeEventListener('touchmove', tmove);
+      };
+      const activate = () => {
+        if (g) return;
+        trayDragged = true;
+        g = addFurniture(type, {fromTray:true});
+        if (!g){ cleanup(); return; }
+        select(g);
+        setAddOpen(false);
+        playSound('pop');
+      };
       const move = ev => {
-        if (!g && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 12){
-          trayDragged = true;
-          g = addFurniture(type, {fromTray:true});
-          if (!g) return;
-          select(g);
-          setAddOpen(false);
-          playSound('pop');
+        const dist = Math.hypot(ev.clientX - sx, ev.clientY - sy);
+        if (!armed){
+          if (dist > 10) cleanup();                // moved too soon: it's a scroll, let it be
+          return;
         }
+        if (!g && dist > 12) activate();
         if (g){
           setNdc(ev);
           ray.setFromCamera(ndc, activeCam());
@@ -3567,9 +3584,9 @@ function buildAddSheet(){
           }
         }
       };
+      const tmove = ev => { if (g) ev.preventDefault(); };   // once carrying, the page must not scroll
       const up = () => {
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', up);
+        cleanup();
         if (g){
           dropMarker.visible = false;
           smokePuff(g.position.x, g.position.z, 4, 0.2);
@@ -3577,8 +3594,11 @@ function buildAddSheet(){
           scheduleSave();
         }
       };
+      if (isTouch) holdTimer = setTimeout(() => { armed = true; activate(); }, 300);
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
+      document.addEventListener('pointercancel', up);
+      el.addEventListener('touchmove', tmove, {passive:false});
     });
     modelGrid.appendChild(el);
     if (d.model){                                  // real 3D thumbnail, rendered once then cached
