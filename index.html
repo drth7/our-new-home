@@ -3816,7 +3816,7 @@ function applyRemoteLayout(data){
       JSON.stringify(data.wallColors || {}) !== JSON.stringify(wallColors) ||
       JSON.stringify(data.roomNames || {}) !== JSON.stringify(roomNames);
     if (data.profile){ profile = data.profile; jset(LS.profile, profile); }
-    if (data.messages){ messages = data.messages; jset(LS.messages, messages); }
+    if (data.messages){ messages = data.messages; jset(LS.messages, messages); refreshGreetingFromSync(); }
     sunAz = data.sunAz ?? sunAz;
     roomNames = {...(data.roomNames || {})};
     wallColor = data.wallColor || null;
@@ -4639,6 +4639,7 @@ function greetingText(){
   return {text:`Hi ${nameFor(me)} ${heart} — ${nameFor(p)} loves you`, custom:false};
 }
 
+let greetAt = 0, greetedCustom = false;
 function greet(){
   if (isGuest()){ hideWelcome(); return; }
   const p = partnerRole();
@@ -4649,8 +4650,16 @@ function greet(){
   syncProfileUI();
   logActivity('open', 'entered the home');
   welcome.onclick = hideWelcome;
+  greetAt = Date.now();
+  greetedCustom = g.custom;
   clearTimeout(greetT);
   greetT = setTimeout(hideWelcome, 4200);
+}
+// the partner's note syncs a moment AFTER sign-in (Firebase connects late) — re-show the greeting once it arrives
+function refreshGreetingFromSync(){
+  if (isGuest() || greetedCustom) return;
+  if (Date.now() - greetAt > 12000) return;          // only right after entering
+  if ((messages[partnerRole()] || '').trim()) greet();
 }
 
 /* ============================== boot & render loop ============================== */
