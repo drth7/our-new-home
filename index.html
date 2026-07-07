@@ -29,7 +29,7 @@ button{font-family:inherit;touch-action:manipulation}
 .iconbtn{position:relative;min-width:42px;height:42px;padding:0 12px;border:none;border-radius:12px;background:var(--panel);color:var(--text);font-size:17px;line-height:1;font-weight:700;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:system-ui,"Segoe UI Emoji","Apple Color Emoji",sans-serif}
 .iconbtn:active{transform:scale(.96)}
 #bottombar{bottom:0;left:0;right:0;justify-content:center;padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
-#addBtn{background:var(--accent);color:#fff;font-size:15px;padding:0 20px;height:48px;border-radius:14px}
+#addBtn{background:var(--accent);color:#fff;font-size:15px;padding:0 20px;height:42px;border-radius:12px}
 #actBadge{position:absolute;top:-5px;right:-5px;background:#e05563;color:#fff;font-size:10px;min-width:17px;height:17px;border-radius:9px;display:none;align-items:center;justify-content:center;font-weight:700;padding:0 4px}
 
 #pill{position:fixed;z-index:15;display:none;flex-direction:column;align-items:center;gap:5px;transform:translate(-50%,-100%);background:var(--panel);padding:6px;border-radius:13px;box-shadow:var(--shadow)}
@@ -87,6 +87,8 @@ h3.sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--
 input[type=text],input[type=number],textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit;-webkit-user-select:text;user-select:text}
 textarea{resize:vertical;min-height:64px}
 input[type=range]{width:100%;accent-color:var(--accent)}
+.timefield{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 12px;font-size:15px;font-family:inherit;margin-bottom:7px;color-scheme:dark}
+.timefield:disabled{opacity:.5}
 .compass{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);font-weight:700;padding:0 2px}
 .swrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:4px}
 .wsw{width:40px;height:40px;border-radius:13px;border:2px solid var(--line);cursor:pointer;transition:transform .12s,border-color .12s}
@@ -297,6 +299,7 @@ body.guest #guestNote{display:block}
     <section id="secEnv">
       <h3 class="sec">Environment</h3>
       <div class="field"><label>Time of day — <span id="timeLabel"></span></label>
+        <input type="time" id="timeInput" class="timefield">
         <button class="btn" id="dayNightBtn"></button>
       </div>
       <div class="field"><label>Sun direction — <span id="sunLabel"></span></label>
@@ -2111,9 +2114,7 @@ function playGesture(role, type){
       const dx = b.g.position.x - a.g.position.x, dz = b.g.position.z - a.g.position.z;
       a.g.rotation.y = Math.atan2(dx, dz);
       b.g.rotation.y = Math.atan2(-dx, -dz);
-      const until = performance.now() + 2200;
-      a.gesture = {t:'hug', until}; b.gesture = {t:'hug', until};   // both wrap their arms
-      kissHoldUntil = until;
+      kissHoldUntil = performance.now() + 2000;
       const mid = new THREE.Vector3((a.g.position.x + b.g.position.x)/2, 1.3, (a.g.position.z + b.g.position.z)/2);
       heartBurst(mid.x, mid.y, mid.z, 6);
       screenBurst(['🤗','💛','✨'], 8, mid);
@@ -2252,23 +2253,10 @@ function animateChars(dt){
       continue;
     }
     if (c.gesture && performance.now() < c.gesture.until){
-      const g = c.gesture, ph = now;
-      if (g.t === 'wave'){
-        if (c.bones.rArm) c.bones.rArm.rotation.x = rx('rArm') - 2.0 + Math.sin(performance.now()/90)*0.35;
-      } else if (g.t === 'hug'){                              // both arms wrap forward + a gentle squeeze
-        if (c.bones.lArm) c.bones.lArm.rotation.x = rx('lArm') - 1.5;
-        if (c.bones.rArm) c.bones.rArm.rotation.x = rx('rArm') - 1.5;
-        c.inner.rotation.x = 0.14 + Math.sin(ph*4)*0.03;
-      } else if (g.t === 'kiss'){                             // lean in, arms lift toward the partner
-        if (c.bones.lArm) c.bones.lArm.rotation.x = rx('lArm') - 0.9;
-        if (c.bones.rArm) c.bones.rArm.rotation.x = rx('rArm') - 0.9;
-        c.inner.rotation.x = 0.2 + Math.sin(ph*3)*0.02;
+      if (c.gesture.t === 'wave' && c.bones.rArm){
+        c.bones.rArm.rotation.x = rx('rArm') - 2.0 + Math.sin(performance.now()/90)*0.35;
       }
       continue;
-    }
-    if (c.inner.rotation.x !== 0 && (c.pose || 'stand') === 'stand'){
-      c.inner.rotation.x += (0 - c.inner.rotation.x) * Math.min(1, dt*8);   // ease the hug/kiss lean back out
-      if (Math.abs(c.inner.rotation.x) < 0.002) c.inner.rotation.x = 0;
     }
     if (!c.moving && c.pose && c.pose !== 'stand') continue;   // hold sit/sleep pose
     if (c.moving){
@@ -2484,8 +2472,13 @@ renderer.domElement.addEventListener('pointerdown', e => {
   }
   {
     const pc = pickChar(e);
-    if (pc && currentUser && pc.role === currentUser.role){  // your own: drag = set the player start; tap = menu
-      dragChar = pc.c;
+    if (pc && currentUser && pc.role === currentUser.role){  // your own character
+      if (view === 'tp'){                                    // walk view: you ARE this character — no dragging yourself
+        downCharRole = 'self';                               // tap = your own menu (stand up / wave)
+        e.stopPropagation();
+        return;
+      }
+      dragChar = pc.c;                                       // 3D/2D: drag = set the player start; tap = menu
       orbit.enabled = false; pan.enabled = false;
       if (floorPoint(e, _p)) dragOff.subVectors(pc.c.g.position, _p); else dragOff.set(0, 0, 0);
       renderer.domElement.setPointerCapture(e.pointerId);
@@ -2644,8 +2637,9 @@ renderer.domElement.addEventListener('pointerup', e => {
     radial.classList.remove('on');
     if (downCat){                                            // cat menu
       openRadial(e.clientX, e.clientY, 'cat');
-    } else if (downCharRole){                                // partner (or guest) menu
-      const kind = (currentUser && currentUser.role !== 'guest' && downCharRole === partnerRole()) ? 'partner' : 'other';
+    } else if (downCharRole){                                // your own / partner / guest menu
+      const kind = downCharRole === 'self' ? 'self'
+        : (currentUser && currentUser.role !== 'guest' && downCharRole === partnerRole()) ? 'partner' : 'other';
       openRadial(e.clientX, e.clientY, kind);
     } else if (!downOnItem){
       setNdc(e);
@@ -2997,28 +2991,50 @@ function applyTheme(t, {log = false} = {}){
   }
 }
 
-/* ---- live time of day: the sun and day/night follow the real-world clock when switched on ---- */
+/* ---- time of day: pick a specific time, or let it follow the real-world clock ---- */
 let dynamicTime = localStorage.getItem('roomplanner.dyntime') === '1';
-const timeLabelText = () => new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-function applyDayNight(){
-  const now = new Date();
-  const h = now.getHours() + now.getMinutes()/60;
-  sunAz = Math.round(THREE.MathUtils.clamp((h - 6)/12, 0, 1) * 180 + 90);   // E→S→W across 6:00–18:00
-  const wantDay = h >= 6.5 && h < 18.5;
-  const wantTheme = wantDay ? 'light' : 'dark';
-  if (theme !== wantTheme) applyTheme(wantTheme);   // rebuild only on an actual day↔night flip
+let dayTime = parseFloat(localStorage.getItem('roomplanner.daytime'));    // fixed hour 0..24
+if (isNaN(dayTime)) dayTime = 15;                                         // default 3:00 PM
+const fmtClock = h => {                                                   // 15.5 -> "3:30 PM"
+  h = ((h % 24) + 24) % 24;
+  const hr = Math.floor(h), mn = Math.round((h - hr) * 60) % 60;
+  const ap = hr < 12 ? 'AM' : 'PM', h12 = ((hr + 11) % 12) + 1;
+  return `${h12}:${String(mn).padStart(2, '0')} ${ap}`;
+};
+function applyTimeOfDay(h){                            // move the sun + pick day/night for hour h
+  sunAz = Math.round(THREE.MathUtils.clamp((h - 6)/12, 0, 1) * 180 + 90);   // sun sweeps E(6:00)→S(noon)→W(18:00)
+  const wantTheme = (h >= 6.5 && h < 18.5) ? 'light' : 'dark';
+  if (theme !== wantTheme) applyTheme(wantTheme);     // rebuild only on an actual day↔night flip
   else updateSun();
+}
+function applyDayNight(){                              // live mode: read the real-world clock
+  const now = new Date();
+  dayTime = now.getHours() + now.getMinutes()/60;
+  applyTimeOfDay(dayTime);
+  syncSettingsUI();
+}
+function setDayTime(h){                                // the user picked a specific time
+  dayTime = h;
+  localStorage.setItem('roomplanner.daytime', String(h));
+  if (dynamicTime){ dynamicTime = false; localStorage.setItem('roomplanner.dyntime', '0'); }
+  applyTimeOfDay(h);
   syncSettingsUI();
 }
 function updateDayNightBtn(){
-  const btn = $('dayNightBtn'), lbl = $('timeLabel');
-  if (btn) btn.textContent = dynamicTime ? '🌗 Live — following your clock (tap for manual)' : '🕓 Manual — tap to follow real time';
-  if (lbl) lbl.textContent = dynamicTime ? timeLabelText() : 'set by hand';
+  const btn = $('dayNightBtn'), lbl = $('timeLabel'), inp = $('timeInput');
+  if (btn) btn.textContent = dynamicTime ? '🌗 Following the real clock (tap to set by hand)' : '🕓 Follow the real clock';
+  if (lbl) lbl.textContent = dynamicTime ? `live · ${fmtClock(dayTime)}` : fmtClock(dayTime);
+  if (inp){
+    const hr = Math.floor(((dayTime % 24) + 24) % 24), mn = Math.round((dayTime - Math.floor(dayTime)) * 60) % 60;
+    inp.value = `${String(hr).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
+    inp.disabled = dynamicTime;
+  }
 }
 function setDynamicTime(on){
   dynamicTime = on;
   localStorage.setItem('roomplanner.dyntime', on ? '1' : '0');
   if (on) applyDayNight();
+  else applyTimeOfDay(dayTime);
   updateDayNightBtn();
 }
 setInterval(() => { if (dynamicTime){ applyDayNight(); updateDayNightBtn(); } }, 30000);
@@ -3292,8 +3308,7 @@ function updateCat(dt){
       cat.perchItem = cat.perchTarget.it;
       cat.perchTarget = null;
       cat.state = 'perch';
-      cat.t = 3 + Math.random()*4;
-      playSound('meow');
+      cat.t = 3 + Math.random()*4;                  // hops up quietly
       return;
     }
     cat.state = 'idle';
@@ -3542,9 +3557,7 @@ function playKissEffect(){
   const dx = b.g.position.x - a.g.position.x, dz = b.g.position.z - a.g.position.z;
   a.g.rotation.y = Math.atan2(dx, dz);
   b.g.rotation.y = Math.atan2(-dx, -dz);
-  const until = performance.now() + 2600;
-  a.gesture = {t:'kiss', until}; b.gesture = {t:'kiss', until};   // both lean in for the kiss
-  kissHoldUntil = until;
+  kissHoldUntil = performance.now() + 2600;
   const mid = new THREE.Vector3((a.g.position.x + b.g.position.x)/2, 1.45, (a.g.position.z + b.g.position.z)/2);
   heartBurst(mid.x, mid.y, mid.z, 14);
   screenBurst(['💋','💗','💞','❤️'], 12, mid);
@@ -4237,15 +4250,27 @@ $('switchUser').onclick = () => { closeOverlays(); askWho(); };
 
 
 sunSlider.addEventListener('input', () => {
-  if (dynamicTime){ dynamicTime = false; localStorage.setItem('roomplanner.dyntime', '0'); updateDayNightBtn(); }
+  if (dynamicTime){ dynamicTime = false; localStorage.setItem('roomplanner.dyntime', '0'); }
   sunAz = +sunSlider.value;
   sunLabel.textContent = `${compass8(sunAz)} ${sunAz}°`;
+  dayTime = THREE.MathUtils.clamp((sunAz - 90)/180, 0, 1) * 12 + 6;   // keep the clock roughly in step with the sun
+  localStorage.setItem('roomplanner.daytime', String(dayTime));
+  updateDayNightBtn();
   updateSun();
 });
 $('dayNightBtn').onclick = () => {
   setDynamicTime(!dynamicTime);
-  toast(dynamicTime ? 'Time of day now follows real life 🌅' : 'Time of day set to manual ☀️');
+  toast(dynamicTime ? 'Time of day now follows real life 🌅' : 'Set the time by hand ☀️');
 };
+$('timeInput').addEventListener('change', () => {
+  const v = $('timeInput').value;
+  if (!v) return;
+  const [hh, mm] = v.split(':').map(Number);
+  setDayTime((hh || 0) + (mm || 0)/60);
+  scheduleSave();
+  logActivity('sun', `set the time to ${fmtClock(dayTime)}`);
+  toast(`Time set to ${fmtClock(dayTime)} 🕓`);
+});
 sunSlider.addEventListener('change', () => {
   scheduleSave();
   logActivity('sun', `moved the sun to ${compass8(sunAz)}`);
@@ -4468,6 +4493,7 @@ onResize();
 frameCameras();
 setView('3d');
 if (dynamicTime) applyDayNight();                  // resume live time-of-day if it was left on
+else applyTimeOfDay(dayTime);                       // otherwise restore the last chosen time
 updateDayNightBtn();
 syncSettingsUI();
 renderActivity();
