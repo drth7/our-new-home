@@ -137,11 +137,11 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .whobtn:active{transform:scale(.97)}
 .big-heart{font-size:46px;animation:beat 1.2s infinite}
 .pwAvatar{width:68px;height:68px;border-radius:50%;margin:0 auto 12px;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.35)}
-.pwRow{display:flex;gap:8px;margin-top:16px}
-.pwRow input{flex:1;text-align:center;letter-spacing:.3em;font-size:17px;padding:13px 12px;border-radius:14px;background:var(--panel2);border:1.5px solid var(--line);color:var(--text);transition:border-color .15s,box-shadow .15s}
+.pwRow{position:relative;margin-top:16px}
+.pwRow input{width:100%;text-align:center;letter-spacing:.3em;font-size:17px;padding:13px 48px 13px 48px;border-radius:14px;background:var(--panel2);border:1.5px solid var(--line);color:var(--text);transition:border-color .15s,box-shadow .15s}
 .pwRow input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(76,134,214,.18)}
 .pwRow input.err{border-color:#e05563;box-shadow:0 0 0 4px rgba(224,85,99,.18);animation:shake .4s}
-.pwEye{width:48px;border:1.5px solid var(--line);border-radius:14px;background:var(--panel2);color:var(--text);font-size:17px;cursor:pointer}
+.pwEye{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:none;border-radius:10px;background:transparent;color:var(--muted);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
 .backbtn{background:none;border:none;color:var(--muted);font-weight:700;margin-top:14px;cursor:pointer;font-size:13.5px;padding:6px}
 .backbtn:hover{color:var(--text)}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
@@ -305,6 +305,7 @@ body.guest #guestNote{display:block}
         <div class="swrow" id="wallSwatches"></div>
         <input type="color" id="wallColorInput" value="#8fa1b3" hidden>
       </div>
+      <button class="btn" id="gridToggle"></button>
     </section>
     <section id="secMp">
       <h3 class="sec">Live together — multiplayer</h3>
@@ -317,6 +318,7 @@ body.guest #guestNote{display:block}
       <div class="row"><button class="btn" id="exportBtn">📤 Export</button><button class="btn" id="importBtn">📥 Import</button></div>
       <button class="btn danger" id="clearBtn">🧹 Clear all furniture</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <input type="file" id="modelFile" accept=".glb,.gltf,.fbx" hidden>
     </section>
   </div>
 </aside>
@@ -486,7 +488,7 @@ for (const k in CATALOG){
   const d = CATALOG[k];
   if (!d.wall && !d.surface && !d.seat && !d.bed && d.h <= 0.6 && d.w <= 0.6 && d.d <= 0.7) d.stack = true;
 }
-const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Fun'];
+const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Fun','Mine'];
 
 const ACHIEVEMENTS = [
   {id:'first-piece',    icon:'🛋️', name:'First Piece',      desc:'Place your first furniture'},
@@ -699,6 +701,13 @@ const furnGroup = new THREE.Group();
 scene.add(furnGroup);
 
 let roomGroup = null, wallSegs = [], labels = [], roomLights = {}, lightDiscs = [], floorMeshes = [];
+let gridPref = localStorage.getItem('roomplanner.grid') === '1';
+let tempGrid = false;                              // grid flashes on while something is being dragged
+function setTempGrid(b){
+  if (tempGrid === b) return;
+  tempGrid = b;
+  applyViewToPlan();
+}
 
 function applyLightsLive(){
   for (const id in roomLights){
@@ -835,6 +844,13 @@ function buildPlan(){
       grid.userData.grid = true;
       roomGroup.add(grid);
       wallSegs.push(grid);
+      const grid1 = makeGrid(rw, rl, 1, t.grid);   // 1 m x 1 m reference grid for the 3D views
+      grid1.material.opacity = 0.85;
+      grid1.position.set((rc[0]+rc[2])/2, 0.004, (rc[1]+rc[3])/2);
+      grid1.visible = false;
+      grid1.userData.grid1m = true;
+      roomGroup.add(grid1);
+      wallSegs.push(grid1);
     });
     const rc = r.rects[0];
     const label = makeLabel(getName(r), '#dfe8f2');
@@ -882,6 +898,7 @@ function applyViewToPlan(){
   const walk = view === 'fp' || view === 'tp';
   wallSegs.forEach(m => {
     if (m.userData.ceiling){ m.visible = view === 'fp'; return; }   // roof in first person only
+    if (m.userData.grid1m){ m.visible = !plan && (gridPref || tempGrid); return; }
     if (m.userData.grid){ m.visible = plan; return; }               // measuring grid lives in the 2D plan
     if (m.userData.planHidden) m.visible = !plan;
     if (!m.userData.glass) m.material.opacity = plan ? 1 : walk ? 0.96 : 0.55;
@@ -949,35 +966,91 @@ function getAtlas(){
   return atlasTex;
 }
 const modelCache = {};
-function loadModel(file){
-  if (!modelCache[file]){
-    modelCache[file] = new Promise(res => {
-      const loader = file.toLowerCase().endsWith('.fbx') ? new FBXLoader() : null;
-      if (!loader) return res(null);
-      loader.load(MODEL_BASE + file, obj => res(obj), undefined, err => { console.warn('model failed', file, err); res(null); });
+function loadModel(def){
+  const key = def.model || def.id;
+  if (!modelCache[key]){
+    modelCache[key] = new Promise(async res => {
+      try{
+        if (def.custom){                           // an uploaded model, stored on this device
+          const buf = await idbGet(key);
+          if (!buf) return res(null);
+          return res(await parseModelBuffer(buf, def.ext));
+        }
+        new FBXLoader().load(MODEL_BASE + def.model, obj => res(obj), undefined, err => { console.warn('model failed', def.model, err); res(null); });
+      }catch(err){ console.warn('model failed', key, err); res(null); }
     });
   }
-  return modelCache[file];
+  return modelCache[key];
+}
+
+/* ---------- user uploads: parse any .glb/.gltf/.fbx, keep it in IndexedDB ---------- */
+
+const MY_KEY = 'roomplanner.mymodels';
+let myModels = jget(MY_KEY, []);
+function idb(){
+  return new Promise((res, rej) => {
+    const q = indexedDB.open('onh-models', 1);
+    q.onupgradeneeded = () => q.result.createObjectStore('files');
+    q.onsuccess = () => res(q.result);
+    q.onerror = () => rej(q.error);
+  });
+}
+async function idbPut(id, buf){
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('files', 'readwrite');
+    tx.objectStore('files').put(buf, id);
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbGet(id){
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const rq = db.transaction('files').objectStore('files').get(id);
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function parseModelBuffer(buf, ext){
+  if (ext === 'fbx') return new FBXLoader().parse(buf, '');
+  const {GLTFLoader} = await import('three/addons/loaders/GLTFLoader.js');
+  return await new Promise((res, rej) => new GLTFLoader().parse(buf, '', gl => res(gl.scene), rej));
+}
+for (const m of myModels){                         // re-register this device's uploads
+  CATALOG[m.id] = {id:m.id, name:m.name, cat:'Mine', w:m.w, d:m.d, h:m.h, color:'#b8a6d9', custom:true, ext:m.ext};
 }
 function instantiateModel(proto, def){
   const inst = proto.clone(true);
   const box = new THREE.Box3().setFromObject(inst);
   const size = box.getSize(new THREE.Vector3());
-  const s = Math.min(def.w/(size.x || 1), def.d/(size.z || 1), def.h/(size.y || 1));
+  const rawMax = Math.max(size.x, size.y, size.z) || 1;
+  // TRUE SIZE FIRST: detect the authoring unit (m / cm / mm) and keep the model's real
+  // dimensions, so a big sofa really is bigger than a small one. The catalog footprint
+  // is only a fallback when the detected size is implausible.
+  let s = rawMax > 2000 ? 0.001 : rawMax > 20 ? 0.01 : 1;
+  const realMax = rawMax * s;
+  const refMax = Math.max(def.w, def.d, def.h);
+  if (realMax < refMax*0.55 || realMax > refMax*1.8){
+    s = refMax / rawMax;                           // implausible: anchor to the catalog size but KEEP the model's own proportions
+  }
   inst.scale.multiplyScalar(s);
   box.setFromObject(inst);
   const c = box.getCenter(new THREE.Vector3());
   inst.position.x -= c.x;                          // origin: centre of footprint, feet on the floor
   inst.position.z -= c.z;
   inst.position.y -= box.min.y;
+  inst.userData.fit = {w:size.x*s, d:size.z*s, h:size.y*s};   // the model's real footprint
   inst.traverse(o => {
     if (o.isMesh){
       o.castShadow = true;
       o.receiveShadow = true;
-      o.material = def.plain
-        ? new THREE.MeshStandardMaterial({color:0xf2f2f2, roughness:0.8})
-        : new THREE.MeshStandardMaterial({map:getAtlas(), roughness:0.85});
-      o.material.userData.role = 'main';           // recolourable, like the block furniture
+      if (!def.custom){                            // uploads keep their own materials & textures
+        o.material = def.plain
+          ? new THREE.MeshStandardMaterial({color:0xf2f2f2, roughness:0.8})
+          : new THREE.MeshStandardMaterial({map:getAtlas(), roughness:0.85});
+        o.material.userData.role = 'main';         // recolourable, like the block furniture
+      }
     }
   });
   return inst;
@@ -990,7 +1063,7 @@ async function getThumb(def){
   if (thumbMem[def.id]) return thumbMem[def.id];
   const key = 'roomplanner.thumb.' + def.id;
   try { const c = localStorage.getItem(key); if (c){ thumbMem[def.id] = c; return c; } } catch(e){}
-  const proto = await loadModel(def.model);
+  const proto = await loadModel(def);
   if (!proto) return null;
   if (!thumbKit){
     const r = new THREE.WebGLRenderer({antialias:true, alpha:true});
@@ -1369,20 +1442,23 @@ function buildFurniture(type){
       break;
     }
     default: {
-      if (def.model){
+      if (def.model || def.custom){
         const ph = block(w, h, d, new THREE.MeshStandardMaterial({color:0x9aa8b5, transparent:true, opacity:0.35, roughness:0.9}));
         ph.position.y = def.wall ? 1.5 : h/2;
         g.add(ph);
-        loadModel(def.model).then(proto => {
+        loadModel(def).then(proto => {
           if (!proto || !g.parent) return;         // deleted before it arrived
           const inst = instantiateModel(proto, def);
           if (def.wall) inst.position.y += 1.5 - def.h/2;   // wall models hang at painting height
           g.remove(ph);
           ph.geometry.dispose(); ph.material.dispose();
           g.add(inst);
-          const bb = new THREE.Box3().setFromObject(inst);
-          g.userData.topH = Math.max(0.05, bb.max.y - g.position.y);  // REAL surface height (scale already baked in)
+          g.userData.realW = inst.userData.fit.w;  // real measured footprint drives collision & measurements
+          g.userData.realD = inst.userData.fit.d;
+          g.userData.realH = Math.max(0.05, inst.userData.fit.h);
           if (g.userData.tint) applyTint(g, g.userData.tint);
+          clampToRoom(g);                          // re-clamp with the true footprint
+          if (sel === g){ updateMeasure(); refreshSizePanel(); }
           items.forEach(o => { if (CATALOG[o.userData.type].stack) applyStackY(o); });  // riders adjust to the real top
         });
       } else {
@@ -1405,9 +1481,18 @@ function applyTint(g, hex){
   });
 }
 
-function halfExtents(g){
+function realDims(g){
   const def = CATALOG[g.userData.type];
-  const w = def.w * g.scale.x, d = def.d * g.scale.z;
+  return {
+    w:(g.userData.realW ?? def.w),
+    d:(g.userData.realD ?? def.d),
+    h:(g.userData.realH ?? def.h)
+  };
+}
+
+function halfExtents(g){
+  const rd = realDims(g);
+  const w = rd.w * g.scale.x, d = rd.d * g.scale.z;
   const c = Math.abs(Math.cos(g.rotation.y)), s = Math.abs(Math.sin(g.rotation.y));
   return {hw:(w*c + d*s)/2, hd:(w*s + d*c)/2};
 }
@@ -1444,8 +1529,8 @@ function applyStackY(g){
     if (!d2.surface && !d2.seat) continue;         // tables AND chair seats hold things
     const {hw, hd} = halfExtents(it);
     if (Math.abs(g.position.x - it.position.x) < hw && Math.abs(g.position.z - it.position.z) < hd){
-      const surfH = it.userData.topH !== undefined ? it.userData.topH
-        : d2.surface ? d2.h * it.scale.y
+      const surfH = d2.surface
+        ? (it.userData.realH ?? d2.h) * it.scale.y
         : d2.seat * it.scale.y;                    // a chair carries things at seat height
       top = Math.max(top, surfH);
     }
@@ -1825,7 +1910,7 @@ function findPoseTarget(pose){
     if (!def[want]) continue;
     const nSlots = def.slots || 1;
     for (let si = 0; si < nSlots; si++){
-      const lx = nSlots === 1 ? 0 : (si === 0 ? -1 : 1) * def.w * it.scale.x / 4;
+      const lx = nSlots === 1 ? 0 : (si === 0 ? -1 : 1) * realDims(it).w * it.scale.x / 4;
       const sx = it.position.x + Math.cos(it.rotation.y)*lx;
       const sz = it.position.z - Math.sin(it.rotation.y)*lx;
       const d = Math.hypot(me.g.position.x - sx, me.g.position.z - sz);
@@ -1978,9 +2063,9 @@ dropMarker.visible = false;
 scene.add(dropMarker);
 function updateDropMarker(){
   if (!sel){ dropMarker.visible = false; return; }
-  const def = CATALOG[sel.userData.type];
+  const rd = realDims(sel);
   dropMarker.visible = true;
-  dropMarker.scale.set(def.w * sel.scale.x, 1, def.d * sel.scale.z);
+  dropMarker.scale.set(rd.w * sel.scale.x, 1, rd.d * sel.scale.z);
   dropMarker.rotation.y = sel.rotation.y;
   dropMarker.position.set(sel.position.x, 0.02, sel.position.z);
 }
@@ -2087,10 +2172,11 @@ function smartPoseAtItem(it, pose){
   const me = chars[currentUser.role];
   if (!me) return;
   const def = CATALOG[it.userData.type];
+  const rdi = realDims(it);
   const nSlots = def.slots || 1;
   let best = null, bd = Infinity;
   for (let si = 0; si < nSlots; si++){
-    const lx = nSlots === 1 ? 0 : (si === 0 ? -1 : 1) * def.w * it.scale.x / 4;
+    const lx = nSlots === 1 ? 0 : (si === 0 ? -1 : 1) * rdi.w * it.scale.x / 4;
     const sx = it.position.x + Math.cos(it.rotation.y)*lx;
     const sz = it.position.z - Math.sin(it.rotation.y)*lx;
     const d = (me.g.position.x - sx)**2 + (me.g.position.z - sz)**2;
@@ -2099,7 +2185,7 @@ function smartPoseAtItem(it, pose){
   me.g.rotation.y = it.rotation.y;
   setPoseVisual(currentUser.role, pose);
   if (pose === 'sleep'){
-    me.g.position.set(best.x, def.h * it.scale.y - 0.06, best.z);
+    me.g.position.set(best.x, rdi.h * it.scale.y - 0.06, best.z);
   } else {
     me.g.position.set(best.x + Math.sin(it.rotation.y)*0.12, Math.max(0, (def.seat || 0.45) * it.scale.y - 0.3), best.z + Math.cos(it.rotation.y)*0.12);
   }
@@ -2186,7 +2272,10 @@ function animateChars(dt){
 }
 
 function addFurniture(type, opts = {}){
-  const def = CATALOG[type];
+  let def = CATALOG[type];
+  if (!def && type.startsWith('u_') && opts.cw){   // partner's upload we don't have the file for: stand-in box
+    def = CATALOG[type] = {id:type, name:opts.cn || 'Custom', cat:'Mine', w:opts.cw, d:opts.cd || opts.cw, h:opts.ch || 1, color:'#b8a6d9', custom:true, ext:'none'};
+  }
   if (!def) return null;
   if (!opts.silent && !canEdit()) return null;
   const g = buildFurniture(type);
@@ -2290,7 +2379,8 @@ function updateMeasure(){
     sel.position.z - (r.z1 + hd), (r.z2 - hd) - sel.position.z
   )) * 100);
   const warn = gap < 60;
-  measureEl.textContent = `${Math.round(def.w*100*sel.scale.x)}×${Math.round(def.d*100*sel.scale.z)} cm · wall ${gap} cm${warn ? ' ⚠️' : ''}`;
+  const rd = realDims(sel);
+  measureEl.textContent = `${Math.round(rd.w*100*sel.scale.x)}×${Math.round(rd.d*100*sel.scale.z)} cm · wall ${gap} cm${warn ? ' ⚠️' : ''}`;
   measureEl.classList.toggle('warn', warn);
 }
 
@@ -2415,6 +2505,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
         updateDropMarker();
       }
       dragTilt.x = 0; dragTilt.z = 0;
+      setTempGrid(true);                           // metre grid appears while arranging
       renderer.domElement.setPointerCapture(e.pointerId);
       e.stopPropagation();
     } else {
@@ -2520,6 +2611,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     orbit.enabled = view === '3d';
     pan.enabled = view === '2d';
     dropMarker.visible = false;
+    setTempGrid(false);
     if (moved) clearDrag();
     if (moved && sel && !CATALOG[sel.userData.type].wall){
       smokePuff(sel.position.x, sel.position.z, 4, 0.2);   // settle puff
@@ -2704,13 +2796,20 @@ function serialize(){
     roomNames:{...roomNames},
     lights:{...lightsState},
     players:{...players},
-    furniture:items.map(g => ({
-      id:g.userData.id, type:g.userData.type,
-      x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3),
-      rotY:+g.rotation.y.toFixed(3), tint:g.userData.tint,
-      sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3),
-      hy:+(g.userData.hangY || 1.5).toFixed(2)
-    }))
+    furniture:items.map(g => {
+      const rec = {
+        id:g.userData.id, type:g.userData.type,
+        x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3),
+        rotY:+g.rotation.y.toFixed(3), tint:g.userData.tint,
+        sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3),
+        hy:+(g.userData.hangY || 1.5).toFixed(2)
+      };
+      if (g.userData.type.startsWith('u_')){       // uploads: ship the dims so other devices can show a stand-in
+        const d = CATALOG[g.userData.type];
+        rec.cw = d.w; rec.cd = d.d; rec.ch = d.h; rec.cn = d.name;
+      }
+      return rec;
+    })
   };
 }
 
@@ -3534,6 +3633,14 @@ function buildAddSheet(){
     catTabs.appendChild(b);
   });
   modelGrid.innerHTML = '';
+  if (curCat === 'Mine'){                          // your own uploads live here
+    const up = document.createElement('button');
+    up.className = 'model';
+    up.innerHTML = `<div class="sw" style="display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--btn)">⬆️</div>
+      <div class="nm">Upload model</div><div class="dm">.glb / .gltf / .fbx</div>`;
+    up.onclick = () => $('modelFile').click();
+    modelGrid.appendChild(up);
+  }
   Object.entries(CATALOG).filter(([, d]) => d.cat === curCat).forEach(([type, d]) => {
     const el = document.createElement('button');
     el.className = 'model';
@@ -3564,6 +3671,7 @@ function buildAddSheet(){
         select(g);
         setAddOpen(false);
         playSound('pop');
+        setTempGrid(true);
       };
       const move = ev => {
         const dist = Math.hypot(ev.clientX - sx, ev.clientY - sy);
@@ -3587,6 +3695,7 @@ function buildAddSheet(){
       const tmove = ev => { if (g) ev.preventDefault(); };   // once carrying, the page must not scroll
       const up = () => {
         cleanup();
+        setTempGrid(false);
         if (g){
           dropMarker.visible = false;
           smokePuff(g.position.x, g.position.z, 4, 0.2);
@@ -3601,7 +3710,7 @@ function buildAddSheet(){
       el.addEventListener('touchmove', tmove, {passive:false});
     });
     modelGrid.appendChild(el);
-    if (d.model){                                  // real 3D thumbnail, rendered once then cached
+    if (d.model || d.custom){                      // real 3D thumbnail, rendered once then cached
       getThumb(d).then(url => {
         if (!url) return;
         const sw = el.querySelector('.sw');
@@ -3767,9 +3876,10 @@ const sizePanel = $('sizePanel');
 function refreshSizePanel(){
   if (!sel){ sizePanel.classList.remove('on'); return; }
   const def = CATALOG[sel.userData.type];
-  $('szX').textContent = Math.round(def.w * 100 * sel.scale.x) + ' cm';
-  $('szZ').textContent = Math.round(def.d * 100 * sel.scale.z) + ' cm';
-  $('szY').textContent = Math.round(def.h * 100 * sel.scale.y) + ' cm';
+  const rd = realDims(sel);
+  $('szX').textContent = Math.round(rd.w * 100 * sel.scale.x) + ' cm';
+  $('szZ').textContent = Math.round(rd.d * 100 * sel.scale.z) + ' cm';
+  $('szY').textContent = Math.round(rd.h * 100 * sel.scale.y) + ' cm';
   $('szHangRow').style.display = def.wall ? 'flex' : 'none';
   if (def.wall) $('szHang').textContent = Math.round((sel.userData.hangY || 1.5) * 100) + ' cm';
 }
@@ -3791,7 +3901,8 @@ sizePanel.querySelectorAll('.szbtn').forEach(b => b.onclick = () => {
     scheduleSave();
     return;
   }
-  const base = axis === 'x' ? def.w : axis === 'z' ? def.d : def.h;
+  const rd = realDims(sel);
+  const base = axis === 'x' ? rd.w : axis === 'z' ? rd.d : rd.h;
   const cur = sel.scale[axis];
   const next = Math.min(3, Math.max(0.3, (Math.round(base * 100 * cur / 5) * 5 + dir * 5) / (base * 100)));
   sel.scale[axis] = next;
@@ -3842,6 +3953,16 @@ function renderWallSwatches(){
 }
 wallColorInput.addEventListener('change', () => applyWallColor(wallColorInput.value));
 renderWallSwatches();
+
+const gridToggle = $('gridToggle');
+function updateGridBtn(){ gridToggle.textContent = `📏 Floor grid (1×1 m): ${gridPref ? 'On' : 'Off'}`; }
+gridToggle.onclick = () => {
+  gridPref = !gridPref;
+  localStorage.setItem('roomplanner.grid', gridPref ? '1' : '0');
+  updateGridBtn();
+  applyViewToPlan();
+};
+updateGridBtn();
 
 /* ============================== settings wiring ============================== */
 
@@ -3899,6 +4020,42 @@ $('loadBtn').onclick = () => {
 };
 $('exportBtn').onclick = exportLayout;
 $('importBtn').onclick = () => $('importFile').click();
+
+$('modelFile').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f || !canEdit()) return;
+  const ext = f.name.split('.').pop().toLowerCase();
+  if (!['glb','gltf','fbx'].includes(ext)){ toast('Use a .glb, .gltf or .fbx file 🙂'); return; }
+  if (f.size > 15*1024*1024){ toast('That model is too heavy (max 15 MB) 🐘'); return; }
+  toast('Reading the model…');
+  try{
+    const buf = await f.arrayBuffer();
+    const obj = await parseModelBuffer(buf, ext);
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = box.getSize(new THREE.Vector3());
+    const rawMax = Math.max(size.x, size.y, size.z) || 1;
+    const u = rawMax > 2000 ? 0.001 : rawMax > 20 ? 0.01 : 1;   // auto-fix the scale (m / cm / mm)
+    let w = size.x*u, d = size.z*u, h = size.y*u;
+    const mx = Math.max(w, d, h);
+    if (mx > 6){ const k = 2.2/mx; w *= k; d *= k; h *= k; }    // tame absurd sizes to ~2 m
+    if (mx < 0.05){ const k = 0.6/mx; w *= k; d *= k; h *= k; }
+    const id = 'u_' + Date.now().toString(36);
+    await idbPut(id, buf);
+    const rec = {id, name:f.name.replace(/\.[^.]+$/, '').slice(0, 18) || 'Model', ext, w:+w.toFixed(2), d:+d.toFixed(2), h:+h.toFixed(2)};
+    myModels.push(rec);
+    jset(MY_KEY, myModels);
+    CATALOG[id] = {id, name:rec.name, cat:'Mine', w:rec.w, d:rec.d, h:rec.h, color:'#b8a6d9', custom:true, ext};
+    curCat = 'Mine';
+    buildAddSheet();
+    toast(`${esc(rec.name)} added — ${Math.round(w*100)}×${Math.round(d*100)} cm ✨`);
+    logActivity('add', `uploaded a model: ${rec.name}`);
+    addFurniture(id);
+  }catch(err){
+    console.warn('upload failed', err);
+    toast('Could not read that model 😕');
+  }
+});
 $('importFile').addEventListener('change', e => {
   const f = e.target.files[0];
   if (!f) return;
