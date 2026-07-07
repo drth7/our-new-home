@@ -26,7 +26,7 @@ button{font-family:inherit;touch-action:manipulation}
 #topbar{top:0;left:0;right:0;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
 #topbar h1{font-size:15px;font-weight:700;margin-right:auto;display:flex;gap:7px;align-items:center;background:var(--panel);padding:10px 14px;border-radius:12px;box-shadow:var(--shadow)}
 #userDot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--muted)}
-.iconbtn{position:relative;min-width:42px;height:42px;padding:0 12px;border:none;border-radius:12px;background:var(--panel);color:var(--text);font-size:17px;font-weight:700;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.iconbtn{position:relative;min-width:42px;height:42px;padding:0 12px;border:none;border-radius:12px;background:var(--panel);color:var(--text);font-size:17px;line-height:1;font-weight:700;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:system-ui,"Segoe UI Emoji","Apple Color Emoji",sans-serif}
 .iconbtn:active{transform:scale(.96)}
 #bottombar{bottom:0;left:0;right:0;justify-content:center;padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 #addBtn{background:var(--accent);color:#fff;font-size:15px;padding:0 20px;height:48px;border-radius:14px}
@@ -239,12 +239,11 @@ body.guest #guestNote{display:block}
 <div id="viewMenu">
   <button data-v="3d">🧊 3D orbit</button>
   <button data-v="2d">🗺️ 2D plan</button>
-  <button data-v="fp">👁️ First person</button>
-  <button data-v="tp">🚶 Third person</button>
+  <button data-v="tp">🚶 Walk around</button>
 </div>
 
 <div id="joy"><div id="joyNub"></div></div>
-<div id="walkHint">WASD / joystick to walk · drag to look</div>
+<div id="walkHint">WASD / joystick to walk · drag to look · tap things to use them</div>
 
 <div id="achPop"><div class="apIcon"></div><div class="apTitle">ACHIEVEMENT UNLOCKED</div><div class="apName"></div></div>
 
@@ -297,6 +296,9 @@ body.guest #guestNote{display:block}
     </section>
     <section id="secEnv">
       <h3 class="sec">Environment</h3>
+      <div class="field"><label>Time of day — <span id="timeLabel"></span></label>
+        <button class="btn" id="dayNightBtn"></button>
+      </div>
       <div class="field"><label>Sun direction — <span id="sunLabel"></span></label>
         <input type="range" id="sunSlider" min="0" max="359" step="1">
         <div class="compass"><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span></div>
@@ -912,9 +914,9 @@ function buildPlan(){
 
 function applyViewToPlan(){
   const plan = view === '2d';
-  const walk = view === 'fp' || view === 'tp';
+  const walk = view === 'tp';
   wallSegs.forEach(m => {
-    if (m.userData.ceiling){ m.visible = view === 'fp'; return; }   // roof in first person only
+    if (m.userData.ceiling){ m.visible = false; return; }   // roof stays hidden (walls fade in walk view instead)
     if (m.userData.grid1m){ m.visible = !plan && (gridPref || tempGrid); return; }
     if (m.userData.grid){ m.visible = plan; return; }               // measuring grid lives in the 2D plan
     if (m.userData.planHidden) m.visible = !plan;
@@ -1535,7 +1537,7 @@ function applyStackY(g){
 function spawnPos(){
   // spawn where the camera is looking, not in the panel-selected room
   let px, pz;
-  if (view === 'fp' || view === 'tp'){
+  if (view === 'tp'){
     const me = currentUser && chars[currentUser.role];
     if (me){
       px = me.g.position.x + Math.sin(me.g.rotation.y) * 1.3;
@@ -1802,7 +1804,6 @@ function updateCharVisibility(){
   for (const role in chars){
     let vis = true;
     if (role === 'guest') vis = isGuest() || !!remoteOnline.guest;   // gray guest shows when a guest is here
-    if (view === 'fp' && currentUser && role === currentUser.role) vis = false;
     chars[role].g.visible = vis;
   }
 }
@@ -2110,7 +2111,9 @@ function playGesture(role, type){
       const dx = b.g.position.x - a.g.position.x, dz = b.g.position.z - a.g.position.z;
       a.g.rotation.y = Math.atan2(dx, dz);
       b.g.rotation.y = Math.atan2(-dx, -dz);
-      kissHoldUntil = performance.now() + 2000;
+      const until = performance.now() + 2200;
+      a.gesture = {t:'hug', until}; b.gesture = {t:'hug', until};   // both wrap their arms
+      kissHoldUntil = until;
       const mid = new THREE.Vector3((a.g.position.x + b.g.position.x)/2, 1.3, (a.g.position.z + b.g.position.z)/2);
       heartBurst(mid.x, mid.y, mid.z, 6);
       screenBurst(['🤗','💛','✨'], 8, mid);
@@ -2161,7 +2164,7 @@ function feedCat(){
     toast('Mimi is happy 💗');
     logActivity('cat', 'fed Mimi 🐟');
   }
-  if (fb && currentUser){                           // tell the cat-brain device (and the partner) she was fed
+  if (fb && currentUser){                           // tell the cat-brain device (and the partner) he was fed
     fb.D.set(fb.D.ref(fb.db, 'room/catfeed'), {by:currentUser.role, ts:Date.now()}).catch(() => {});
   }
   progress.pets = (progress.pets || 0) + 1;
@@ -2249,10 +2252,23 @@ function animateChars(dt){
       continue;
     }
     if (c.gesture && performance.now() < c.gesture.until){
-      if (c.gesture.t === 'wave' && c.bones.rArm){
-        c.bones.rArm.rotation.x = rx('rArm') - 2.0 + Math.sin(performance.now()/90)*0.35;
+      const g = c.gesture, ph = now;
+      if (g.t === 'wave'){
+        if (c.bones.rArm) c.bones.rArm.rotation.x = rx('rArm') - 2.0 + Math.sin(performance.now()/90)*0.35;
+      } else if (g.t === 'hug'){                              // both arms wrap forward + a gentle squeeze
+        if (c.bones.lArm) c.bones.lArm.rotation.x = rx('lArm') - 1.5;
+        if (c.bones.rArm) c.bones.rArm.rotation.x = rx('rArm') - 1.5;
+        c.inner.rotation.x = 0.14 + Math.sin(ph*4)*0.03;
+      } else if (g.t === 'kiss'){                             // lean in, arms lift toward the partner
+        if (c.bones.lArm) c.bones.lArm.rotation.x = rx('lArm') - 0.9;
+        if (c.bones.rArm) c.bones.rArm.rotation.x = rx('rArm') - 0.9;
+        c.inner.rotation.x = 0.2 + Math.sin(ph*3)*0.02;
       }
       continue;
+    }
+    if (c.inner.rotation.x !== 0 && (c.pose || 'stand') === 'stand'){
+      c.inner.rotation.x += (0 - c.inner.rotation.x) * Math.min(1, dt*8);   // ease the hug/kiss lean back out
+      if (Math.abs(c.inner.rotation.x) < 0.002) c.inner.rotation.x = 0;
     }
     if (!c.moving && c.pose && c.pose !== 'stand') continue;   // hold sit/sleep pose
     if (c.moving){
@@ -2296,6 +2312,7 @@ function addFurniture(type, opts = {}){
   clampToRoom(g);
   furnGroup.add(g);
   items.push(g);
+  if (typeof refreshCatNav === 'function') refreshCatNav();   // the cat re-plans around the new piece
   if (!opts.silent){
     if (!def.wall && !opts.fromTray){              // tray drags place directly, no drop-in
       const floorY = g.position.y;                 // stacked items land on the tabletop, not the floor
@@ -2465,7 +2482,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
       return;
     }
   }
-  if (view !== 'fp'){
+  {
     const pc = pickChar(e);
     if (pc && currentUser && pc.role === currentUser.role){  // your own: drag = set the player start; tap = menu
       dragChar = pc.c;
@@ -2480,15 +2497,8 @@ renderer.domElement.addEventListener('pointerdown', e => {
       e.stopPropagation();
       return;
     }
-  } else {
-    const pc = pickChar(e);                                  // first person: you can still tap the others
-    if (pc && currentUser && pc.role !== currentUser.role){
-      downCharRole = pc.role;
-      e.stopPropagation();
-      return;
-    }
   }
-  const playMode = view === 'fp' || view === 'tp';           // walk views are play-only: no editing
+  const playMode = view === 'tp';                            // walk view is play-only: no editing
   const hit = (canEdit() && !playMode) ? pickItem(e) : null;
   downOnItem = !!hit;
   if (hit){
@@ -2514,7 +2524,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
     } else {
       select(hit);                                 // first press only selects
     }
-  } else if (view === 'fp' || view === 'tp'){
+  } else if (view === 'tp'){
     looking = true;
     lookLast = {x:e.clientX, y:e.clientY};
     renderer.domElement.setPointerCapture(e.pointerId);
@@ -2606,8 +2616,8 @@ renderer.domElement.addEventListener('pointerup', e => {
     orbit.enabled = view === '3d';
     pan.enabled = view === '2d';
     e.stopPropagation();
-  } else if (looking){
-    looking = false;
+  } else if (looking && downAt && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) >= 6){
+    looking = false;                               // a real look-drag: consume it
     lookLast = null;
   } else if (dragging){
     dragging = false;
@@ -2630,6 +2640,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     }
     e.stopPropagation();
   } else if (downAt && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) < 6){
+    looking = false; lookLast = null;                        // a tap (not a look-drag): let it interact
     radial.classList.remove('on');
     if (downCat){                                            // cat menu
       openRadial(e.clientX, e.clientY, 'cat');
@@ -2642,7 +2653,7 @@ renderer.domElement.addEventListener('pointerup', e => {
       const lh = ray.intersectObjects(lightDiscs, false);    // tap a ceiling light to flip it
       const dh = ray.intersectObjects(dirtSpots.map(d => d.m), false);
       let seatTap = null;
-      if (view === 'fp' || view === 'tp'){                   // play mode: tap a chair or bed to use it
+      if (view === 'tp'){                                    // play mode: tap a chair or bed to use it
         const it = pickItem(e);
         if (it){
           const d2 = CATALOG[it.userData.type];
@@ -2986,19 +2997,46 @@ function applyTheme(t, {log = false} = {}){
   }
 }
 
-const VIEW_LABEL = {'3d':'3D', '2d':'2D', 'fp':'1st', 'tp':'3rd'};
+/* ---- live time of day: the sun and day/night follow the real-world clock when switched on ---- */
+let dynamicTime = localStorage.getItem('roomplanner.dyntime') === '1';
+const timeLabelText = () => new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+function applyDayNight(){
+  const now = new Date();
+  const h = now.getHours() + now.getMinutes()/60;
+  sunAz = Math.round(THREE.MathUtils.clamp((h - 6)/12, 0, 1) * 180 + 90);   // E→S→W across 6:00–18:00
+  const wantDay = h >= 6.5 && h < 18.5;
+  const wantTheme = wantDay ? 'light' : 'dark';
+  if (theme !== wantTheme) applyTheme(wantTheme);   // rebuild only on an actual day↔night flip
+  else updateSun();
+  syncSettingsUI();
+}
+function updateDayNightBtn(){
+  const btn = $('dayNightBtn'), lbl = $('timeLabel');
+  if (btn) btn.textContent = dynamicTime ? '🌗 Live — following your clock (tap for manual)' : '🕓 Manual — tap to follow real time';
+  if (lbl) lbl.textContent = dynamicTime ? timeLabelText() : 'set by hand';
+}
+function setDynamicTime(on){
+  dynamicTime = on;
+  localStorage.setItem('roomplanner.dyntime', on ? '1' : '0');
+  if (on) applyDayNight();
+  updateDayNightBtn();
+}
+setInterval(() => { if (dynamicTime){ applyDayNight(); updateDayNightBtn(); } }, 30000);
+
+const VIEW_LABEL = {'3d':'3D', '2d':'2D', 'tp':'Walk'};
 let fpYaw = 0, fpPitch = -0.08;
 const keys = {}, joyVec = {x:0, y:0};
 
 function setView(v){
+  if (v === 'fp') v = 'tp';                                  // first person retired — old saves fall back to walk
   view = v;
   orbit.enabled = v === '3d' && !dragging;
   pan.enabled = v === '2d' && !dragging;
   viewBtn.textContent = VIEW_LABEL[v];
-  document.body.classList.toggle('walk', v === 'fp' || v === 'tp');
-  if (v === 'fp' || v === 'tp') deselect();                  // play mode: put the tools away
+  document.body.classList.toggle('walk', v === 'tp');
+  if (v === 'tp') deselect();                                // play mode: put the tools away
   const me = currentUser && chars[currentUser.role];
-  if ((v === 'fp' || v === 'tp') && me){ fpYaw = me.g.rotation.y; fpPitch = -0.08; }
+  if (v === 'tp' && me){ fpYaw = me.g.rotation.y; fpPitch = -0.08; }
   applyViewToPlan();
   updateCharVisibility();
   $('viewMenu').classList.remove('on');
@@ -3006,13 +3044,13 @@ function setView(v){
   progress.views = progress.views || {};
   progress.views[v] = 1;
   jset(LS.progress, progress);
-  if (['3d','2d','fp','tp'].every(x => progress.views[x])) unlock('grand-tour');
+  if (['3d','2d','tp'].every(x => progress.views[x])) unlock('grand-tour');
 }
 
 /* -------- walking (first / third person): the placed character is the player start -------- */
 
 function updateWalk(dt){
-  if (view !== 'fp' && view !== 'tp') return;
+  if (view !== 'tp') return;
   const me = currentUser && chars[currentUser.role];
   if (!me) return;
   const f = ((keys['w'] || keys['arrowup']) ? 1 : 0) - ((keys['s'] || keys['arrowdown']) ? 1 : 0) + joyVec.y;
@@ -3057,18 +3095,11 @@ function fadeWallsBetweenCameraAndMe(me){
 function updateWalkCamera(){
   const me = currentUser && chars[currentUser.role];
   if (!me) return;
-  if (view === 'tp') fadeWallsBetweenCameraAndMe(me);
+  fadeWallsBetweenCameraAndMe(me);
   const p = me.g.position;
-  const cp = Math.cos(fpPitch);
-  const eye = me.pose === 'sit' ? 1.05 : me.pose === 'sleep' ? 0.45 : 1.62;
-  if (view === 'fp'){
-    persp.position.set(p.x, eye, p.z);
-    persp.lookAt(p.x + Math.sin(fpYaw)*cp, eye + Math.sin(fpPitch), p.z + Math.cos(fpYaw)*cp);
-  } else {
-    const up = Math.min(4.5, Math.max(0.7, 2.0 - Math.sin(fpPitch)*3));
-    persp.position.set(p.x - Math.sin(fpYaw)*3.4, up, p.z - Math.cos(fpYaw)*3.4);
-    persp.lookAt(p.x, 1.3, p.z);
-  }
+  const up = Math.min(4.5, Math.max(0.7, 2.0 - Math.sin(fpPitch)*3));
+  persp.position.set(p.x - Math.sin(fpYaw)*3.4, up, p.z - Math.cos(fpYaw)*3.4);
+  persp.lookAt(p.x, 1.3, p.z);
 }
 
 /* joystick (shown in walk views) */
@@ -3195,7 +3226,7 @@ function updateCat(dt){
       if (cat.hungry !== !!remoteCat.hun){         // adopt their hunger state so an ownership handoff is seamless
         cat.hungry = !!remoteCat.hun;
         setCatTag(cat.hungry);
-        if (cat.hungry){ playSound('meow'); toast('Mimi is hungry 🍽️ — tap her and choose Feed'); }
+        if (cat.hungry){ playSound('meow'); toast('Mimi is hungry 🍽️ — tap him and choose Feed'); }
         else cat.hungerAt = performance.now() + (420 + Math.random()*420)*1000;
       }
       const dx = remoteCat.x - cat.g.position.x, dz = remoteCat.z - cat.g.position.z;
@@ -3204,6 +3235,7 @@ function updateCat(dt){
       const k = Math.min(1, dt*6);
       cat.g.position.x += dx*k;
       cat.g.position.z += dz*k;
+      cat.g.position.y += ((remoteCat.y || 0) - cat.g.position.y) * k;   // follow perch/hop height
       if (d > 0.05){
         cat.g.rotation.y = Math.atan2(dx, dz);
         cat.walkT += dt * 9;
@@ -3219,7 +3251,7 @@ function updateCat(dt){
     cat.hungry = true;
     setCatTag(true);
     playSound('meow');
-    toast('Mimi is hungry 🍽️ — tap her and choose Feed');
+    toast('Mimi is hungry 🍽️ — tap him and choose Feed');
   }
   if (fb && currentUser) pushCat();
   if (cat.hungry && cat.state === 'idle' && cat.t <= 0.3){
@@ -3236,53 +3268,118 @@ function updateCat(dt){
       cat.tz = near.g.position.z + 0.35;
       cat.state = 'walk';
       cat.throughDoor = false;
+      cat.perchTarget = null;
       cat.stuck = 0;
+      cat.walkTime = 0;
     }
   }
-  if (cat.state === 'idle'){
-    if (cat.t <= 0){
-      // wander INSIDE the current room, or head for a doorway of this room (never through walls)
-      const cur = rectAt(cat.g.position.x, cat.g.position.z) || nearestRect(cat.g.position.x, cat.g.position.z);
-      const doors = DOOR_RECTS.filter(dr =>
-        !(dr.x2 < cur.x1 - 0.05 || dr.x1 > cur.x2 + 0.05 || dr.z2 < cur.z1 - 0.05 || dr.z1 > cur.z2 + 0.05));
-      if (doors.length && Math.random() < 0.4){
-        const dr = doors[Math.floor(Math.random()*doors.length)];
-        cat.tx = (dr.x1 + dr.x2)/2;
-        cat.tz = (dr.z1 + dr.z2)/2;
-        cat.throughDoor = true;                   // pause briefly at the door, then explore the next room
-      } else {
-        cat.tx = cur.x1 + 0.3 + Math.random()*Math.max(0.1, cur.x2 - cur.x1 - 0.6);
-        cat.tz = cur.z1 + 0.3 + Math.random()*Math.max(0.1, cur.z2 - cur.z1 - 0.6);
-        cat.throughDoor = false;
-      }
-      cat.state = 'walk';
-      cat.stuck = 0;
-    }
+  if (cat.state === 'perch'){                       // lounging on top of a piece of furniture
+    if (cat.perchItem && !items.includes(cat.perchItem)){ cat.g.position.y = 0; catNewTarget(); return; }  // it was removed
+    cat.legs.forEach(l => l.rotation.x *= 0.9);
+    if (cat.t <= 0){ cat.g.position.y = 0; cat.perchItem = null; catNewTarget(); }  // hop down and move on
     return;
   }
+  if (cat.state === 'idle'){
+    if (cat.t <= 0) catNewTarget();
+    return;
+  }
+  cat.walkTime = (cat.walkTime || 0) + dt;
   const dx = cat.tx - cat.g.position.x, dz = cat.tz - cat.g.position.z;
   const d = Math.hypot(dx, dz);
   if (d < 0.15){
+    if (cat.perchTarget){                           // reached the base of a surface — hop up onto it
+      cat.g.position.y = cat.perchTarget.y;
+      cat.perchItem = cat.perchTarget.it;
+      cat.perchTarget = null;
+      cat.state = 'perch';
+      cat.t = 3 + Math.random()*4;
+      playSound('meow');
+      return;
+    }
     cat.state = 'idle';
     cat.t = cat.throughDoor ? 0.3 : 2 + Math.random()*5;        // at a doorway: barely pause, keep exploring
     return;
   }
+  if (cat.walkTime > 10){ catNewTarget(); return; }             // couldn't get there in 10 s — pick somewhere new
+  const climbing = cat.perchTarget;                             // when climbing, only the target piece is passable
+  const canGo = (a, b) => {
+    if (!canWalk(a, b)) return false;
+    const hit = hitsFurniture(a, b);
+    return !hit || (climbing && hit === climbing.it) || hit === hitsFurniture(cat.g.position.x, cat.g.position.z);
+  };
   const sp = 0.85 * dt;
   const nx = cat.g.position.x + dx/d*sp, nz = cat.g.position.z + dz/d*sp;
   let moved2 = false;
-  if (walkable(nx, cat.g.position.z, cat.g.position.x, cat.g.position.z)){ cat.g.position.x = nx; moved2 = true; }
-  if (walkable(cat.g.position.x, nz, cat.g.position.x, cat.g.position.z)){ cat.g.position.z = nz; moved2 = true; }
+  if (canGo(nx, cat.g.position.z)){ cat.g.position.x = nx; moved2 = true; }
+  if (canGo(cat.g.position.x, nz)){ cat.g.position.z = nz; moved2 = true; }
   if (!moved2){
     cat.stuck += dt;
     cat.g.position.y = Math.abs(Math.sin(performance.now()/110)) * 0.14;   // hop-hop while blocked
-    if (cat.stuck > 0.5){ cat.state = 'idle'; cat.t = 0.2; cat.g.position.y = 0; }
+    if (cat.stuck > 0.9){ cat.g.position.y = 0; catNewTarget(); }           // give up fast and re-route
   } else {
     cat.stuck = 0;
-    if (!cat.carried) cat.g.position.y += (0 - cat.g.position.y) * Math.min(1, dt*8);
+    if (!cat.carried && !climbing) cat.g.position.y += (0 - cat.g.position.y) * Math.min(1, dt*8);
     cat.g.rotation.y = Math.atan2(dx, dz);
     cat.walkT += dt * 9;
     cat.legs.forEach((l, i) => l.rotation.x = Math.sin(cat.walkT + (i % 2 ? Math.PI : 0)) * 0.6);
   }
+}
+
+/* pick the cat's next destination: sometimes hop onto nearby furniture, else wander or take a doorway */
+function catNewTarget(){
+  if (!cat) return;
+  cat.state = 'walk';
+  cat.stuck = 0;
+  cat.walkTime = 0;
+  cat.throughDoor = false;
+  cat.perchTarget = null;
+  const cur = rectAt(cat.g.position.x, cat.g.position.z) || nearestRect(cat.g.position.x, cat.g.position.z);
+  if (Math.random() < 0.3){                         // fancy a jump up onto something?
+    const surfaces = items.filter(it => {
+      const def = CATALOG[it.userData.type];
+      if (!(def.surface || def.seat || def.bed)) return false;
+      return Math.hypot(it.position.x - cat.g.position.x, it.position.z - cat.g.position.z) < 4;
+    });
+    if (surfaces.length){
+      const it = surfaces[Math.floor(Math.random()*surfaces.length)];
+      const def = CATALOG[it.userData.type];
+      const surfH = def.surface ? (it.userData.realH ?? def.h) * it.scale.y
+                  : def.seat ? def.seat * it.scale.y
+                  : (it.userData.realH ?? def.h) * it.scale.y;
+      cat.tx = it.position.x; cat.tz = it.position.z;
+      cat.perchTarget = {it, y:surfH};
+      return;
+    }
+  }
+  const doors = DOOR_RECTS.filter(dr =>
+    !(dr.x2 < cur.x1 - 0.05 || dr.x1 > cur.x2 + 0.05 || dr.z2 < cur.z1 - 0.05 || dr.z1 > cur.z2 + 0.05));
+  if (doors.length && Math.random() < 0.4){
+    const dr = doors[Math.floor(Math.random()*doors.length)];
+    cat.tx = (dr.x1 + dr.x2)/2;
+    cat.tz = (dr.z1 + dr.z2)/2;
+    cat.throughDoor = true;
+  } else {
+    cat.tx = cur.x1 + 0.3 + Math.random()*Math.max(0.1, cur.x2 - cur.x1 - 0.6);
+    cat.tz = cur.z1 + 0.3 + Math.random()*Math.max(0.1, cur.z2 - cur.z1 - 0.6);
+  }
+}
+
+/* the layout changed (piece added/removed) — the cat re-plans, and shoves free if it got boxed in */
+function refreshCatNav(){
+  if (!cat || cat.carried) return;
+  cat.perchTarget = null; cat.perchItem = null;
+  if (cat.state === 'perch') cat.g.position.y = 0;
+  if (hitsFurniture(cat.g.position.x, cat.g.position.z)){       // a new piece landed on the cat
+    for (let r = 0.3; r <= 2.6; r += 0.3){
+      for (let a = 0; a < 8; a++){
+        const ang = a/8*Math.PI*2;
+        const tx = cat.g.position.x + Math.cos(ang)*r, tz = cat.g.position.z + Math.sin(ang)*r;
+        if (canWalk(tx, tz) && !hitsFurniture(tx, tz)){ cat.g.position.set(tx, 0, tz); break; }
+      }
+      if (!hitsFurniture(cat.g.position.x, cat.g.position.z)) break;
+    }
+  }
+  cat.state = 'idle'; cat.t = 0.25;                             // re-plan around the new arrangement
 }
 
 function petCat(){
@@ -3297,8 +3394,10 @@ function petCat(){
 
 /* ============================== housework: the place gets messy ============================== */
 
-let dirtSpots = [];
+let dirtSpots = [];                                // rendered meshes: {id, m, hits}
+let dirtState = {};                                // authoritative + synced: id -> {x,z,r,rot,h}
 let dirtTimer = 180 + Math.random()*180;           // first mess a few minutes in
+let dirtWaveActive = false;
 let dirtTexCache = null;
 function dirtTex(){
   if (dirtTexCache) return dirtTexCache;
@@ -3313,52 +3412,93 @@ function dirtTex(){
   dirtTexCache = new THREE.CanvasTexture(c);
   return dirtTexCache;
 }
-function spawnDirt(){
+// only one device runs the mess timer so a spot isn't spawned twice; offline, you're the host
+const dirtHost = () => !fb || !currentUser ? canEdit() : (!isGuest() && catOwnerRole() === currentUser.role);
+// build/remove meshes so the scene matches the (possibly remote) dirt state
+function applyDirtState(state){
+  state = state || {};
+  for (const s of dirtSpots.slice()){
+    if (!state[s.id]){
+      scene.remove(s.m); s.m.material.dispose(); s.m.geometry.dispose();
+      dirtSpots.splice(dirtSpots.indexOf(s), 1);
+    }
+  }
+  for (const id in state){
+    const d = state[id];
+    let spot = dirtSpots.find(s => s.id === id);
+    if (!spot){
+      const m = new THREE.Mesh(new THREE.CircleGeometry(d.r || 0.28, 14),
+        new THREE.MeshBasicMaterial({map:dirtTex(), transparent:true, depthWrite:false}));
+      m.rotation.x = -Math.PI/2;
+      m.rotation.z = d.rot || 0;
+      m.position.set(d.x, 0.015, d.z);
+      scene.add(m);
+      spot = {id, m, hits:d.h || 0};
+      dirtSpots.push(spot);
+    }
+    spot.hits = d.h || 0;
+    spot.m.scale.setScalar(spot.hits >= 1 ? 0.7 : 1);   // shrinks after the first scrub
+  }
+  dirtState = state;
+}
+function pushDirt(){
+  if (!fb || !currentUser || isGuest()) return;
+  fb.D.set(fb.D.ref(fb.db, 'room/dirt'), Object.keys(dirtState).length ? dirtState : null).catch(() => {});
+}
+// spawn a wave of mess, but reveal the spots one at a time with a little gap between each
+function spawnDirtWave(){
   const rooms = PLAN.rooms.filter(r => r.furnishable);
   const n = 3 + Math.floor(Math.random()*3);
-  for (let i = 0; i < n; i++){
+  dirtWaveActive = true;
+  toast('The house is getting messy 🧹 tap the dirt to clean it!');
+  let i = 0;
+  const drop = () => {
+    if (!dirtWaveActive) return;                        // cleaned or reset mid-wave
     const r = rooms[Math.floor(Math.random()*rooms.length)];
     const rc = r.rects[Math.floor(Math.random()*r.rects.length)];
-    const m = new THREE.Mesh(
-      new THREE.CircleGeometry(0.22 + Math.random()*0.16, 14),
-      new THREE.MeshBasicMaterial({map:dirtTex(), transparent:true, depthWrite:false})
-    );
-    m.rotation.x = -Math.PI/2;
-    m.rotation.z = Math.random()*Math.PI*2;
-    m.position.set(rc[0] + 0.4 + Math.random()*(rc[2]-rc[0]-0.8), 0.015, rc[1] + 0.4 + Math.random()*(rc[3]-rc[1]-0.8));
-    scene.add(m);
-    dirtSpots.push({m, hits:0});
-  }
-  toast('The house got messy 🧹 tap the dirt to clean it!');
+    const id = 'd' + Date.now().toString(36) + i;
+    dirtState[id] = {
+      x:+(rc[0] + 0.4 + Math.random()*(rc[2]-rc[0]-0.8)).toFixed(2),
+      z:+(rc[1] + 0.4 + Math.random()*(rc[3]-rc[1]-0.8)).toFixed(2),
+      r:+(0.22 + Math.random()*0.16).toFixed(2),
+      rot:+(Math.random()*Math.PI*2).toFixed(2),
+      h:0
+    };
+    applyDirtState(dirtState);
+    pushDirt();
+    i++;
+    if (i < n) setTimeout(drop, 700 + Math.random()*1500);   // 0.7–2.2 s between spots
+    else dirtWaveActive = false;
+  };
+  drop();
 }
 function scrubDirt(mesh){
-  const i = dirtSpots.findIndex(d => d.m === mesh);
-  if (i < 0) return;
-  const d = dirtSpots[i];
-  d.hits++;
+  if (isGuest()) return;                                // guests look, they don't clean
+  const spot = dirtSpots.find(s => s.m === mesh);
+  if (!spot) return;
   playSound('pop');
-  smokePuff(d.m.position.x, d.m.position.z, 3, 0.15);
-  if (d.hits >= 2){
-    scene.remove(d.m);
-    d.m.material.dispose();
-    dirtSpots.splice(i, 1);
-    if (!dirtSpots.length){
-      toast('Sparkling clean ✨');
-      playSound('ach');
-      unlock('clean-sweep');
-      logActivity('clean', 'cleaned the whole house ✨');
-    }
-  } else {
-    d.m.scale.setScalar(0.7);
+  smokePuff(spot.m.position.x, spot.m.position.z, 3, 0.15);
+  const cur = dirtState[spot.id] || {x:spot.m.position.x, z:spot.m.position.z, h:spot.hits};
+  const h = (cur.h || 0) + 1;
+  if (h >= 2) delete dirtState[spot.id];
+  else dirtState[spot.id] = {...cur, h};
+  applyDirtState(dirtState);
+  pushDirt();
+  if (!Object.keys(dirtState).length){
+    dirtWaveActive = false;
+    toast('Sparkling clean ✨');
+    playSound('ach');
+    unlock('clean-sweep');
+    logActivity('clean', 'cleaned the whole house ✨');
   }
 }
 function updateDirt(dt){
-  if (!canEdit()) return;
-  if (dirtSpots.length) return;
+  if (!dirtHost() || dirtWaveActive) return;
+  if (Object.keys(dirtState).length) return;           // wait until the place is spotless again
   dirtTimer -= dt;
   if (dirtTimer <= 0){
-    spawnDirt();
-    dirtTimer = 300 + Math.random()*300;           // next mess in 5-10 minutes
+    spawnDirtWave();
+    dirtTimer = 300 + Math.random()*300;               // next mess in 5-10 minutes
   }
 }
 
@@ -3402,7 +3542,9 @@ function playKissEffect(){
   const dx = b.g.position.x - a.g.position.x, dz = b.g.position.z - a.g.position.z;
   a.g.rotation.y = Math.atan2(dx, dz);
   b.g.rotation.y = Math.atan2(-dx, -dz);
-  kissHoldUntil = performance.now() + 2600;
+  const until = performance.now() + 2600;
+  a.gesture = {t:'kiss', until}; b.gesture = {t:'kiss', until};   // both lean in for the kiss
+  kissHoldUntil = until;
   const mid = new THREE.Vector3((a.g.position.x + b.g.position.x)/2, 1.45, (a.g.position.z + b.g.position.z)/2);
   heartBurst(mid.x, mid.y, mid.z, 14);
   screenBurst(['💋','💗','💞','❤️'], 12, mid);
@@ -3580,6 +3722,11 @@ async function initSync(){
       const c = snap.val();
       remoteCat = (c && c.by !== myRole) ? {...c, _rx:performance.now()} : null;
     });
+    D.onValue(D.ref(fb.db, 'room/dirt'), snap => {
+      const s = snap.val() || {};
+      if (!dirtHost()) dirtWaveActive = false;   // followers just render whatever the host published
+      applyDirtState(s);
+    });
     let lastKissTs = 0;
     D.onValue(D.ref(fb.db, 'room/kiss'), snap => {
       const k = snap.val();
@@ -3601,7 +3748,7 @@ async function initSync(){
         lastFeedTs = c.ts;
         const who = c.by === 'guest' ? (remoteGuestName || 'A guest') : nameFor(c.by);
         if (cat.hungry){
-          if (catOwnerRole() === myRole) clearCatHunger();   // the cat brain marks her fed; mirrors follow via room/cat
+          if (catOwnerRole() === myRole) clearCatHunger();   // the cat brain marks him fed; mirrors follow via room/cat
           toast(`${who} fed Mimi 🐟`);
         }
         heartBurst(cat.g.position.x, 0.5, cat.g.position.z);
@@ -3801,7 +3948,7 @@ function teleport(r){
   const cx = (rc[0]+rc[2])/2, cz = (rc[1]+rc[3])/2;
   const rw = rc[2]-rc[0], rl = rc[3]-rc[1], size = Math.max(rw, rl);
   const me = currentUser && chars[currentUser.role];
-  if ((view === 'fp' || view === 'tp') && me){
+  if (view === 'tp' && me){
     me.g.position.set(cx, 0, cz);
     players[currentUser.role] = {x:cx, z:cz, rotY:me.g.rotation.y};
     if (canEdit()) scheduleSave();
@@ -3939,7 +4086,10 @@ $('closeAch').onclick = closeOverlays;
 $('shotBtn').onclick = shareScreenshot;
 viewBtn.onclick = () => $('viewMenu').classList.toggle('on');
 $('viewMenu').querySelectorAll('button').forEach(b => b.onclick = () => setView(b.dataset.v));
-themeBtn.onclick = () => applyTheme(theme === 'dark' ? 'light' : 'dark', {log:true});
+themeBtn.onclick = () => {
+  if (dynamicTime){ dynamicTime = false; localStorage.setItem('roomplanner.dyntime', '0'); updateDayNightBtn(); }
+  applyTheme(theme === 'dark' ? 'light' : 'dark', {log:true});
+};
 
 /* pill */
 $('rotBtn').onclick = rotateSel;
@@ -4056,6 +4206,7 @@ function syncSettingsUI(){
   sunLabel.textContent = `${compass8(sunAz)} ${sunAz}°`;
   wallColorInput.value = wallColor || '#8fa1b3';
   renderWallSwatches();
+  updateDayNightBtn();
   syncProfileUI();
 }
 
@@ -4086,10 +4237,15 @@ $('switchUser').onclick = () => { closeOverlays(); askWho(); };
 
 
 sunSlider.addEventListener('input', () => {
+  if (dynamicTime){ dynamicTime = false; localStorage.setItem('roomplanner.dyntime', '0'); updateDayNightBtn(); }
   sunAz = +sunSlider.value;
   sunLabel.textContent = `${compass8(sunAz)} ${sunAz}°`;
   updateSun();
 });
+$('dayNightBtn').onclick = () => {
+  setDynamicTime(!dynamicTime);
+  toast(dynamicTime ? 'Time of day now follows real life 🌅' : 'Time of day set to manual ☀️');
+};
 sunSlider.addEventListener('change', () => {
   scheduleSave();
   logActivity('sun', `moved the sun to ${compass8(sunAz)}`);
@@ -4311,6 +4467,8 @@ syncCharacters();
 onResize();
 frameCameras();
 setView('3d');
+if (dynamicTime) applyDayNight();                  // resume live time-of-day if it was left on
+updateDayNightBtn();
 syncSettingsUI();
 renderActivity();
 updateBadge();
@@ -4345,7 +4503,7 @@ function animate(){
   animateCharFalls(dt);
   updateCat(dt);
   updateDirt(dt);
-  if (view === 'fp' || view === 'tp') updateWalkCamera();
+  if (view === 'tp') updateWalkCamera();
   if (selBox) selBox.update();
   updateSelPos();
   renderer.render(scene, activeCam());
