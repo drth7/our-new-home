@@ -276,7 +276,7 @@ body.guest #guestNote{display:block}
 </div>
 
 <div id="addSheet" class="sheet">
-  <div class="shead"><b>Add furniture</b><button class="xbtn" id="closeAdd">✕</button></div>
+  <div class="shead"><b>Add furniture</b><div style="display:flex;gap:6px"><button class="xbtn" id="refreshModels" title="Check for new models">🔄</button><button class="xbtn" id="closeAdd">✕</button></div></div>
   <div id="catTabs"></div>
   <div id="modelGrid"></div>
 </div>
@@ -318,7 +318,6 @@ body.guest #guestNote{display:block}
       <div class="row"><button class="btn" id="exportBtn">📤 Export</button><button class="btn" id="importBtn">📥 Import</button></div>
       <button class="btn danger" id="clearBtn">🧹 Clear all furniture</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
-      <input type="file" id="modelFile" accept=".glb,.gltf,.fbx" hidden>
     </section>
   </div>
 </aside>
@@ -479,16 +478,28 @@ const MODEL_DEFS = [
   {id:'xtrain1', file:'Extra/training_item_001.fbx', name:'Gym I', cat:'Fun', w:0.90, d:0.60, h:1.00},
   {id:'xtrain2', file:'Extra/training_item_002.fbx', name:'Gym II', cat:'Fun', w:1.10, d:0.60, h:1.20}
 ];
-for (const m of MODEL_DEFS){
-  if (m.file.startsWith('Sofa/')) m.plain = 1;               // the atlas doesn't fit the sofa pack — plain white, tintable
-  CATALOG[m.id] = {...m, color:m.plain ? '#f2f2f2' : '#9aa8b5', model:m.file};
-}
 /* small, non-wall, non-seat things can ride on tabletops automatically */
-for (const k in CATALOG){
-  const d = CATALOG[k];
+function applyStackRule(d){
   if (!d.wall && !d.surface && !d.seat && !d.bed && d.h <= 0.6 && d.w <= 0.6 && d.d <= 0.7) d.stack = true;
 }
-const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Fun','Mine'];
+function registerModelDef(m){
+  if (!m || !m.id || !m.file || CATALOG[m.id]) return false;
+  const def = {...m, model:m.file};
+  if (m.file.startsWith('Sofa/')) def.plain = 1;             // the atlas doesn't fit the sofa pack — plain white, tintable
+  def.color = def.plain ? '#f2f2f2' : '#9aa8b5';
+  applyStackRule(def);
+  CATALOG[def.id] = def;
+  return true;
+}
+for (const k in CATALOG) applyStackRule(CATALOG[k]);
+MODEL_DEFS.forEach(registerModelDef);              // built-in baseline (works even offline)
+/* the LIVE list is assets/models.json — drop models in the folder, run publish-models.bat,
+   then the Refresh button in the Add tray picks them up on every device */
+try{
+  const mr = await fetch('assets/models.json?t=' + Date.now());
+  if (mr.ok) (await mr.json()).forEach(registerModelDef);
+}catch(e){ console.warn('models.json unavailable', e); }
+const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Fun'];
 
 const ACHIEVEMENTS = [
   {id:'first-piece',    icon:'🛋️', name:'First Piece',      desc:'Place your first furniture'},
@@ -738,15 +749,14 @@ function disposeGroup(g){
   });
 }
 
-function makeGrid(w, l, step, color){
+function makeGridWorld(x1, z1, x2, z2, step, color){
+  // lines sit on WORLD multiples of the step, so every room shares one unified grid
   const pts = [];
-  for (let x = -w/2; x <= w/2 + 1e-6; x += step) pts.push(x, 0, -l/2, x, 0, l/2);
-  for (let z = -l/2; z <= l/2 + 1e-6; z += step) pts.push(-w/2, 0, z, w/2, 0, z);
+  for (let x = Math.ceil(x1/step)*step; x <= x2 + 1e-6; x += step) pts.push(x, 0, z1, x, 0, z2);
+  for (let z = Math.ceil(z1/step)*step; z <= z2 + 1e-6; z += step) pts.push(x1, 0, z, x2, 0, z);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  const lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({color, transparent:true, opacity:0.5}));
-  lines.position.y = 0.003;
-  return lines;
+  return new THREE.LineSegments(g, new THREE.LineBasicMaterial({color, transparent:true, opacity:0.5}));
 }
 
 let wallMats = {};                                   // wall index -> material (for per-wall paint)
@@ -822,7 +832,9 @@ function buildPlan(){
   roomLights = {};
   wallMats = {};
   const base = new THREE.Color(t.floor);
+  let roomIdx = 0;
   for (const r of PLAN.rooms){
+    roomIdx++;
     const fc = base.clone();
     if (r.tone > 0) fc.lerp(new THREE.Color('#ffffff'), r.tone);
     if (r.tone < 0) fc.lerp(new THREE.Color('#000000'), -r.tone);
@@ -832,21 +844,23 @@ function buildPlan(){
       tex.needsUpdate = true;
       tex.repeat.set((rw + WALL_T)/1.2, (rl + WALL_T)/2.4);
       const mat = new THREE.MeshStandardMaterial({color:fc, map:tex, roughness:0.6});
-      const f = new THREE.Mesh(new THREE.BoxGeometry(rw + WALL_T*0.82, 0.1, rl + WALL_T*0.82), mat);  // inset under walls: no coplanar seams
-      f.position.set((rc[0]+rc[2])/2, -0.05 - i*0.002, (rc[1]+rc[3])/2);
+      const f = new THREE.Mesh(new THREE.BoxGeometry(rw + WALL_T*0.82, 0.1, rl + WALL_T*0.82), mat);
+      // tiny per-room height offset: where two OPEN rooms meet, their overflowing floor slabs
+      // used to z-fight into a bright band that looked like a hidden wall
+      f.position.set((rc[0]+rc[2])/2, -0.05 - roomIdx*0.001 - i*0.0003, (rc[1]+rc[3])/2);
       f.receiveShadow = true;
       f.userData.floor = true;
       roomGroup.add(f);
       floorMeshes.push(f);
-      const grid = makeGrid(rw, rl, 0.5, t.grid);
-      grid.position.set((rc[0]+rc[2])/2, 0.003, (rc[1]+rc[3])/2);
+      const grid = makeGridWorld(rc[0], rc[1], rc[2], rc[3], 0.5, t.grid);
+      grid.position.y = 0.003;
       grid.visible = view === '2d';
       grid.userData.grid = true;
       roomGroup.add(grid);
       wallSegs.push(grid);
-      const grid1 = makeGrid(rw, rl, 1, t.grid);   // 1 m x 1 m reference grid for the 3D views
+      const grid1 = makeGridWorld(rc[0], rc[1], rc[2], rc[3], 1, t.grid);   // unified 1 m x 1 m reference grid
       grid1.material.opacity = 0.85;
-      grid1.position.set((rc[0]+rc[2])/2, 0.004, (rc[1]+rc[3])/2);
+      grid1.position.y = 0.004;
       grid1.visible = false;
       grid1.userData.grid1m = true;
       roomGroup.add(grid1);
@@ -967,58 +981,13 @@ function getAtlas(){
 }
 const modelCache = {};
 function loadModel(def){
-  const key = def.model || def.id;
+  const key = def.model;
   if (!modelCache[key]){
-    modelCache[key] = new Promise(async res => {
-      try{
-        if (def.custom){                           // an uploaded model, stored on this device
-          const buf = await idbGet(key);
-          if (!buf) return res(null);
-          return res(await parseModelBuffer(buf, def.ext));
-        }
-        new FBXLoader().load(MODEL_BASE + def.model, obj => res(obj), undefined, err => { console.warn('model failed', def.model, err); res(null); });
-      }catch(err){ console.warn('model failed', key, err); res(null); }
+    modelCache[key] = new Promise(res => {
+      new FBXLoader().load(MODEL_BASE + key, obj => res(obj), undefined, err => { console.warn('model failed', key, err); res(null); });
     });
   }
   return modelCache[key];
-}
-
-/* ---------- user uploads: parse any .glb/.gltf/.fbx, keep it in IndexedDB ---------- */
-
-const MY_KEY = 'roomplanner.mymodels';
-let myModels = jget(MY_KEY, []);
-function idb(){
-  return new Promise((res, rej) => {
-    const q = indexedDB.open('onh-models', 1);
-    q.onupgradeneeded = () => q.result.createObjectStore('files');
-    q.onsuccess = () => res(q.result);
-    q.onerror = () => rej(q.error);
-  });
-}
-async function idbPut(id, buf){
-  const db = await idb();
-  return new Promise((res, rej) => {
-    const tx = db.transaction('files', 'readwrite');
-    tx.objectStore('files').put(buf, id);
-    tx.oncomplete = res;
-    tx.onerror = () => rej(tx.error);
-  });
-}
-async function idbGet(id){
-  const db = await idb();
-  return new Promise((res, rej) => {
-    const rq = db.transaction('files').objectStore('files').get(id);
-    rq.onsuccess = () => res(rq.result);
-    rq.onerror = () => rej(rq.error);
-  });
-}
-async function parseModelBuffer(buf, ext){
-  if (ext === 'fbx') return new FBXLoader().parse(buf, '');
-  const {GLTFLoader} = await import('three/addons/loaders/GLTFLoader.js');
-  return await new Promise((res, rej) => new GLTFLoader().parse(buf, '', gl => res(gl.scene), rej));
-}
-for (const m of myModels){                         // re-register this device's uploads
-  CATALOG[m.id] = {id:m.id, name:m.name, cat:'Mine', w:m.w, d:m.d, h:m.h, color:'#b8a6d9', custom:true, ext:m.ext};
 }
 function instantiateModel(proto, def){
   const inst = proto.clone(true);
@@ -2272,10 +2241,7 @@ function animateChars(dt){
 }
 
 function addFurniture(type, opts = {}){
-  let def = CATALOG[type];
-  if (!def && type.startsWith('u_') && opts.cw){   // partner's upload we don't have the file for: stand-in box
-    def = CATALOG[type] = {id:type, name:opts.cn || 'Custom', cat:'Mine', w:opts.cw, d:opts.cd || opts.cw, h:opts.ch || 1, color:'#b8a6d9', custom:true, ext:'none'};
-  }
+  const def = CATALOG[type];
   if (!def) return null;
   if (!opts.silent && !canEdit()) return null;
   const g = buildFurniture(type);
@@ -2804,10 +2770,6 @@ function serialize(){
         sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3),
         hy:+(g.userData.hangY || 1.5).toFixed(2)
       };
-      if (g.userData.type.startsWith('u_')){       // uploads: ship the dims so other devices can show a stand-in
-        const d = CATALOG[g.userData.type];
-        rec.cw = d.w; rec.cd = d.d; rec.ch = d.h; rec.cn = d.name;
-      }
       return rec;
     })
   };
@@ -3538,6 +3500,12 @@ async function initSync(){
         playKissEffect();                          // her kiss plays on your screen too
       }
     });
+    D.onValue(D.ref(fb.db, 'room/catalog'), snap => {
+      const c = snap.val();
+      if (c && c.by !== myRole && c.ts > sessionStart){
+        refreshCatalog(false, false).then(n => { if (n) toast(`${nameFor(c.by)} added new furniture 🚚`); });
+      }
+    });
     let lastGestTs = 0;
     D.onValue(D.ref(fb.db, 'room/gesture'), snap => {
       const g = snap.val();
@@ -3633,14 +3601,6 @@ function buildAddSheet(){
     catTabs.appendChild(b);
   });
   modelGrid.innerHTML = '';
-  if (curCat === 'Mine'){                          // your own uploads live here
-    const up = document.createElement('button');
-    up.className = 'model';
-    up.innerHTML = `<div class="sw" style="display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--btn)">⬆️</div>
-      <div class="nm">Upload model</div><div class="dm">.glb / .gltf / .fbx</div>`;
-    up.onclick = () => $('modelFile').click();
-    modelGrid.appendChild(up);
-  }
   Object.entries(CATALOG).filter(([, d]) => d.cat === curCat).forEach(([type, d]) => {
     const el = document.createElement('button');
     el.className = 'model';
@@ -3816,6 +3776,28 @@ $('roomsBtn').onclick = () => {
   scrim.classList.add('on');
 };
 $('closeRooms').onclick = closeOverlays;
+
+async function refreshCatalog(notify = true, announce = true){
+  try{
+    const r = await fetch('assets/models.json?t=' + Date.now(), {cache:'reload'});
+    if (!r.ok) throw 0;
+    const list = await r.json();
+    let added = 0;
+    for (const m of list) if (registerModelDef(m)) added++;
+    if (added){
+      buildAddSheet();
+      if (announce && fb && currentUser){          // tell the partner's device to refresh too
+        fb.D.set(fb.D.ref(fb.db, 'room/catalog'), {ts:Date.now(), by:currentUser.role}).catch(() => {});
+      }
+    }
+    if (notify) toast(added ? `${added} new model${added > 1 ? 's' : ''} arrived 🚚` : 'Catalog is up to date ✓');
+    return added;
+  }catch(e){
+    if (notify) toast('Could not check for new models 😕');
+    return 0;
+  }
+}
+$('refreshModels').onclick = () => refreshCatalog(true, true);
 
 function setAddOpen(open){
   addSheet.classList.toggle('on', open);
@@ -4021,41 +4003,6 @@ $('loadBtn').onclick = () => {
 $('exportBtn').onclick = exportLayout;
 $('importBtn').onclick = () => $('importFile').click();
 
-$('modelFile').addEventListener('change', async e => {
-  const f = e.target.files[0];
-  e.target.value = '';
-  if (!f || !canEdit()) return;
-  const ext = f.name.split('.').pop().toLowerCase();
-  if (!['glb','gltf','fbx'].includes(ext)){ toast('Use a .glb, .gltf or .fbx file 🙂'); return; }
-  if (f.size > 15*1024*1024){ toast('That model is too heavy (max 15 MB) 🐘'); return; }
-  toast('Reading the model…');
-  try{
-    const buf = await f.arrayBuffer();
-    const obj = await parseModelBuffer(buf, ext);
-    const box = new THREE.Box3().setFromObject(obj);
-    const size = box.getSize(new THREE.Vector3());
-    const rawMax = Math.max(size.x, size.y, size.z) || 1;
-    const u = rawMax > 2000 ? 0.001 : rawMax > 20 ? 0.01 : 1;   // auto-fix the scale (m / cm / mm)
-    let w = size.x*u, d = size.z*u, h = size.y*u;
-    const mx = Math.max(w, d, h);
-    if (mx > 6){ const k = 2.2/mx; w *= k; d *= k; h *= k; }    // tame absurd sizes to ~2 m
-    if (mx < 0.05){ const k = 0.6/mx; w *= k; d *= k; h *= k; }
-    const id = 'u_' + Date.now().toString(36);
-    await idbPut(id, buf);
-    const rec = {id, name:f.name.replace(/\.[^.]+$/, '').slice(0, 18) || 'Model', ext, w:+w.toFixed(2), d:+d.toFixed(2), h:+h.toFixed(2)};
-    myModels.push(rec);
-    jset(MY_KEY, myModels);
-    CATALOG[id] = {id, name:rec.name, cat:'Mine', w:rec.w, d:rec.d, h:rec.h, color:'#b8a6d9', custom:true, ext};
-    curCat = 'Mine';
-    buildAddSheet();
-    toast(`${esc(rec.name)} added — ${Math.round(w*100)}×${Math.round(d*100)} cm ✨`);
-    logActivity('add', `uploaded a model: ${rec.name}`);
-    addFurniture(id);
-  }catch(err){
-    console.warn('upload failed', err);
-    toast('Could not read that model 😕');
-  }
-});
 $('importFile').addEventListener('change', e => {
   const f = e.target.files[0];
   if (!f) return;
