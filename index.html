@@ -557,8 +557,8 @@ const PLAN = {
     {id:'living',  name:'Living Hall',    rects:[[6.5,8.9,13.5,13.2],[9.9,8.4,13.5,8.9]], furnishable:true, lightPos:[[10.6,11.0]]},
     {id:'dining',  name:'Dining',         rects:[[3.7,3.8,6.5,7.6]], furnishable:true},
     {id:'master',  name:'Master Bedroom', rects:[[3.7,0,8.2,3.6]], furnishable:true},
-    {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.6,13.5,4.3]], furnishable:true},
-    {id:'bed2',    name:'Bedroom 2',      rects:[[10.1,4.5,13.5,8.2]], furnishable:true},
+    {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.1,13.5,4.05]], furnishable:true},   // shifted up to the north wall (old dead strip reclaimed)
+    {id:'bed2',    name:'Bedroom 2',      rects:[[10.1,4.25,13.5,8.2]], furnishable:true},
     {id:'mens',    name:"Men's Sitting",  rects:[[0,0,3.5,4.5],[1.6,4.5,3.5,7.6],[0,4.5,1.6,5.8]], furnishable:true},
     {id:'maid',    name:'Maid Room',      rects:[[1.3,9.1,3.4,11.0]], furnishable:true},
     {id:'hall',    name:'Hallway',        rects:[[0,7.8,9.9,8.9],[8.4,2.3,9.9,7.8]], lightPos:[[4.5,8.35],[9.15,4.9]]},
@@ -575,13 +575,13 @@ const PLAN = {
     // exterior
     {d:'h', pos:-0.1, from:-0.2, to:10.0, ops:[{t:'win', at:1.75, w:1.8},{t:'win', at:5.95, w:2.2}]},
     {d:'v', pos:10.0, from:-0.1, to:0.5},
-    {d:'h', pos:0.5,  from:9.9,  to:13.7},                                 // bedroom 1: window on the east side only
-    {d:'v', pos:13.6, from:0.5,  to:9.1,  ops:[{t:'win', at:2.4, w:1.6},{t:'win', at:6.3, w:1.6}]},
+    {d:'h', pos:-0.1, from:10.0, to:13.7},                                 // bedroom 1 north wall (now flush with the building's top)
+    {d:'v', pos:13.6, from:-0.1, to:9.1,  ops:[{t:'win', at:2.4, w:1.6},{t:'win', at:6.3, w:1.6}]},   // bedrooms: windows on the east side only
     {d:'h', pos:8.3,  from:9.9,  to:13.7},                                   // bedroom 2 wall facing the living room — clean run
     {d:'h', pos:9.0,  from:1.2,  to:3.6,  ops:[{t:'door', at:2.4, w:0.9}]},  // maid room: door faces the men's sitting side
     {d:'h', pos:9.0,  from:13.6, to:14.8},                                   // balcony north edge
-    {d:'v', pos:-0.1, from:-0.2, to:13.4, ops:[{t:'win', at:2.1, w:1.6},{t:'win', at:6.7, w:0.6},{t:'door', at:12.7, w:1.0}]},
-    {d:'h', pos:13.3, from:-0.2, to:13.7, ops:[{t:'win', at:5.0, w:1.4},{t:'win', at:9.6, w:2.4}]},
+    {d:'v', pos:-0.1, from:-0.2, to:13.4, ops:[{t:'win', at:6.7, w:0.6},{t:'door', at:12.7, w:1.0}]},   // no window on the men's-sitting west side
+    {d:'h', pos:13.3, from:-0.2, to:13.7},                                 // south side of kitchen & living: no windows
     {d:'v', pos:13.6, from:9.1,  to:13.3, ops:[{t:'glasswall'}]},          // balcony: full-wall window
     {d:'v', pos:14.7, from:9.0,  to:13.4, rail:true},
     {d:'h', pos:13.4, from:13.6, to:14.8, rail:true},
@@ -594,7 +594,7 @@ const PLAN = {
     {d:'v', pos:8.3,  from:-0.1, to:7.7,  ops:[{t:'door', at:2.9, w:0.9}]},
     {d:'h', pos:2.2,  from:8.2,  to:10.0, ops:[{t:'door', at:9.1, w:0.8}]},   // shared bathroom door on the corridor
     {d:'v', pos:10.0, from:0.5,  to:8.4,  ops:[{t:'door', at:3.5, w:0.9},{t:'door', at:5.4, w:0.9}]},
-    {d:'h', pos:4.4,  from:10.0, to:13.7},
+    {d:'h', pos:4.15, from:10.0, to:13.7},                                // wall between bedroom 1 and bedroom 2
     {d:'v', pos:3.6,  from:4.4,  to:7.8,  ops:[{t:'arch', at:6.0, w:1.5}]},
     {d:'h', pos:7.7,  from:3.6,  to:8.4,  ops:[{t:'arch', at:5.2, w:1.6}]},
     {d:'v', pos:6.6,  from:3.7,  to:7.7},                                  // master toilet + void, west side
@@ -3677,22 +3677,25 @@ let remoteGuestName = null;                    // the name the visiting guest ty
 let kissHoldUntil = 0;                         // while kissing, nobody's rotation gets overridden
 const sessionStart = Date.now();
 
-/* big on-screen emoji burst so the moment never goes unnoticed */
+/* on-screen emoji burst — appears between the two characters and scales with zoom (small when zoomed out) */
 function screenBurst(chars_, n = 10, fromWorld = null){
-  let sx = innerWidth/2, sy = innerHeight*0.42;
+  let sx = innerWidth/2, sy = innerHeight*0.42, scale = 1;
   if (fromWorld){
     const v = fromWorld.clone().project(activeCam());
     if (v.z < 1){ sx = (v.x*0.5 + 0.5)*innerWidth; sy = (-v.y*0.5 + 0.5)*innerHeight; }
+    const v2 = fromWorld.clone().add(new THREE.Vector3(0, 1, 0)).project(activeCam());   // 1 m up
+    const pxPerM = Math.abs((v2.y - v.y) * 0.5 * innerHeight);                            // on-screen metres → pixels
+    scale = THREE.MathUtils.clamp(pxPerM / 120, 0.28, 1.3);                               // shrink when the couple is far/zoomed out
   }
   const fx = $('fx');
   for (let i = 0; i < n; i++){
     const e = document.createElement('div');
     e.className = 'fxe';
     e.textContent = chars_[Math.floor(Math.random()*chars_.length)];
-    e.style.left = (sx + (Math.random()-0.5)*180) + 'px';
-    e.style.top = (sy + (Math.random()-0.5)*70) + 'px';
+    e.style.left = (sx + (Math.random()-0.5)*100*scale) + 'px';
+    e.style.top = (sy + (Math.random()-0.5)*70*scale) + 'px';
     e.style.animationDelay = (Math.random()*0.35) + 's';
-    e.style.fontSize = (30 + Math.random()*22) + 'px';
+    e.style.fontSize = ((22 + Math.random()*16) * scale) + 'px';
     fx.appendChild(e);
     setTimeout(() => e.remove(), 2400);
   }
