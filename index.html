@@ -552,16 +552,16 @@ const esc  = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>
    Rooms are interior rects [x1,z1,x2,z2]; walls are centerlines, 0.2 m thick. */
 const PLAN = {
   rooms: [
-    // kitchen + living are one open space (no wall between them) but count as separate rooms
-    {id:'kitchen', name:'Kitchen',        rects:[[3.6,8.9,6.5,13.2]], furnishable:true, lightPos:[[5.0,11.0]]},
-    {id:'living',  name:'Living Hall',    rects:[[6.5,8.9,13.5,13.2],[9.9,7.9,13.5,8.9]], furnishable:true, lightPos:[[10.6,11.0]]},
+    // kitchen + living are one open space (no wall between them) but count as separate rooms — both run up to the hallway line
+    {id:'kitchen', name:'Kitchen',        rects:[[3.6,7.8,6.5,13.2]], furnishable:true, lightPos:[[5.0,11.0]]},
+    {id:'living',  name:'Living Hall',    rects:[[6.5,7.8,13.5,13.2]], furnishable:true, lightPos:[[10.6,11.0]]},
     {id:'dining',  name:'Dining',         rects:[[3.7,3.8,6.5,7.6]], furnishable:true},
     {id:'master',  name:'Master Bedroom', rects:[[3.7,0,8.2,3.6]], furnishable:true},
     {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.1,13.5,3.8]], furnishable:true},   // 3.70 m deep, flush with the building top
     {id:'bed2',    name:'Bedroom 2',      rects:[[10.1,4.0,13.5,7.7]], furnishable:true},   // 3.70 m deep, ends at the hallway line
     {id:'mens',    name:"Men's Sitting",  rects:[[0,0,3.5,4.5],[1.6,4.5,3.5,7.6],[0,4.5,1.6,5.8]], furnishable:true},
     {id:'maid',    name:'Maid Room',      rects:[[1.3,9.1,3.4,11.0]], furnishable:true},
-    {id:'hall',    name:'Hallway',        rects:[[0,7.8,9.9,8.9],[8.4,2.3,9.9,7.8]], lightPos:[[4.5,8.35],[9.15,4.9]]},
+    {id:'hall',    name:'Hallway',        rects:[[0,7.8,3.6,8.9],[8.4,2.3,9.9,7.8]], lightPos:[[1.8,8.3],[9.15,4.9]]},   // left strip + bedroom corridor
     {id:'entry',   name:'Entrance',       rects:[[0,8.9,1.1,13.2]], furnishable:true, lightPos:[[0.55,11.0]]},   // the main door is at the south end of this strip
     {id:'mtoi',    name:'Bathroom',       rects:[[8.4,0,9.9,2.1]], tone:0.1},              // shared by bedrooms 1 & 2
     {id:'toi2',    name:'Master Toilet',  rects:[[6.7,3.8,8.2,6.0]], tone:0.1},            // 1.5 x 2.2, door from master
