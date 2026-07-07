@@ -1500,8 +1500,8 @@ function buildFurniture(type){
           g.userData.realH = Math.max(0.05, inst.userData.fit.h);
           if (g.userData.tint) applyTint(g, g.userData.tint);
           clampToRoom(g);                          // re-clamp with the true footprint
+          if (g.userData.loadY != null) g.position.y = g.userData.loadY;   // keep the saved stack height after re-clamping
           if (sel === g){ updateMeasure(); refreshSizePanel(); }
-          items.forEach(o => applyStackY(o));  // riders adjust to the real top once the model's height is known
         });
       } else {
         const b = block(w, h, d, main); b.position.y = h/2; g.add(b);
@@ -2372,6 +2372,7 @@ function addFurniture(type, opts = {}){
   }
   applyTint(g, opts.tint || def.color);
   clampToRoom(g);
+  if (opts.y != null && !def.wall){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout
   furnGroup.add(g);
   items.push(g);
   if (typeof refreshCatNav === 'function') refreshCatNav();   // the cat re-plans around the new piece
@@ -2639,7 +2640,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   }
   if (!dragging || !sel) return;
   if (!floorPoint(e, _p)) return;
-  if (!moved && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) > 4){ moved = true; pushUndo(); }
+  if (!moved && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) > 4){ moved = true; pushUndo(); sel.userData.loadY = null; }
   const ox = sel.position.x, oz = sel.position.z;
   sel.position.x = Math.round((_p.x + dragOff.x) * 100) / 100;   // 1 cm — light snap so the lean feels natural
   sel.position.z = Math.round((_p.z + dragOff.z) * 100) / 100;
@@ -2926,6 +2927,7 @@ function serialize(){
       const rec = {
         id:g.userData.id, type:g.userData.type,
         x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3),
+        y:+g.position.y.toFixed(3),                    // stack height — so a stacked piece syncs exactly, not re-guessed
         rotY:+g.rotation.y.toFixed(3), tint:g.userData.tint,
         sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3),
         hy:+(g.userData.hangY || 1.5).toFixed(2)
@@ -2950,8 +2952,7 @@ function loadData(data){
   lightsState = {...(data.lights || {})};
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   buildPlan();
-  (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));
-  items.forEach(g => applyStackY(g));   // re-settle stacks: a surface may load after the piece resting on it
+  (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));   // each carries its exact stack height
   syncCharacters();
   syncSettingsUI();
   renderRooms();
@@ -3824,8 +3825,7 @@ function applyRemoteLayout(data){
     deselect();
     clearDragFx();
     while (items.length){ const g = items.pop(); furnGroup.remove(g); disposeGroup(g); }
-    (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));
-    items.forEach(g => { if (CATALOG[g.userData.type].stack) applyStackY(g); });
+    (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));   // exact positions incl. stack height
     if (planChanged) buildPlan(); else { applyLightsLive(); updateSun(); }
     jset(LS.layout, serialize());
     syncSettingsUI(); renderRooms(); refreshTags();
