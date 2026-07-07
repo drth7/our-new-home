@@ -2355,7 +2355,7 @@ function deselect(){
   sel = null;
   pill.classList.remove('on');
   $('sizePanel').classList.remove('on');
-  $('radial').classList.remove('on');
+  closeRadial();
   $('wallPill').classList.remove('on');
   if (typeof dropMarker !== 'undefined') dropMarker.visible = false;
 }
@@ -2634,13 +2634,14 @@ renderer.domElement.addEventListener('pointerup', e => {
     e.stopPropagation();
   } else if (downAt && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) < 6){
     looking = false; lookLast = null;                        // a tap (not a look-drag): let it interact
-    radial.classList.remove('on');
-    if (downCat){                                            // cat menu
-      openRadial(e.clientX, e.clientY, 'cat');
-    } else if (downCharRole){                                // your own / partner / guest menu
+    closeRadial();
+    if (downCat){                                            // cat menu — pinned to the cat
+      openRadial(e.clientX, e.clientY, 'cat', cat.g, 0.4);
+    } else if (downCharRole){                                // your own / partner / guest menu — pinned to that character
+      const role = downCharRole === 'self' ? currentUser.role : downCharRole;
       const kind = downCharRole === 'self' ? 'self'
         : (currentUser && currentUser.role !== 'guest' && downCharRole === partnerRole()) ? 'partner' : 'other';
-      openRadial(e.clientX, e.clientY, kind);
+      openRadial(e.clientX, e.clientY, kind, chars[role] && chars[role].g, 1.0);
     } else if (!downOnItem){
       setNdc(e);
       ray.setFromCamera(ndc, activeCam());
@@ -2727,7 +2728,8 @@ const RADIAL_MENUS = {
   other:   [['wave','👋','Wave']],
   cat:     [['pet','🖐️','Pet'], ['feed','🐟','Feed']]
 };
-function openRadial(x, y, kind = 'self'){
+let radialAnchor = null, radialAnchorH = 1.0;      // the character/cat the ring is pinned to (follows it on screen)
+function openRadial(x, y, kind = 'self', anchor = null, anchorH = 1.0){
   radial.innerHTML = '';
   const list = [...RADIAL_MENUS[kind], ['close','✕','Close']];
   const n = list.length;
@@ -2737,12 +2739,25 @@ function openRadial(x, y, kind = 'self'){
     b.title = title;
     const a = -Math.PI/2 + i * (Math.PI*2/n);
     b.style.transform = `translate(${Math.round(Math.cos(a)*64)}px, ${Math.round(Math.sin(a)*64)}px)`;
-    b.onclick = () => { radial.classList.remove('on'); doRadialAct(act); };
+    b.onclick = () => { closeRadial(); doRadialAct(act); };
     radial.appendChild(b);
   });
+  radialAnchor = anchor; radialAnchorH = anchorH;
   radial.style.left = Math.min(Math.max(x, 80), innerWidth - 80) + 'px';
   radial.style.top = Math.min(Math.max(y, 110), innerHeight - 110) + 'px';
   radial.classList.add('on');
+  if (anchor) updateRadialPos();                   // snap onto the target right away
+}
+function closeRadial(){ radial.classList.remove('on'); radialAnchor = null; }
+function updateRadialPos(){
+  if (!radialAnchor || !radial.classList.contains('on')) return;
+  radialAnchor.getWorldPosition(_v);
+  _v.y += radialAnchorH;
+  _v.project(activeCam());
+  if (_v.z > 1){ closeRadial(); return; }          // target went behind the camera
+  const x = (_v.x * 0.5 + 0.5) * innerWidth, y = (-_v.y * 0.5 + 0.5) * innerHeight;
+  radial.style.left = Math.min(Math.max(x, 80), innerWidth - 80) + 'px';
+  radial.style.top = Math.min(Math.max(y, 110), innerHeight - 110) + 'px';
 }
 function doRadialAct(act){
   if (act === 'stand') setPose('stand');
@@ -4532,6 +4547,7 @@ function animate(){
   if (view === 'tp') updateWalkCamera();
   if (selBox) selBox.update();
   updateSelPos();
+  updateRadialPos();                               // keep the radial pinned to its character/cat as they/the camera move
   renderer.render(scene, activeCam());
 }
 animate();
