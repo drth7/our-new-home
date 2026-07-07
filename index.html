@@ -533,14 +533,17 @@ const esc  = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>
    Rooms are interior rects [x1,z1,x2,z2]; walls are centerlines, 0.2 m thick. */
 const PLAN = {
   rooms: [
-    {id:'living',  name:'Living Hall',    rects:[[3.6,8.9,13.5,13.2],[9.9,8.4,13.5,8.9]], furnishable:true, lightPos:[[5.0,11.0],[10.6,11.0]]},  // one big open space: a light over the kitchen side and one over the lounge
+    // kitchen + living are one open space (no wall between them) but count as separate rooms
+    {id:'kitchen', name:'Kitchen',        rects:[[3.6,8.9,6.5,13.2]], furnishable:true, lightPos:[[5.0,11.0]]},
+    {id:'living',  name:'Living Hall',    rects:[[6.5,8.9,13.5,13.2],[9.9,8.4,13.5,8.9]], furnishable:true, lightPos:[[10.6,11.0]]},
     {id:'dining',  name:'Dining',         rects:[[3.7,3.8,6.5,7.6]], furnishable:true},
     {id:'master',  name:'Master Bedroom', rects:[[3.7,0,8.2,3.6]], furnishable:true},
     {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.6,13.5,4.3]], furnishable:true},
     {id:'bed2',    name:'Bedroom 2',      rects:[[10.1,4.5,13.5,8.2]], furnishable:true},
     {id:'mens',    name:"Men's Sitting",  rects:[[0,0,3.5,4.5],[1.6,4.5,3.5,7.6],[0,4.5,1.6,5.8]], furnishable:true},
     {id:'maid',    name:'Maid Room',      rects:[[1.3,9.1,3.4,11.0]], furnishable:true},
-    {id:'hall',    name:'Hallway',        rects:[[0,7.8,9.9,8.9],[8.4,2.3,9.9,7.8],[0,8.9,1.1,13.2]]},
+    {id:'hall',    name:'Hallway',        rects:[[0,7.8,9.9,8.9],[8.4,2.3,9.9,7.8]], lightPos:[[4.5,8.35],[9.15,4.9]]},
+    {id:'entry',   name:'Entrance',       rects:[[0,8.9,1.1,13.2]], furnishable:true, lightPos:[[0.55,11.0]]},   // the main door is at the south end of this strip
     {id:'mtoi',    name:'Bathroom',       rects:[[8.4,0,9.9,2.1]], tone:0.1},              // shared by bedrooms 1 & 2
     {id:'toi2',    name:'Master Toilet',  rects:[[6.7,3.8,8.2,6.0]], tone:0.1},            // 1.5 x 2.2, door from master
     {id:'toiL',    name:'Guest Toilet',   rects:[[0,5.9,1.4,7.6]], tone:0.1},              // tucked in the corner of men's sitting
@@ -1466,6 +1469,21 @@ function halfExtents(g){
   return {hw:(w*c + d*s)/2, hd:(w*s + d*c)/2};
 }
 
+/* the whole footprint must stand on floor (room rects + doorways). Samples every ~17 cm:
+   real walls leave a >=20 cm floorless strip between rooms, so nothing can bridge one,
+   while wall-less boundaries (kitchen/living/hallway) are seamless floor and pass freely */
+function footprintOnFloor(g){
+  const rd = realDims(g);
+  const w = rd.w * g.scale.x, d = rd.d * g.scale.z;
+  const c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y);
+  const nx = Math.max(2, Math.ceil(w/0.17) + 1), nz = Math.max(2, Math.ceil(d/0.17) + 1);
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++){
+    const ux = w*(i/(nx-1) - 0.5), uz = d*(j/(nz-1) - 0.5);
+    if (!canWalk(g.position.x + ux*c + uz*s, g.position.z - ux*s + uz*c)) return false;
+  }
+  return true;
+}
+
 function clampToRoom(g){
   const def = CATALOG[g.userData.type];
   const r = rectAt(g.position.x, g.position.z) || nearestRect(g.position.x, g.position.z);
@@ -1482,12 +1500,19 @@ function clampToRoom(g){
     g.userData.room = r.room.id;
     return;
   }
+  // open plan: anywhere the whole footprint stands on floor is fine — pieces slide
+  // freely across wall-less boundaries and only clamp when a real wall is in the way
+  if (footprintOnFloor(g)){
+    g.userData.room = r.room.id;
+    if (def.stack) applyStackY(g);                 // small items ride on tabletops
+    return;
+  }
   const {hw, hd} = halfExtents(g);
   const x1 = r.x1 + hw, x2 = r.x2 - hw, z1 = r.z1 + hd, z2 = r.z2 - hd;
   g.position.x = x1 > x2 ? (r.x1 + r.x2)/2 : THREE.MathUtils.clamp(g.position.x, x1, x2);
   g.position.z = z1 > z2 ? (r.z1 + r.z2)/2 : THREE.MathUtils.clamp(g.position.z, z1, z2);
   g.userData.room = r.room.id;
-  if (def.stack) applyStackY(g);                   // small items ride on tabletops
+  if (def.stack) applyStackY(g);
 }
 
 function applyStackY(g){
@@ -1901,7 +1926,8 @@ function smartPose(pose){
   me.g.rotation.y = best.rotY;
   setPoseVisual(role, pose);
   if (pose === 'sleep'){
-    me.g.position.set(best.x, best.def.h * best.it.scale.y - 0.06, best.z);     // resting ON the mattress
+    const off = Math.max(0.3, realDims(best.it).d * best.it.scale.z / 2 - 0.25);   // pivot is at the feet: shift foot-ward so the head lands on the pillow
+    me.g.position.set(best.x + Math.sin(best.rotY)*off, best.def.h * best.it.scale.y - 0.06, best.z + Math.cos(best.rotY)*off);
   } else {
     const fx = Math.sin(best.rotY), fz = Math.cos(best.rotY);                   // a touch forward so the backrest isn't in the body
     me.g.position.set(best.x + fx*0.12, (best.def.seat || 0.45) * best.it.scale.y - 0.3, best.z + fz*0.12);
@@ -2129,6 +2155,15 @@ function feedCat(){
     cat.throughDoor = false;
     cat.stuck = 0;
   }
+  if (cat.hungry){
+    if (!fb || !currentUser || catOwnerRole() === currentUser.role) clearCatHunger();
+    heartBurst(cat.g.position.x, 0.5, cat.g.position.z);
+    toast('Mimi is happy 💗');
+    logActivity('cat', 'fed Mimi 🐟');
+  }
+  if (fb && currentUser){                           // tell the cat-brain device (and the partner) she was fed
+    fb.D.set(fb.D.ref(fb.db, 'room/catfeed'), {by:currentUser.role, ts:Date.now()}).catch(() => {});
+  }
   progress.pets = (progress.pets || 0) + 1;
   jset(LS.progress, progress);
   if (progress.pets >= 5) unlock('cat-person');
@@ -2154,7 +2189,9 @@ function smartPoseAtItem(it, pose){
   me.g.rotation.y = it.rotation.y;
   setPoseVisual(currentUser.role, pose);
   if (pose === 'sleep'){
-    me.g.position.set(best.x, rdi.h * it.scale.y - 0.06, best.z);
+    // the body pivots at the FEET, so shift toward the foot of the bed — head lands on the pillow
+    const off = Math.max(0.3, rdi.d * it.scale.z / 2 - 0.25);
+    me.g.position.set(best.x + Math.sin(it.rotation.y)*off, rdi.h * it.scale.y - 0.06, best.z + Math.cos(it.rotation.y)*off);
   } else {
     me.g.position.set(best.x + Math.sin(it.rotation.y)*0.12, Math.max(0, (def.seat || 0.45) * it.scale.y - 0.3), best.z + Math.cos(it.rotation.y)*0.12);
   }
@@ -3107,7 +3144,28 @@ function buildCat(){
   g.position.set(11.5, 0, 11.5);
   g.userData.cat = true;
   scene.add(g);
-  cat = {g, legs, tail, state:'idle', t:1 + Math.random()*2, tx:11.5, tz:11.5, walkT:0, stuck:0};
+  cat = {g, legs, tail, state:'idle', t:1 + Math.random()*2, tx:11.5, tz:11.5, walkT:0, stuck:0,
+         hungry:false, hungerAt:performance.now() + (240 + Math.random()*240)*1000};   // first meal call 4-8 min in
+  setCatTag(false);
+}
+function setCatTag(hungry){
+  if (!cat || cat.tagHungry === hungry) return;
+  cat.tagHungry = hungry;
+  if (cat.tag){
+    cat.g.remove(cat.tag);
+    cat.tag.material.map.dispose();
+    cat.tag.material.dispose();
+  }
+  cat.tag = makeLabel(hungry ? 'Mimi 🍽️' : 'Mimi', hungry ? '#ffb36b' : '#f0a45f');
+  cat.tag.scale.set(1.15, 0.28, 1);
+  cat.tag.position.y = 0.55;
+  cat.g.add(cat.tag);
+}
+function clearCatHunger(){
+  if (!cat) return;
+  cat.hungry = false;
+  cat.hungerAt = performance.now() + (420 + Math.random()*420)*1000;   // full for 7-14 minutes
+  setCatTag(false);
 }
 buildCat();
 
@@ -3134,6 +3192,12 @@ function updateCat(dt){
   // when someone else runs the cat brain, just mirror what their cat does
   if (fb && currentUser && catOwnerRole() !== currentUser.role){
     if (remoteCat){
+      if (cat.hungry !== !!remoteCat.hun){         // adopt their hunger state so an ownership handoff is seamless
+        cat.hungry = !!remoteCat.hun;
+        setCatTag(cat.hungry);
+        if (cat.hungry){ playSound('meow'); toast('Mimi is hungry 🍽️ — tap her and choose Feed'); }
+        else cat.hungerAt = performance.now() + (420 + Math.random()*420)*1000;
+      }
       const dx = remoteCat.x - cat.g.position.x, dz = remoteCat.z - cat.g.position.z;
       const d = Math.hypot(dx, dz);
       if (d > 3){ cat.g.position.x = remoteCat.x; cat.g.position.z = remoteCat.z; return; }   // don't glide cats through walls
@@ -3150,7 +3214,31 @@ function updateCat(dt){
     }
     return;
   }
+  // Mimi's tummy clock — only the client running the cat brain decides
+  if (!cat.hungry && performance.now() > cat.hungerAt){
+    cat.hungry = true;
+    setCatTag(true);
+    playSound('meow');
+    toast('Mimi is hungry 🍽️ — tap her and choose Feed');
+  }
   if (fb && currentUser) pushCat();
+  if (cat.hungry && cat.state === 'idle' && cat.t <= 0.3){
+    // a hungry cat pesters the nearest person instead of wandering off
+    let near = null, ndd = Infinity;
+    for (const role of ['husband','wife','guest']){
+      const ch = chars[role];
+      if (!ch || !ch.g.visible) continue;
+      const dd = Math.hypot(ch.g.position.x - cat.g.position.x, ch.g.position.z - cat.g.position.z);
+      if (dd < ndd){ ndd = dd; near = ch; }
+    }
+    if (near && ndd > 0.9){
+      cat.tx = near.g.position.x + 0.35;
+      cat.tz = near.g.position.z + 0.35;
+      cat.state = 'walk';
+      cat.throughDoor = false;
+      cat.stuck = 0;
+    }
+  }
   if (cat.state === 'idle'){
     if (cat.t <= 0){
       // wander INSIDE the current room, or head for a doorway of this room (never through walls)
@@ -3335,7 +3423,7 @@ function pushCat(held){
   fb.D.set(fb.D.ref(fb.db, 'room/cat'), {
     x:+cat.g.position.x.toFixed(2), y:+cat.g.position.y.toFixed(2), z:+cat.g.position.z.toFixed(2),
     rotY:+cat.g.rotation.y.toFixed(2), m:cat.state === 'walk' ? 1 : 0,
-    hold:cat.carried ? 1 : 0,
+    hold:cat.carried ? 1 : 0, hun:cat.hungry ? 1 : 0,
     by:currentUser.role, ts:Date.now()
   }).catch(() => {});
 }
@@ -3504,6 +3592,19 @@ async function initSync(){
       const c = snap.val();
       if (c && c.by !== myRole && c.ts > sessionStart){
         refreshCatalog(false, false).then(n => { if (n) toast(`${nameFor(c.by)} added new furniture 🚚`); });
+      }
+    });
+    let lastFeedTs = 0;
+    D.onValue(D.ref(fb.db, 'room/catfeed'), snap => {
+      const c = snap.val();
+      if (c && c.by !== myRole && c.ts !== lastFeedTs && Date.now() - c.ts < 15000 && cat){
+        lastFeedTs = c.ts;
+        const who = c.by === 'guest' ? (remoteGuestName || 'A guest') : nameFor(c.by);
+        if (cat.hungry){
+          if (catOwnerRole() === myRole) clearCatHunger();   // the cat brain marks her fed; mirrors follow via room/cat
+          toast(`${who} fed Mimi 🐟`);
+        }
+        heartBurst(cat.g.position.x, 0.5, cat.g.position.z);
       }
     });
     let lastGestTs = 0;
