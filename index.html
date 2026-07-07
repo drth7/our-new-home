@@ -554,11 +554,11 @@ const PLAN = {
   rooms: [
     // kitchen + living are one open space (no wall between them) but count as separate rooms
     {id:'kitchen', name:'Kitchen',        rects:[[3.6,8.9,6.5,13.2]], furnishable:true, lightPos:[[5.0,11.0]]},
-    {id:'living',  name:'Living Hall',    rects:[[6.5,8.9,13.5,13.2],[9.9,8.4,13.5,8.9]], furnishable:true, lightPos:[[10.6,11.0]]},
+    {id:'living',  name:'Living Hall',    rects:[[6.5,8.9,13.5,13.2],[9.9,7.9,13.5,8.9]], furnishable:true, lightPos:[[10.6,11.0]]},
     {id:'dining',  name:'Dining',         rects:[[3.7,3.8,6.5,7.6]], furnishable:true},
     {id:'master',  name:'Master Bedroom', rects:[[3.7,0,8.2,3.6]], furnishable:true},
-    {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.6,13.5,4.3]], furnishable:true},   // 3.70 m deep, set back 0.60 m from the top (per the plan)
-    {id:'bed2',    name:'Bedroom 2',      rects:[[10.1,4.5,13.5,8.2]], furnishable:true},   // 3.70 m deep, flush against the living hall
+    {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.1,13.5,3.8]], furnishable:true},   // 3.70 m deep, flush with the building top
+    {id:'bed2',    name:'Bedroom 2',      rects:[[10.1,4.0,13.5,7.7]], furnishable:true},   // 3.70 m deep, ends at the hallway line
     {id:'mens',    name:"Men's Sitting",  rects:[[0,0,3.5,4.5],[1.6,4.5,3.5,7.6],[0,4.5,1.6,5.8]], furnishable:true},
     {id:'maid',    name:'Maid Room',      rects:[[1.3,9.1,3.4,11.0]], furnishable:true},
     {id:'hall',    name:'Hallway',        rects:[[0,7.8,9.9,8.9],[8.4,2.3,9.9,7.8]], lightPos:[[4.5,8.35],[9.15,4.9]]},
@@ -575,9 +575,9 @@ const PLAN = {
     // exterior
     {d:'h', pos:-0.1, from:-0.2, to:10.0, ops:[{t:'win', at:1.75, w:1.8},{t:'win', at:5.95, w:2.2}]},
     {d:'v', pos:10.0, from:-0.1, to:0.5},
-    {d:'h', pos:0.5,  from:9.9,  to:13.7},                                 // bedroom 1 north wall — 0.60 m setback from the building top
-    {d:'v', pos:13.6, from:0.5,  to:9.1,  ops:[{t:'win', at:2.45, w:1.6},{t:'win', at:6.35, w:1.6}]},   // bedroom windows, centred on each room
-    {d:'h', pos:8.3,  from:9.9,  to:13.7},                                   // bedroom 2 wall facing the living room — clean run
+    {d:'h', pos:-0.1, from:10.0, to:13.7},                                 // bedroom 1 north wall — flush with the building top (setback filled)
+    {d:'v', pos:13.6, from:-0.1, to:9.1,  ops:[{t:'win', at:1.95, w:1.6},{t:'win', at:5.85, w:1.6}]},   // bedroom windows, centred on each room
+    {d:'h', pos:7.8,  from:9.9,  to:13.7},                                   // bedroom 2 south wall — on the hallway line
     {d:'h', pos:9.0,  from:1.2,  to:3.6,  ops:[{t:'door', at:2.4, w:0.9}]},  // maid room: door faces the men's sitting side
     {d:'h', pos:9.0,  from:13.6, to:14.8},                                   // balcony north edge
     {d:'v', pos:-0.1, from:-0.2, to:13.4, ops:[{t:'win', at:6.7, w:0.6},{t:'door', at:12.7, w:1.0}]},   // no window on the men's-sitting west side
@@ -593,8 +593,8 @@ const PLAN = {
     {d:'h', pos:3.7,  from:3.6,  to:8.4,  ops:[{t:'door', at:7.45, w:0.75}]},  // master toilet door: from the master bedroom
     {d:'v', pos:8.3,  from:-0.1, to:7.7,  ops:[{t:'door', at:2.9, w:0.9}]},
     {d:'h', pos:2.2,  from:8.2,  to:10.0, ops:[{t:'door', at:9.1, w:0.8}]},   // shared bathroom door on the corridor
-    {d:'v', pos:10.0, from:0.5,  to:8.4,  ops:[{t:'door', at:3.5, w:0.9},{t:'door', at:5.4, w:0.9}]},
-    {d:'h', pos:4.4,  from:10.0, to:13.7},                                // wall between bedroom 1 and bedroom 2
+    {d:'v', pos:10.0, from:0.5,  to:7.8,  ops:[{t:'door', at:3.4, w:0.9},{t:'door', at:5.2, w:0.9}]},   // bedrooms' west wall + doors from the corridor
+    {d:'h', pos:3.9,  from:10.0, to:13.7},                                // wall between bedroom 1 and bedroom 2
     {d:'v', pos:3.6,  from:4.4,  to:7.8,  ops:[{t:'arch', at:6.0, w:1.5}]},
     {d:'h', pos:7.7,  from:3.6,  to:8.4,  ops:[{t:'arch', at:5.2, w:1.6}]},
     {d:'v', pos:6.6,  from:3.7,  to:7.7},                                  // master toilet + void, west side
@@ -874,7 +874,7 @@ function buildPlan(){
       f.userData.floor = true;
       roomGroup.add(f);
       floorMeshes.push(f);
-      const grid = makeGridWorld(rc[0], rc[1], rc[2], rc[3], 0.5, t.grid);
+      const grid = makeGridWorld(rc[0], rc[1], rc[2], rc[3], 1, t.grid);   // 2D plan grid: 1 m x 1 m cells
       grid.position.y = 0.003;
       grid.visible = view === '2d';
       grid.userData.grid = true;
