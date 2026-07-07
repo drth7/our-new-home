@@ -191,9 +191,11 @@ body.guest #radial button[data-act="kiss"]{display:none}
 .szrow{display:flex;align-items:center;gap:8px}
 .szrow span{width:52px;font-size:12px;color:var(--muted);font-weight:700}
 .szrow b{width:70px;text-align:center;font-size:13.5px}
+.szval{width:70px;text-align:center;font-size:13.5px;font-weight:700;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 2px;font-family:inherit;-webkit-user-select:text;user-select:text}
+.szval:focus{border-color:var(--accent);outline:none}
 .szbtn{width:36px;height:36px;border:none;border-radius:9px;background:var(--btn);color:var(--text);font-size:16px;font-weight:800;cursor:pointer}
 
-body.guest #addBtn,body.guest #achBtn,body.guest .rbtn[data-a="rn"],body.guest .rbtn[data-a="lt"],
+body.guest #addBtn,body.guest #undoBtn,body.guest #achBtn,body.guest .rbtn[data-a="rn"],body.guest .rbtn[data-a="lt"],
 body.guest #secProfile,body.guest #secEnv,body.guest #secLayout{display:none!important}
 #guestNote{display:none;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted)}
 body.guest #guestNote{display:block}
@@ -233,6 +235,7 @@ body.guest #guestNote{display:block}
 
 <div id="bottombar" class="bar">
   <button class="iconbtn" id="addBtn">＋ Add</button>
+  <button class="iconbtn" id="undoBtn" title="Undo">↩️</button>
   <button class="iconbtn" id="shotBtn" title="Screenshot">📷</button>
   <button class="iconbtn" id="achBtn" title="Achievements">🏆</button>
   <button class="iconbtn" id="actBtn" title="Activity">🔔<span id="actBadge"></span></button>
@@ -270,9 +273,9 @@ body.guest #guestNote{display:block}
 <div id="radial"></div>
 
 <div id="sizePanel">
-  <div class="szrow"><span>Width</span><button class="szbtn" data-d="x" data-s="-1">−</button><b id="szX"></b><button class="szbtn" data-d="x" data-s="1">＋</button></div>
-  <div class="szrow"><span>Depth</span><button class="szbtn" data-d="z" data-s="-1">−</button><b id="szZ"></b><button class="szbtn" data-d="z" data-s="1">＋</button></div>
-  <div class="szrow"><span>Height</span><button class="szbtn" data-d="y" data-s="-1">−</button><b id="szY"></b><button class="szbtn" data-d="y" data-s="1">＋</button></div>
+  <div class="szrow"><span>Width</span><button class="szbtn" data-d="x" data-s="-1">−</button><input class="szval" id="szX" inputmode="numeric" data-d="x"><button class="szbtn" data-d="x" data-s="1">＋</button></div>
+  <div class="szrow"><span>Depth</span><button class="szbtn" data-d="z" data-s="-1">−</button><input class="szval" id="szZ" inputmode="numeric" data-d="z"><button class="szbtn" data-d="z" data-s="1">＋</button></div>
+  <div class="szrow"><span>Height</span><button class="szbtn" data-d="y" data-s="-1">−</button><input class="szval" id="szY" inputmode="numeric" data-d="y"><button class="szbtn" data-d="y" data-s="1">＋</button></div>
   <div class="szrow" id="szHangRow"><span>Raise</span><button class="szbtn" data-d="hang" data-s="-1">▼</button><b id="szHang"></b><button class="szbtn" data-d="hang" data-s="1">▲</button></div>
 </div>
 
@@ -378,7 +381,11 @@ const CATALOG = {
   ochair:    {name:'Office chair', cat:'Seating',  w:0.62, d:0.62, h:1.05, color:'#3f454d', seat:0.48},
   stool:     {name:'Stool',        cat:'Seating',  w:0.40, d:0.40, h:0.45, color:'#b08a5d', seat:0.45},
   table:     {name:'Dining table', cat:'Tables',   w:1.60, d:0.90, h:0.75, color:'#a97d4f', surface:true},
+  tableround:{name:'Round table',  cat:'Tables',   w:1.20, d:1.20, h:0.75, color:'#a97d4f', surface:true, round:true},
+  tablebig:  {name:'Round 6-seat', cat:'Tables',   w:1.50, d:1.50, h:0.75, color:'#9b7b52', surface:true, round:true},
+  tableoval: {name:'Oval table',   cat:'Tables',   w:1.90, d:1.10, h:0.75, color:'#b08a5d', surface:true, round:true},
   coffee:    {name:'Coffee table', cat:'Tables',   w:1.00, d:0.60, h:0.45, color:'#b08a5d', surface:true},
+  coffeeround:{name:'Round coffee',cat:'Tables',   w:0.80, d:0.80, h:0.42, color:'#b08a5d', surface:true, round:true},
   sidetable: {name:'Side table',   cat:'Tables',   w:0.50, d:0.50, h:0.55, color:'#9b8468', surface:true},
   desk:      {name:'Desk',         cat:'Tables',   w:1.40, d:0.70, h:0.75, color:'#8d8d94', surface:true},
   pcdesk:    {name:'PC desk',      cat:'Tables',   w:1.40, d:0.70, h:0.75, color:'#5b6472', surface:true},
@@ -410,7 +417,14 @@ const CATALOG = {
   painting3: {name:'Painting XL',  cat:'Art',      w:1.00, d:0.06, h:1.00, color:'#8a8178', wall:true},
   mirrorw:   {name:'Wall mirror',  cat:'Art',      w:0.55, d:0.06, h:1.20, color:'#b8a988', wall:true},
   easel:     {name:'Easel',        cat:'Art',      w:0.70, d:0.70, h:1.65, color:'#a58a5f'},
+  curtainwin:{name:'Window curtain',cat:'Art',     w:1.80, d:0.16, h:1.60, color:'#c9b8a0', wall:true, curtain:true},
+  curtainfull:{name:'Full curtain',cat:'Art',      w:2.60, d:0.18, h:2.30, color:'#b0a0b8', wall:true, curtain:true},
   rug:       {name:'Rug',          cat:'Decor',    w:2.00, d:1.40, h:0.02, color:'#7a6aa0'},
+  ruground:  {name:'Round rug',    cat:'Decor',    w:1.70, d:1.70, h:0.02, color:'#8a6a9a', round:true},
+  rugsq:     {name:'Rounded rug',  cat:'Decor',    w:1.80, d:1.80, h:0.02, color:'#6a8a7a', soft:true},
+  rugrun:    {name:'Hall runner',  cat:'Decor',    w:0.90, d:4.00, h:0.02, color:'#9a6a5a', soft:true},
+  rugrun2:   {name:'Long runner',  cat:'Decor',    w:1.00, d:6.50, h:0.02, color:'#5a6a8a', soft:true},
+  rugpersian:{name:'Patterned rug',cat:'Decor',    w:2.20, d:1.50, h:0.02, color:'#8a3a3a'},
   plant:     {name:'Plant',        cat:'Decor',    w:0.45, d:0.45, h:1.20, color:'#5f9d68', stack:true},
   lamp1:     {name:'Floor lamp',   cat:'Decor',    w:0.35, d:0.35, h:1.55, color:'#8a7a5e'},
   lamp2:     {name:'Tripod lamp',  cat:'Decor',    w:0.48, d:0.48, h:1.45, color:'#c9a86a'},
@@ -910,6 +924,7 @@ function buildPlan(){
     }
   }
   PLAN.walls.forEach((w, wi) => roomGroup.add(buildWall(w, wi, glassMat, t.wall)));
+  dbl(roomGroup);                                   // walls, floors, ceilings all two-sided
   scene.add(roomGroup);
   applyViewToPlan();
   updateSun();
@@ -974,6 +989,15 @@ function block(w, h, d, mat){
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.castShadow = true; m.receiveShadow = true;
   return m;
+}
+
+// render every material from both sides — thin panels (curtains, rugs, shelves, models) no longer vanish from behind
+function dbl(root){
+  root.traverse(o => {
+    const m = o.material;
+    if (!m) return;
+    (Array.isArray(m) ? m : [m]).forEach(x => { x.side = THREE.DoubleSide; x.shadowSide = THREE.DoubleSide; });
+  });
 }
 
 /* ---------- model library runtime: load, normalize, texture, thumbnail ---------- */
@@ -1240,6 +1264,24 @@ function buildFurniture(type){
       legs(dark, h - 0.06);
       break;
     }
+    case 'tableround': case 'tablebig': case 'tableoval': case 'coffeeround': {
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 40), main);
+      top.scale.set(w, 1, d);                        // ellipse for the oval, circle when w==d
+      top.position.y = h - 0.03; top.castShadow = true; top.receiveShadow = true; g.add(top);
+      if (type === 'tableoval'){                     // oval on four legs, inset to stay under the top
+        for (const [sx, sz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
+          const l = block(0.06, h - 0.06, 0.06, dark);
+          l.position.set(sx * w*0.36, (h - 0.06)/2, sz * d*0.30);
+          g.add(l);
+        }
+      } else {                                       // round tables on a central pedestal
+        const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.10, h - 0.09, 14), dark);
+        ped.position.y = (h - 0.09)/2 + 0.03; ped.castShadow = true; g.add(ped);
+        const foot = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(w, d)*0.26, Math.min(w, d)*0.28, 0.04, 24), dark);
+        foot.position.y = 0.02; foot.castShadow = true; g.add(foot);
+      }
+      break;
+    }
     case 'pcdesk': {
       const top = block(w, 0.06, d, main); top.position.y = h - 0.03; g.add(top);
       legs(dark, h - 0.06);
@@ -1335,11 +1377,33 @@ function buildFurniture(type){
       const hd = block(0.03, 0.5, 0.02, dark); hd.position.set(-w/2 + 0.08, h*0.55, d/2 + 0.012); g.add(hd);
       break;
     }
-    case 'rug': {
+    case 'rug': case 'rugsq': case 'rugrun': case 'rugrun2': case 'rugpersian': {
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.02, d), main);
       b.position.y = 0.01; b.receiveShadow = true; g.add(b);
       const inner = new THREE.Mesh(new THREE.BoxGeometry(w*0.85, 0.021, d*0.82), lite);
       inner.position.y = 0.012; inner.receiveShadow = true; g.add(inner);
+      if (type === 'rugpersian'){                    // a centre medallion + border for a patterned look
+        const med = new THREE.Mesh(new THREE.BoxGeometry(w*0.45, 0.022, d*0.45), dark);
+        med.position.y = 0.013; g.add(med);
+      }
+      break;
+    }
+    case 'ruground': {                               // circular rug in concentric rings
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(w/2, w/2, 0.02, 44), main); b.position.y = 0.01; b.receiveShadow = true; g.add(b);
+      const r1 = new THREE.Mesh(new THREE.CylinderGeometry(w*0.36, w*0.36, 0.021, 44), lite); r1.position.y = 0.012; g.add(r1);
+      const r2 = new THREE.Mesh(new THREE.CylinderGeometry(w*0.16, w*0.16, 0.022, 44), dark); r2.position.y = 0.013; g.add(r2);
+      break;
+    }
+    case 'curtainwin': case 'curtainfull': {         // fabric panel that hangs on a wall (like art)
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, w + 0.12, 10), dark);
+      rod.rotation.z = Math.PI/2; rod.position.set(0, 1.5 + h/2 - 0.03, d/2 - 0.03); g.add(rod);
+      const n = Math.max(6, Math.round(w/0.16));
+      const pw = w/n;
+      for (let i = 0; i < n; i++){                   // vertical folds, alternating depth for a pleated look
+        const fold = block(pw*0.96, h, 0.05, main);
+        fold.position.set(-w/2 + pw*(i + 0.5), 1.5, d/2 - 0.05 - (i % 2) * 0.035);
+        g.add(fold);
+      }
       break;
     }
     case 'painting1': case 'painting2': case 'painting3': {
@@ -1429,6 +1493,7 @@ function buildFurniture(type){
           if (def.wall) inst.position.y += 1.5 - def.h/2;   // wall models hang at painting height
           g.remove(ph);
           ph.geometry.dispose(); ph.material.dispose();
+          dbl(inst);                                 // imported models render from both sides too
           g.add(inst);
           g.userData.realW = inst.userData.fit.w;  // real measured footprint drives collision & measurements
           g.userData.realD = inst.userData.fit.d;
@@ -1436,13 +1501,14 @@ function buildFurniture(type){
           if (g.userData.tint) applyTint(g, g.userData.tint);
           clampToRoom(g);                          // re-clamp with the true footprint
           if (sel === g){ updateMeasure(); refreshSizePanel(); }
-          items.forEach(o => { if (CATALOG[o.userData.type].stack) applyStackY(o); });  // riders adjust to the real top
+          items.forEach(o => applyStackY(o));  // riders adjust to the real top once the model's height is known
         });
       } else {
         const b = block(w, h, d, main); b.position.y = h/2; g.add(b);
       }
     }
   }
+  dbl(g);
   return g;
 }
 
@@ -1509,7 +1575,7 @@ function clampToRoom(g){
   // freely across wall-less boundaries and only clamp when a real wall is in the way
   if (footprintOnFloor(g)){
     g.userData.room = r.room.id;
-    if (def.stack) applyStackY(g);                 // small items ride on tabletops
+    applyStackY(g);                                 // ride on top of any piece underneath
     return;
   }
   const {hw, hd} = halfExtents(g);
@@ -1517,21 +1583,27 @@ function clampToRoom(g){
   g.position.x = x1 > x2 ? (r.x1 + r.x2)/2 : THREE.MathUtils.clamp(g.position.x, x1, x2);
   g.position.z = z1 > z2 ? (r.z1 + r.z2)/2 : THREE.MathUtils.clamp(g.position.z, z1, z2);
   g.userData.room = r.room.id;
-  if (def.stack) applyStackY(g);
+  applyStackY(g);
 }
 
+// the height of the surface an item offers to whatever sits on it
+function stackTopOf(it){
+  const d2 = CATALOG[it.userData.type];
+  const base = it.position.y || 0;                  // in case this piece is itself stacked on something
+  if (d2.surface) return base + (it.userData.realH ?? d2.h) * it.scale.y;   // tabletop
+  if (d2.seat && !d2.bed) return base + d2.seat * it.scale.y;               // chair seat
+  return base + (it.userData.realH ?? d2.h) * it.scale.y;                   // solid top (washer, fridge, bed…)
+}
+// any piece dropped so its centre sits over another piece rides on top of it (stack two washers, etc.)
 function applyStackY(g){
   let top = 0;
   for (const it of items){
     if (it === g) continue;
     const d2 = CATALOG[it.userData.type];
-    if (!d2.surface && !d2.seat) continue;         // tables AND chair seats hold things
+    if (d2.wall || d2.h <= 0.05) continue;          // don't perch on wall art or flat rugs
     const {hw, hd} = halfExtents(it);
     if (Math.abs(g.position.x - it.position.x) < hw && Math.abs(g.position.z - it.position.z) < hd){
-      const surfH = d2.surface
-        ? (it.userData.realH ?? d2.h) * it.scale.y
-        : d2.seat * it.scale.y;                    // a chair carries things at seat height
-      top = Math.max(top, surfH);
+      top = Math.max(top, stackTopOf(it));
     }
   }
   g.position.y = top;
@@ -1789,6 +1861,7 @@ function makeCharacter(role){
   holder.position.set(p.x, 0, p.z);
   holder.rotation.y = p.rotY || 0;
   charGroup.add(holder);
+  dbl(holder);
   chars[role] = {g:holder, inner, bones, rest, legs, tag, moving:false, walkT:0};
   return chars[role];
 }
@@ -2285,6 +2358,7 @@ function addFurniture(type, opts = {}){
   const def = CATALOG[type];
   if (!def) return null;
   if (!opts.silent && !canEdit()) return null;
+  if (!opts.silent) pushUndo();                    // snapshot before placing a new piece
   const g = buildFurniture(type);
   g.userData.id = opts.id || ('f' + Date.now().toString(36) + (nextId++));
   g.userData.type = type;
@@ -2360,17 +2434,23 @@ function deselect(){
   if (typeof dropMarker !== 'undefined') dropMarker.visible = false;
 }
 
-const _box = new THREE.Box3(), _v = new THREE.Vector3();
+const _box = new THREE.Box3(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
 function updateSelPos(){
   if (!sel) return;
   _box.setFromObject(sel);
   _v.set((_box.min.x + _box.max.x)/2, _box.max.y, (_box.min.z + _box.max.z)/2);
   _v.project(activeCam());
   const x = (_v.x * 0.5 + 0.5) * innerWidth;
-  const y = (-_v.y * 0.5 + 0.5) * innerHeight;
+  let y = (-_v.y * 0.5 + 0.5) * innerHeight;
+  if (view === '2d'){
+    // top-down: the widget would sit right on the piece and hide it — anchor it just above the piece's north edge
+    _v2.set((_box.min.x + _box.max.x)/2, _box.max.y, _box.min.z);
+    _v2.project(activeCam());
+    y = (-_v2.y * 0.5 + 0.5) * innerHeight - 6;
+  }
   pill.style.left = Math.min(Math.max(x, 84), innerWidth - 84) + 'px';
   pill.style.top  = Math.min(Math.max(y - 14, 128), innerHeight - 130) + 'px';
-  const sp = $('sizePanel');                                       // size widget sits on top of the piece, above the pill
+  const sp = $('sizePanel');                                       // size widget sits above the pill
   if (sp.classList.contains('on')){
     sp.style.left = Math.min(Math.max(x, 110), innerWidth - 110) + 'px';
     sp.style.top  = Math.max(y - 14 - pill.offsetHeight - 10, 170) + 'px';
@@ -2394,6 +2474,7 @@ function updateMeasure(){
 
 function rotateSel(){
   if (!sel || !canEdit()) return;
+  pushUndo();
   sel.rotation.y = (sel.rotation.y + Math.PI/4) % (Math.PI*2);
   clampToRoom(sel);
   updateMeasure();
@@ -2403,6 +2484,7 @@ function rotateSel(){
 
 function deleteSel(){
   if (!sel || !canEdit()) return;
+  pushUndo();
   const g = sel;
   deselect();
   furnGroup.remove(g);
@@ -2472,21 +2554,18 @@ renderer.domElement.addEventListener('pointerdown', e => {
   }
   {
     const pc = pickChar(e);
-    if (pc && currentUser && pc.role === currentUser.role){  // your own character
-      if (view === 'tp'){                                    // walk view: you ARE this character — no dragging yourself
-        downCharRole = 'self';                               // tap = your own menu (stand up / wave)
+    if (pc){
+      const own = currentUser && pc.role === currentUser.role;
+      const canDragOther = !own && canEdit() && !remoteOnline[pc.role];   // reposition a partner only while they're offline
+      if (view !== 'tp' && (own || canDragOther)){            // 3D/2D: drag to move; tap opens a menu
+        dragChar = pc.c;
+        orbit.enabled = false; pan.enabled = false;
+        if (floorPoint(e, _p)) dragOff.subVectors(pc.c.g.position, _p); else dragOff.set(0, 0, 0);
+        renderer.domElement.setPointerCapture(e.pointerId);
         e.stopPropagation();
         return;
       }
-      dragChar = pc.c;                                       // 3D/2D: drag = set the player start; tap = menu
-      orbit.enabled = false; pan.enabled = false;
-      if (floorPoint(e, _p)) dragOff.subVectors(pc.c.g.position, _p); else dragOff.set(0, 0, 0);
-      renderer.domElement.setPointerCapture(e.pointerId);
-      e.stopPropagation();
-      return;
-    }
-    if (pc){                                                 // someone else's character: tap = interact
-      downCharRole = pc.role;
+      downCharRole = own ? 'self' : pc.role;                 // walk view (or online partner): tap only
       e.stopPropagation();
       return;
     }
@@ -2540,7 +2619,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   }
   if (dragChar){
     if (!floorPoint(e, _p)) return;
-    moved = true;
+    if (!moved){ moved = true; pushUndo(); }
     let nx = Math.round((_p.x + dragOff.x) * 20) / 20, nz = Math.round((_p.z + dragOff.z) * 20) / 20;
     if (!canWalk(nx, nz)){
       const r = nearestRect(nx, nz);
@@ -2560,7 +2639,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   }
   if (!dragging || !sel) return;
   if (!floorPoint(e, _p)) return;
-  if (Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) > 4) moved = true;
+  if (!moved && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) > 4){ moved = true; pushUndo(); }
   const ox = sel.position.x, oz = sel.position.z;
   sel.position.x = Math.round((_p.x + dragOff.x) * 100) / 100;   // 1 cm — light snap so the lean feels natural
   sel.position.z = Math.round((_p.z + dragOff.z) * 100) / 100;
@@ -2594,7 +2673,10 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (!moved){
       dragChar.g.position.y = 0;
       dragChar.dragFall = false;
-      openRadial(e.clientX, e.clientY);            // tap on your character -> pose menu
+      const role = dragChar.g.userData.role;       // tap (no drag): open that character's anchored menu
+      const kind = role === currentUser?.role ? 'self'
+        : (currentUser && currentUser.role !== 'guest' && role === partnerRole()) ? 'partner' : 'other';
+      openRadial(e.clientX, e.clientY, kind, dragChar.g, 1.0);
     } else {
       charFalls.push({c:dragChar, v:0});           // let go: fall to the floor and land
       const role = dragChar.g.userData.role;
@@ -2603,7 +2685,7 @@ renderer.domElement.addEventListener('pointerup', e => {
         rotY:+dragChar.g.rotation.y.toFixed(3), pose:'stand'
       };
       if (canEdit()) scheduleSave();
-      pushPlayer(true);
+      if (role === currentUser?.role) pushPlayer(true);   // only stream your OWN position live
     }
     dragChar = null;
     orbit.enabled = view === '3d';
@@ -2683,6 +2765,21 @@ renderer.domElement.addEventListener('pointerup', e => {
   downAt = null;
 }, true);
 
+// iPhone safety net: if a touch is interrupted (pointercancel, or capture lost) the pointerup can go missing,
+// leaving drag flags stuck so nothing responds until reload. Force everything back to a clean idle state.
+function resetPointerState(){
+  if (cat && cat.carried){ cat.carried = false; cat.g.position.y = 0; cat.state = 'idle'; cat.t = 1; }
+  if (dragChar){ dragChar.dragFall = false; dragChar.g.position.y = 0; }
+  dragging = false; dragChar = null; downCat = false; looking = false;
+  downCharRole = null; downAt = null; lookLast = null; moved = false;
+  orbit.enabled = view === '3d'; pan.enabled = view === '2d';
+  if (typeof dropMarker !== 'undefined') dropMarker.visible = false;
+  if (typeof setTempGrid === 'function') setTempGrid(false);
+}
+renderer.domElement.addEventListener('pointercancel', resetPointerState);
+renderer.domElement.addEventListener('lostpointercapture', () => { if (dragging || dragChar || downCat || looking) resetPointerState(); });
+addEventListener('blur', resetPointerState);
+
 function pickWall(e){
   if (view !== '2d' && view !== '3d') return null;
   setNdc(e);
@@ -2751,10 +2848,12 @@ function openRadial(x, y, kind = 'self', anchor = null, anchorH = 1.0){
 function closeRadial(){ radial.classList.remove('on'); radialAnchor = null; }
 function updateRadialPos(){
   if (!radialAnchor || !radial.classList.contains('on')) return;
-  radialAnchor.getWorldPosition(_v);
-  _v.y += radialAnchorH;
+  // exactly like the furniture widget: take the target's world bounding box and project its centre
+  _box.setFromObject(radialAnchor);
+  if (!isFinite(_box.min.x)){ radialAnchor.getWorldPosition(_v); _v.y += radialAnchorH; }
+  else _v.set((_box.min.x + _box.max.x)/2, (_box.min.y + _box.max.y)/2, (_box.min.z + _box.max.z)/2);
   _v.project(activeCam());
-  if (_v.z > 1){ closeRadial(); return; }          // target went behind the camera
+  if (_v.z > 1){ closeRadial(); return; }           // target went behind the camera
   const x = (_v.x * 0.5 + 0.5) * innerWidth, y = (-_v.y * 0.5 + 0.5) * innerHeight;
   radial.style.left = Math.min(Math.max(x, 80), innerWidth - 80) + 'px';
   radial.style.top = Math.min(Math.max(y, 110), innerHeight - 110) + 'px';
@@ -2771,8 +2870,10 @@ function doRadialAct(act){
 /* -------- per-wall paint pill -------- */
 const wallPill = $('wallPill'), wallTint = $('wallTint');
 let selWallIdx = null;
+let wallPaintDirty = false;
 function openWallPill(wi, x, y){
   selWallIdx = wi;
+  wallPaintDirty = false;
   const cur = wallColors[wi] || wallColor || ('#' + new THREE.Color(SCENES[theme].wall).getHexString());
   wallTint.value = /^#[0-9a-f]{6}$/i.test(cur) ? cur : '#8fa1b3';
   wallPill.style.left = Math.min(Math.max(x, 95), innerWidth - 95) + 'px';
@@ -2781,6 +2882,7 @@ function openWallPill(wi, x, y){
 }
 wallTint.addEventListener('input', () => {
   if (selWallIdx == null) return;
+  if (!wallPaintDirty){ wallPaintDirty = true; pushUndo(); }   // snapshot once, before the first colour change
   wallColors[selWallIdx] = wallTint.value;
   if (wallMats[selWallIdx]) wallMats[selWallIdx].color.set(wallTint.value);
 });
@@ -2800,6 +2902,7 @@ $('wallClose').onclick = () => { wallPill.classList.remove('on'); selWallIdx = n
 renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
 addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')){ e.preventDefault(); doUndo(); return; }
   if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
   keys[e.key.toLowerCase()] = true;
   if (e.key === 'r' || e.key === 'R') rotateSel();
@@ -2848,7 +2951,7 @@ function loadData(data){
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   buildPlan();
   (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));
-  items.forEach(g => { if (CATALOG[g.userData.type].stack) applyStackY(g); });   // surfaces may load after their riders
+  items.forEach(g => applyStackY(g));   // re-settle stacks: a surface may load after the piece resting on it
   syncCharacters();
   syncSettingsUI();
   renderRooms();
@@ -2859,6 +2962,26 @@ let saveTimer;
 function scheduleSave(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { saveLocal(); pushLayout(); }, 400);   // every edit also goes live when connected
+}
+
+/* -------- undo: snapshot the whole layout before each edit -------- */
+const undoStack = [];
+function pushUndo(){
+  try{
+    undoStack.push(JSON.stringify(serialize()));
+    if (undoStack.length > 40) undoStack.shift();
+  }catch(e){}
+  updateUndoBtn();
+}
+function doUndo(){
+  if (!undoStack.length || !canEdit()){ toast('Nothing to undo'); return; }
+  const snap = undoStack.pop();
+  try{ loadData(JSON.parse(snap)); scheduleSave(); toast('Undone ↩️'); }catch(e){}
+  updateUndoBtn();
+}
+function updateUndoBtn(){
+  const b = $('undoBtn');
+  if (b) b.style.opacity = undoStack.length ? '1' : '0.4';
 }
 
 function exportLayout(){
@@ -3230,6 +3353,7 @@ function clearCatHunger(){
   setCatTag(false);
 }
 buildCat();
+dbl(cat.g);
 
 function updateCat(dt){
   if (!cat) return;
@@ -3484,12 +3608,19 @@ function spawnDirtWave(){
   let i = 0;
   const drop = () => {
     if (!dirtWaveActive) return;                        // cleaned or reset mid-wave
-    const r = rooms[Math.floor(Math.random()*rooms.length)];
-    const rc = r.rects[Math.floor(Math.random()*r.rects.length)];
+    // find an open floor spot NOT under any furniture, so you never have to move a piece to clean
+    let x, z, ok = false;
+    for (let tries = 0; tries < 16 && !ok; tries++){
+      const r = rooms[Math.floor(Math.random()*rooms.length)];
+      const rc = r.rects[Math.floor(Math.random()*r.rects.length)];
+      x = +(rc[0] + 0.4 + Math.random()*(rc[2]-rc[0]-0.8)).toFixed(2);
+      z = +(rc[1] + 0.4 + Math.random()*(rc[3]-rc[1]-0.8)).toFixed(2);
+      ok = !hitsFurniture(x, z);
+    }
+    if (!ok){ if (i < n) setTimeout(drop, 300); return; }   // couldn't find a clear spot; try again shortly
     const id = 'd' + Date.now().toString(36) + i;
     dirtState[id] = {
-      x:+(rc[0] + 0.4 + Math.random()*(rc[2]-rc[0]-0.8)).toFixed(2),
-      z:+(rc[1] + 0.4 + Math.random()*(rc[3]-rc[1]-0.8)).toFixed(2),
+      x, z,
       r:+(0.22 + Math.random()*0.16).toFixed(2),
       rot:+(Math.random()*Math.PI*2).toFixed(2),
       h:0
@@ -4112,6 +4243,8 @@ $('achBtn').onclick = () => {
 $('closeAch').onclick = closeOverlays;
 
 $('shotBtn').onclick = shareScreenshot;
+$('undoBtn').onclick = doUndo;
+updateUndoBtn();
 viewBtn.onclick = () => $('viewMenu').classList.toggle('on');
 $('viewMenu').querySelectorAll('button').forEach(b => b.onclick = () => setView(b.dataset.v));
 themeBtn.onclick = () => {
@@ -4138,9 +4271,10 @@ function refreshSizePanel(){
   if (!sel){ sizePanel.classList.remove('on'); return; }
   const def = CATALOG[sel.userData.type];
   const rd = realDims(sel);
-  $('szX').textContent = Math.round(rd.w * 100 * sel.scale.x) + ' cm';
-  $('szZ').textContent = Math.round(rd.d * 100 * sel.scale.z) + ' cm';
-  $('szY').textContent = Math.round(rd.h * 100 * sel.scale.y) + ' cm';
+  const setv = (id, cm) => { const el = $(id); if (document.activeElement !== el) el.value = cm; };   // don't clobber while typing
+  setv('szX', Math.round(rd.w * 100 * sel.scale.x));
+  setv('szZ', Math.round(rd.d * 100 * sel.scale.z));
+  setv('szY', Math.round(rd.h * 100 * sel.scale.y));
   $('szHangRow').style.display = def.wall ? 'flex' : 'none';
   if (def.wall) $('szHang').textContent = Math.round((sel.userData.hangY || 1.5) * 100) + ' cm';
 }
@@ -4151,11 +4285,31 @@ $('sizeBtn').onclick = () => {
   refreshSizePanel();
 };
 
+// type an exact size in cm into the field (click the number), or use the − / ＋ buttons for ±5 cm
+function setDim(axis, cm){
+  if (!sel || !(cm > 0)) return;
+  const rd = realDims(sel);
+  const base = axis === 'x' ? rd.w : axis === 'z' ? rd.d : rd.h;   // size in metres at scale 1
+  pushUndo();
+  sel.scale[axis] = THREE.MathUtils.clamp((cm/100) / base, 0.3, 3);
+  clampToRoom(sel);
+  updateMeasure();
+  refreshSizePanel();
+  scheduleSave();
+  unlock('made-to-measure');
+}
+['szX','szZ','szY'].forEach(id => {
+  const el = $(id);
+  el.addEventListener('focus', () => el.select());
+  el.addEventListener('change', () => { const v = parseFloat(el.value); if (isFinite(v)) setDim(el.dataset.d, v); });
+  el.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); el.blur(); } });
+});
+
 sizePanel.querySelectorAll('.szbtn').forEach(b => b.onclick = () => {
   if (!sel) return;
-  const def = CATALOG[sel.userData.type];
   const axis = b.dataset.d, dir = +b.dataset.s;
   if (axis === 'hang'){                            // wall art rides up and down the wall
+    pushUndo();
     sel.userData.hangY = THREE.MathUtils.clamp((sel.userData.hangY || 1.5) + dir*0.1, 0.7, 2.2);
     sel.position.y = sel.userData.hangY - 1.5;
     refreshSizePanel();
@@ -4166,6 +4320,7 @@ sizePanel.querySelectorAll('.szbtn').forEach(b => b.onclick = () => {
   const base = axis === 'x' ? rd.w : axis === 'z' ? rd.d : rd.h;
   const cur = sel.scale[axis];
   const next = Math.min(3, Math.max(0.3, (Math.round(base * 100 * cur / 5) * 5 + dir * 5) / (base * 100)));
+  pushUndo();
   sel.scale[axis] = next;
   clampToRoom(sel);
   updateMeasure();
@@ -4181,6 +4336,7 @@ const WALL_PRESETS = ['#f2ede4','#e8dcc8','#d9c6a5','#aab5c2','#9db5a0','#d8aab8
 
 function applyWallColor(c){
   if (!canEdit()) return;
+  pushUndo();
   wallColor = c;                                   // null = theme default; always clears per-wall paint
   wallColors = {};
   buildPlan();
@@ -4507,8 +4663,8 @@ syncCharacters();
 onResize();
 frameCameras();
 setView('3d');
-if (dynamicTime) applyDayNight();                  // resume live time-of-day if it was left on
-else applyTimeOfDay(dayTime);                       // otherwise restore the last chosen time
+if (dynamicTime) applyDayNight();                  // resume live time-of-day only if it was left on
+// otherwise keep exactly what was saved: theme from applyTheme() above, sun angle from the loaded layout
 updateDayNightBtn();
 syncSettingsUI();
 renderActivity();
