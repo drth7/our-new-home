@@ -588,5 +588,14 @@
         "w":  1.1,
         "d":  0.6,
         "h":  1.2
+    },
+    {
+        "id":  "x_arteasel2fbx",
+        "file":  "Art/Easel 2.fbx",
+        "name":  "Easel 2",
+        "cat":  "Art",
+        "w":  0.7,
+        "d":  0.7,
+        "h":  1.65
     }
 ]
