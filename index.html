@@ -264,6 +264,12 @@ body.guest #guestNote{display:block}
 #settings.on .dbody > section:nth-child(4){animation-delay:.20s}
 @keyframes setin{from{opacity:0;transform:translateY(14px)}}
 
+/* measure tool */
+.iconbtn.on{background:linear-gradient(135deg,#4b86d8,#6aa4f2);color:#fff}
+#measureHint{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:24;display:none;background:rgba(22,28,36,.92);color:#fff;font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:12px;box-shadow:var(--shadow);pointer-events:none;white-space:nowrap;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2,1.3,.4,1)}
+#measureLabel{position:fixed;z-index:22;display:none;transform:translate(-50%,-50%);background:#ffd23e;color:#3a2f00;font-size:13px;font-weight:800;padding:4px 10px;border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,.35);pointer-events:none;white-space:nowrap}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 <script type="importmap">
@@ -285,6 +291,7 @@ body.guest #guestNote{display:block}
 <div id="bottombar" class="bar">
   <button class="iconbtn" id="addBtn" data-icon="plus"><span>Add</span></button>
   <button class="iconbtn" id="undoBtn" title="Undo" data-icon="undo"></button>
+  <button class="iconbtn" id="measureBtn" title="Measure distance" data-icon="ruler"></button>
   <button class="iconbtn" id="shotBtn" title="Screenshot" data-icon="camera"></button>
   <button class="iconbtn" id="achBtn" title="Achievements" data-icon="trophy"></button>
   <button class="iconbtn" id="actBtn" title="Activity" data-icon="bell"><span id="actBadge"></span></button>
@@ -298,6 +305,8 @@ body.guest #guestNote{display:block}
 
 <div id="joy"><div id="joyNub"></div></div>
 <div id="walkHint">WASD / joystick to walk · drag to look · tap things to use them</div>
+<div id="measureHint">📏 Tap two points to measure · tap the ruler again to exit</div>
+<div id="measureLabel"></div>
 
 <div id="achPop"><div class="apIcon"></div><div class="apTitle">ACHIEVEMENT UNLOCKED</div><div class="apName"></div></div>
 
@@ -435,7 +444,8 @@ const ICONS = {
   folder:'<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.5l-2-2.5A1.5 1.5 0 0 0 9.3 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
-  wallmount:'<path d="M3 5h18"/><path d="M12 5v3"/><rect x="7.5" y="8" width="9" height="9" rx="1.6"/>'
+  wallmount:'<path d="M3 5h18"/><path d="M12 5v3"/><rect x="7.5" y="8" width="9" height="9" rx="1.6"/>',
+  ruler:'<path d="M3.3 15.5 15.5 3.3a1.4 1.4 0 0 1 2 0l3.2 3.2a1.4 1.4 0 0 1 0 2L8.5 20.7a1.4 1.4 0 0 1-2 0l-3.2-3.2a1.4 1.4 0 0 1 0-2Z"/><path d="M8 8l2 2M11.5 4.5l1.5 1.5M4.5 11.5 6 13M15 7.5l1.5 1.5"/>'
 };
 const svgIcon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
 document.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', svgIcon(el.dataset.icon)));
@@ -2568,6 +2578,60 @@ function setOnWall(g, on){
   toast(on ? 'Hung on the wall 🖼️ — use Resize ▸ Raise to slide it up/down' : 'Back on the floor');
 }
 
+/* ---- distance measure tool ---- */
+let measureMode = false, measurePts = [];
+const measureGroup = new THREE.Group(); scene.add(measureGroup);
+const _mmat = new THREE.MeshBasicMaterial({color:0xffd23e, depthTest:false, transparent:true});
+const _mv = new THREE.Vector3();
+function clearMeasureMeshes(){
+  while (measureGroup.children.length){ const m = measureGroup.children.pop(); m.geometry.dispose(); measureGroup.remove(m); }
+}
+function toggleMeasure(){
+  measureMode = !measureMode;
+  document.body.classList.toggle('measuring', measureMode);
+  $('measureBtn').classList.toggle('on', measureMode);
+  measurePts = [];
+  clearMeasureMeshes();
+  $('measureLabel').style.display = 'none';
+  if (measureMode){ deselect(); playSound('pop'); }
+}
+function placeMeasurePoint(e){
+  if (!floorPoint(e, _p)) return;
+  if (measurePts.length >= 2){ measurePts = []; clearMeasureMeshes(); }   // a third tap starts a fresh measure
+  measurePts.push({x:_p.x, z:_p.z});
+  playSound('pop');
+  updateMeasureTool();
+}
+function updateMeasureTool(){
+  clearMeasureMeshes();
+  for (const p of measurePts){                       // a dot at each tapped point
+    const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.02, 20), _mmat);
+    dot.position.set(p.x, 0.04, p.z); dot.renderOrder = 6; measureGroup.add(dot);
+  }
+  const label = $('measureLabel');
+  if (measurePts.length === 2){
+    const a = measurePts[0], b = measurePts[1];
+    const dx = b.x - a.x, dz = b.z - a.z, dist = Math.hypot(dx, dz);
+    const line = new THREE.Mesh(new THREE.BoxGeometry(Math.max(dist, 0.001), 0.02, 0.035), _mmat);
+    line.position.set((a.x+b.x)/2, 0.04, (a.z+b.z)/2);
+    line.rotation.y = -Math.atan2(dz, dx);
+    line.renderOrder = 6; measureGroup.add(line);
+    label.textContent = dist < 1 ? Math.round(dist*100) + ' cm' : dist.toFixed(2) + ' m';
+    label.dataset.mx = (a.x+b.x)/2; label.dataset.mz = (a.z+b.z)/2;
+    label.style.display = 'block';
+  } else {
+    label.style.display = 'none';
+  }
+}
+function updateMeasureLabelPos(){
+  const label = $('measureLabel');
+  if (label.style.display === 'none') return;
+  _mv.set(+label.dataset.mx, 0.15, +label.dataset.mz).project(activeCam());
+  label.style.left = ((_mv.x*0.5 + 0.5) * innerWidth) + 'px';
+  label.style.top = ((-_mv.y*0.5 + 0.5) * innerHeight) + 'px';
+}
+$('measureBtn').onclick = toggleMeasure;
+
 function deselect(){
   if (sel){ sel.rotation.x = 0; sel.rotation.z = 0; }   // clear any drag lean
   if (selBox){
@@ -2705,6 +2769,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
   downDirt = null;
   downCat = false;
   downCharRole = null;
+  if (measureMode) return;                                   // measure mode: taps drop measure points, drags orbit
   if (cat){                                                  // tap the cat -> pet/feed menu
     setNdc(e);
     ray.setFromCamera(ndc, activeCam());
@@ -2885,6 +2950,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   } else if (downAt && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) < 6){
     looking = false; lookLast = null;                        // a tap (not a look-drag): let it interact
     closeRadial();
+    if (measureMode){ placeMeasurePoint(e); return; }        // measure mode: a tap drops a distance point
     if (downDirt){                                           // a mess was under the finger — clean it (beats the rug it sits on)
       scrubDirt(downDirt.m);
     } else if (downCat){                                     // cat menu — pinned to the cat
@@ -4911,6 +4977,7 @@ function animate(){
   if (selBox) selBox.update();
   updateSelPos();
   updateRadialPos();                               // keep the radial pinned to its character/cat as they/the camera move
+  updateMeasureLabelPos();                         // keep the distance label on the line's midpoint
   renderer.render(scene, activeCam());
 }
 animate();
