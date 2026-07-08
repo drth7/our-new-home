@@ -607,5 +607,14 @@
         "w":  0.5,
         "d":  0.5,
         "h":  0.5
+    },
+    {
+        "id":  "x_arteasel2",
+        "file":  "Art/Easel 2.glb",
+        "name":  "Easel 2",
+        "cat":  "Decor",
+        "w":  0.5,
+        "d":  0.5,
+        "h":  0.5
     }
 ]
