@@ -4121,6 +4121,15 @@ function applyRemoteLayout(data){
     clearDragFx();
     while (items.length){ const g = items.pop(); furnGroup.remove(g); disposeGroup(g); }
     (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));   // exact positions incl. stack height
+    if (data.players){                                                                 // reposition avatars you can move while a partner is AWAY;
+      for (const role of ['husband','wife','guest']){                                  // anyone who's live keeps coming from the presence stream
+        if (role === currentUser?.role || remoteOnline[role]) continue;
+        const p = data.players[role]; if (!p) continue;
+        players[role] = {...p};
+        const c = chars[role];
+        if (c){ c.g.position.set(p.x, 0, p.z); c.g.rotation.y = p.rotY || 0; c.moving = false; setPoseVisual(role, p.pose || 'stand'); }
+      }
+    }
     if (planChanged) buildPlan(); else { applyLightsLive(); updateSun(); }
     jset(LS.layout, serialize());
     syncSettingsUI(); renderRooms(); refreshTags();
