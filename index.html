@@ -54,7 +54,7 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 #modelGrid::-webkit-scrollbar-track,.dbody::-webkit-scrollbar-track{background:transparent}
 .shead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
 .shead b{font-size:15px}
-.xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer}
+.xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
 #catTabs{display:flex;gap:6px;padding:2px 14px 10px;flex-wrap:wrap;flex:none}
 .tab{padding:7px 12px;border-radius:20px;background:var(--btn);border:none;color:var(--text);font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer}
 .tab.on{background:var(--accent);color:#fff}
@@ -249,10 +249,21 @@ body.guest #guestNote{display:block}
 
 /* Settings: grouped cards → roomier, less crowded, modern */
 #settings .dbody{gap:12px;padding:14px;padding-bottom:calc(22px + env(safe-area-inset-bottom))}
-#settings .dbody > section{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:15px;gap:13px}
+#settings .dbody > section{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.06);border-radius:16px;overflow:hidden;gap:0;padding:0}
 :root[data-theme="light"] #settings .dbody > section{background:rgba(22,32,46,.03);border-color:rgba(22,32,46,.07)}
-#settings h3.sec{font-size:11.5px;margin-bottom:1px;display:flex;align-items:center;gap:7px}
-#settings h3.sec::before{content:"";width:3px;height:12px;border-radius:2px;background:linear-gradient(var(--accent),#6aa4f2)}
+.sechdr{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 15px;background:none;border:none;color:var(--text);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent}
+.sechdr .sec{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:7px}
+.sechdr .sec::before{content:"";width:3px;height:12px;border-radius:2px;background:linear-gradient(var(--accent),#6aa4f2)}
+.sechdr .chev{color:var(--muted);display:flex;transition:transform .3s cubic-bezier(.2,.9,.3,1)}
+.sechdr .chev .ic{width:18px;height:18px}
+.acc.open > .sechdr .chev{transform:rotate(180deg)}
+.acc.open > .sechdr .sec{color:var(--text)}
+.acc:active > .sechdr{background:rgba(255,255,255,.03)}
+.secwrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.2,.9,.3,1)}
+.acc.open > .secwrap{grid-template-rows:1fr}
+.secinner{overflow:hidden;min-height:0;display:flex;flex-direction:column;gap:13px;padding:0 15px}
+.acc.open > .secwrap > .secinner{padding-bottom:15px}
+.mpsub{font-size:11.5px;color:var(--muted);line-height:1.55;margin:0}
 #settings .field{gap:0}
 #settings .field label{margin-bottom:8px;font-size:12.5px;line-height:1.45}
 #settings #userChip{background:rgba(255,255,255,.05)}
@@ -281,8 +292,8 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 <div id="app"></div>
 
 <div id="topbar" class="bar">
-  <button class="iconbtn" id="roomsBtn" title="Rooms" data-icon="map"></button>
-  <h1><span id="userDot"></span>Our New Home</h1>
+  <button class="iconbtn" id="roomsBtn" title="Rooms" data-icon="house"></button>
+  <h1><span id="userDot"></span><span id="homeTitle">Our New Home</span></h1>
   <button class="iconbtn" id="viewBtn" title="Toggle 2D / 3D view">2D</button>
   <button class="iconbtn" id="themeBtn" title="Light / Dark"></button>
   <button class="iconbtn" id="settingsBtn" title="Settings" data-icon="settings"></button>
@@ -349,42 +360,45 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 <aside id="settings" class="drawer">
   <div class="dhead"><b>Settings</b><button class="xbtn" id="closeSettings" data-icon="x"></button></div>
   <div class="dbody">
-    <section>
-      <h3 class="sec">You</h3>
-      <div id="userChip"></div>
-      <div id="guestNote">👁 You're viewing as a guest — look around all you like, but editing is off.</div>
-      <div id="secProfile">
-        <div class="field"><label id="msgLabel">Message your partner sees on entry</label><textarea id="msgInput" maxlength="140" placeholder="Write something sweet…"></textarea></div>
-      </div>
-      <button class="btn" id="switchUser">Not you? Switch user</button>
+    <section class="acc open" id="secYou">
+      <button class="sechdr" type="button"><span class="sec">You</span><span class="chev" data-icon="chevron"></span></button>
+      <div class="secwrap"><div class="secinner">
+        <div id="userChip"></div>
+        <div id="guestNote">👁 You're viewing as a guest — look around all you like, but editing is off.</div>
+        <div id="secProfile">
+          <div class="field"><label id="msgLabel">Message your partner sees on entry</label><textarea id="msgInput" maxlength="140" placeholder="Write something sweet…"></textarea></div>
+        </div>
+        <div id="mpRow" style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)"><span id="mpStatus">Connecting…</span></div>
+        <p class="mpsub">Connects to our home automatically when you sign in — nothing to set up.</p>
+        <button class="btn" id="switchUser">Not you? Switch user</button>
+      </div></div>
     </section>
-    <section id="secEnv">
-      <h3 class="sec">Environment</h3>
-      <div class="field"><label>Time of day — <span id="timeLabel"></span></label>
-        <input type="time" id="timeInput" class="timefield">
-        <button class="btn" id="dayNightBtn"></button>
-      </div>
-      <div class="field"><label>Sun direction — <span id="sunLabel"></span></label>
-        <input type="range" id="sunSlider" min="0" max="359" step="1">
-        <div class="compass"><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span></div>
-      </div>
-      <div class="field"><label>Wall colour — tap a wall in the room to paint just that one</label>
-        <div class="swrow" id="wallSwatches"></div>
-        <input type="color" id="wallColorInput" value="#8fa1b3" hidden>
-      </div>
-      <button class="btn" id="gridToggle"></button>
+    <section class="acc" id="secEnv">
+      <button class="sechdr" type="button"><span class="sec">Environment</span><span class="chev" data-icon="chevron"></span></button>
+      <div class="secwrap"><div class="secinner">
+        <div class="field"><label>Time of day — <span id="timeLabel"></span></label>
+          <input type="time" id="timeInput" class="timefield">
+          <button class="btn" id="dayNightBtn"></button>
+        </div>
+        <div class="field"><label>Sun direction — <span id="sunLabel"></span></label>
+          <input type="range" id="sunSlider" min="0" max="359" step="1">
+          <div class="compass"><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span></div>
+        </div>
+        <div class="field"><label>Wall colour — tap a wall in the room to paint just that one</label>
+          <div class="swrow" id="wallSwatches"></div>
+          <input type="color" id="wallColorInput" value="#8fa1b3" hidden>
+        </div>
+        <button class="btn" id="gridToggle"></button>
+      </div></div>
     </section>
-    <section id="secMp">
-      <h3 class="sec">Live together — multiplayer</h3>
-      <p id="mpStatus" style="font-size:12.5px;color:var(--muted)">Connecting…</p>
-      <p style="font-size:11.5px;color:var(--muted);line-height:1.55">Connects to our home automatically when you sign in — nothing to set up.</p>
-    </section>
-    <section id="secLayout">
-      <h3 class="sec">Layout</h3>
-      <div class="row"><button class="btn" id="saveBtn" data-icon="save"><span>Save</span></button><button class="btn" id="loadBtn" data-icon="folder"><span>Load</span></button></div>
-      <div class="row"><button class="btn" id="exportBtn" data-icon="upload"><span>Export</span></button><button class="btn" id="importBtn" data-icon="download"><span>Import</span></button></div>
-      <button class="btn danger" id="clearBtn" data-icon="trash"><span>Clear all furniture</span></button>
-      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <section class="acc" id="secLayout">
+      <button class="sechdr" type="button"><span class="sec">Layout</span><span class="chev" data-icon="chevron"></span></button>
+      <div class="secwrap"><div class="secinner">
+        <div class="row"><button class="btn" id="saveBtn" data-icon="save"><span>Save</span></button><button class="btn" id="loadBtn" data-icon="folder"><span>Load</span></button></div>
+        <div class="row"><button class="btn" id="exportBtn" data-icon="upload"><span>Export</span></button><button class="btn" id="importBtn" data-icon="download"><span>Import</span></button></div>
+        <button class="btn danger" id="clearBtn" data-icon="trash"><span>Clear all furniture</span></button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div></div>
     </section>
   </div>
 </aside>
@@ -445,7 +459,9 @@ const ICONS = {
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   wallmount:'<path d="M3 5h18"/><path d="M12 5v3"/><rect x="7.5" y="8" width="9" height="9" rx="1.6"/>',
-  ruler:'<path d="M3.3 15.5 15.5 3.3a1.4 1.4 0 0 1 2 0l3.2 3.2a1.4 1.4 0 0 1 0 2L8.5 20.7a1.4 1.4 0 0 1-2 0l-3.2-3.2a1.4 1.4 0 0 1 0-2Z"/><path d="M8 8l2 2M11.5 4.5l1.5 1.5M4.5 11.5 6 13M15 7.5l1.5 1.5"/>'
+  ruler:'<path d="M3.3 15.5 15.5 3.3a1.4 1.4 0 0 1 2 0l3.2 3.2a1.4 1.4 0 0 1 0 2L8.5 20.7a1.4 1.4 0 0 1-2 0l-3.2-3.2a1.4 1.4 0 0 1 0-2Z"/><path d="M8 8l2 2M11.5 4.5l1.5 1.5M4.5 11.5 6 13M15 7.5l1.5 1.5"/>',
+  house:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>',
+  chevron:'<path d="m6 9 6 6 6-6"/>'
 };
 const svgIcon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
 document.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', svgIcon(el.dataset.icon)));
@@ -2867,7 +2883,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
   if (dirtHit && (!hit || CATALOG[hit.userData.type].h <= 0.1)){   // a mess under the finger -> clean it, not the rug beneath
     downDirt = dirtHit;
   } else {
-  downOnItem = !!hit;
+  downOnItem = hit || null;                        // remember the piece; a TAP selects it, a drag rotates the camera instead
   if (hit){
     if (hit === sel){
       dragging = true;                             // already selected -> this press drags it
@@ -2888,9 +2904,9 @@ renderer.domElement.addEventListener('pointerdown', e => {
       setTempGrid(true);                           // metre grid appears while arranging
       renderer.domElement.setPointerCapture(e.pointerId);
       e.stopPropagation();
-    } else {
-      select(hit);                                 // first press only selects
     }
+    // an unselected piece isn't selected on press — so dragging over it orbits the camera with no outline;
+    // pointerup selects it only if the press was a tap (see below)
   } else if (view === 'tp'){
     looking = true;
     lookLast = {x:e.clientX, y:e.clientY};
@@ -3034,6 +3050,8 @@ renderer.domElement.addEventListener('pointerup', e => {
       const kind = downCharRole === 'self' ? 'self'
         : (currentUser && currentUser.role !== 'guest' && downCharRole === partnerRole()) ? 'partner' : 'other';
       openRadial(e.clientX, e.clientY, kind, chars[role] && chars[role].g, 1.0);
+    } else if (downOnItem){                                  // tapped a piece (not a drag) -> select it now
+      select(downOnItem);
     } else if (!downOnItem){
       setNdc(e);
       ray.setFromCamera(ndc, activeCam());
@@ -4585,6 +4603,8 @@ $('settingsBtn').onclick = () => {
   scrim.classList.add('on');
 };
 $('closeSettings').onclick = closeOverlays;
+document.querySelectorAll('#settings .sechdr').forEach(h =>   // collapsible cards; tap a header to expand/collapse
+  h.addEventListener('click', () => h.closest('.acc').classList.toggle('open')));
 
 $('actBtn').onclick = () => {
   setAddOpen(false);
@@ -4762,6 +4782,7 @@ function syncSettingsUI(){
 
 function syncProfileUI(){
   const me = currentUser?.role;
+  $('homeTitle').textContent = me ? nameFor(me) : 'Our New Home';   // the title shows who you are
   if (!me){ userChip.textContent = '—'; return; }
   if (me === 'guest'){
     userChip.innerHTML = `<span class="dot" style="background:#8a939e"></span>👁 ${esc(nameFor('guest'))} <span style="color:var(--muted);font-weight:600">(viewing)</span>`;
