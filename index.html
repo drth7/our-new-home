@@ -602,9 +602,9 @@ function registerModelDef(m){
   if (!m || !m.id || !m.file || CATALOG[m.id]) return false;
   const def = {...m, model:m.file};
   if (m.file.startsWith('Sofa/')) def.plain = 1;             // the atlas doesn't fit the sofa pack — plain white, tintable
-  else if (!BASE_IDS.has(m.id)){                             // a model you added: it isn't part of the shared atlas and its
-    def.plain = 1;                                           // authoring scale can't be trusted, so give it a clean tintable
-    def.anchorSize = 1;                                      // material and size it by the catalog dimensions (not raw units)
+  else if (!BASE_IDS.has(m.id)){                             // a model you added: keep ITS OWN materials/embedded textures
+    def.ownMat = 1;                                          // (it isn't part of the shared atlas), and size it by the
+    def.anchorSize = 1;                                      // catalog dimensions since its authoring scale can't be trusted
   }
   def.color = def.plain ? '#f2f2f2' : '#9aa8b5';
   applyStackRule(def);
@@ -1120,12 +1120,48 @@ function getAtlas(){
   }
   return atlasTex;
 }
+// three's FBXLoader can't always link a texture that was EMBEDDED in the .fbx (it looks for an
+// external .fbm folder and 404s). For your own models we pull the embedded PNG/JPEG straight out
+// of the file bytes and apply it, so a texture you baked into the model actually shows.
+function extractRasters(buf){
+  const out = [];
+  for (let i = 0; i < buf.length - 8; i++){
+    if (buf[i]===0x89&&buf[i+1]===0x50&&buf[i+2]===0x4E&&buf[i+3]===0x47&&buf[i+4]===0x0D&&buf[i+5]===0x0A&&buf[i+6]===0x1A&&buf[i+7]===0x0A){
+      for (let j = i+8; j < buf.length-7; j++){
+        if (buf[j]===0x49&&buf[j+1]===0x45&&buf[j+2]===0x4E&&buf[j+3]===0x44){ const e=j+8; out.push({type:'image/png', bytes:buf.slice(i,e)}); i=e; break; }
+      }
+    } else if (buf[i]===0xFF&&buf[i+1]===0xD8&&buf[i+2]===0xFF){
+      for (let j = i+2; j < buf.length-1; j++){
+        if (buf[j]===0xFF&&buf[j+1]===0xD9){ const e=j+2; out.push({type:'image/jpeg', bytes:buf.slice(i,e)}); i=e; break; }
+      }
+    }
+  }
+  return out;
+}
+async function applyEmbeddedTex(obj, url){
+  let needs = false;
+  obj.traverse(o => { if (o.isMesh) (Array.isArray(o.material)?o.material:[o.material]).forEach(m => { if (m && (!m.map || !m.map.image)) needs = true; }); });
+  if (!needs) return;                                        // the loader already textured it — leave it alone
+  let rasters;
+  try { rasters = extractRasters(new Uint8Array(await (await fetch(url)).arrayBuffer())); } catch(e){ return; }
+  if (!rasters.length) return;
+  const burl = URL.createObjectURL(new Blob([rasters[0].bytes], {type:rasters[0].type}));
+  const tex = await new Promise(r => new THREE.TextureLoader().load(burl, t => r(t), undefined, () => r(null)));
+  if (!tex) return;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.flipY = false;                                        // FBX UVs are un-flipped, like the shared atlas
+  tex.needsUpdate = true;
+  obj.traverse(o => { if (o.isMesh) (Array.isArray(o.material)?o.material:[o.material]).forEach(m => { if (m){ m.map = tex; if (m.color) m.color.setHex(0xffffff); m.needsUpdate = true; } }); });
+}
 const modelCache = {};
 function loadModel(def){
   const key = def.model;
   if (!modelCache[key]){
     modelCache[key] = new Promise(res => {
-      new FBXLoader().load(MODEL_BASE + key, obj => res(obj), undefined, err => { console.warn('model failed', key, err); res(null); });
+      new FBXLoader().load(MODEL_BASE + key, async obj => {
+        if (def.ownMat){ try { await applyEmbeddedTex(obj, MODEL_BASE + key); } catch(e){} }
+        res(obj);
+      }, undefined, err => { console.warn('model failed', key, err); res(null); });
     });
   }
   return modelCache[key];
@@ -1155,7 +1191,7 @@ function instantiateModel(proto, def){
     if (o.isMesh){
       o.castShadow = true;
       o.receiveShadow = true;
-      if (!def.custom){                            // uploads keep their own materials & textures
+      if (!def.custom && !def.ownMat){             // uploads & your own models keep their own materials & embedded textures
         o.material = def.plain
           ? new THREE.MeshStandardMaterial({color:0xf2f2f2, roughness:0.8})
           : new THREE.MeshStandardMaterial({map:getAtlas(), roughness:0.85});
