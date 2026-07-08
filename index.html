@@ -180,6 +180,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 #shareMenu button{border:none;background:none;color:var(--text);font-size:14px;font-weight:600;padding:11px 13px;border-radius:9px;text-align:left;cursor:pointer;display:flex;gap:9px;align-items:center;font-family:inherit}
 #shareMenu button:hover,#shareMenu button:active{background:var(--btn)}
 #shareMenu button .ic{width:18px;height:18px}
+#shareMenu .mlabel{display:flex;flex-direction:column;line-height:1.2}
+#realLeft{font-size:11px;color:var(--muted);font-weight:600}
 #viewMenu button.on{background:var(--accent);color:#fff}
 
 #joy{position:fixed;left:18px;bottom:calc(84px + env(safe-area-inset-bottom));width:112px;height:112px;border-radius:50%;background:rgba(120,140,160,.14);border:2px solid rgba(150,170,190,.3);z-index:25;display:none;touch-action:none}
@@ -330,7 +332,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 
 <div id="shareMenu">
   <button id="smNormal" data-icon="camera"><span>Screenshot</span></button>
-  <button id="smReal">✨<span>Realistic screenshot (AI)</span></button>
+  <button id="smReal">✨<span class="mlabel">Realistic screenshot (AI)<small id="realLeft"></small></span></button>
 </div>
 
 <div id="joy"><div id="joyNub"></div></div>
@@ -3698,6 +3700,17 @@ async function shareScreenshot(){
 const AI_PROXY   = 'https://ournewhome.dov-dov-tak.workers.dev';   // the Cloudflare Worker that holds the key
 const AIPROXY_LS = 'roomplanner.aiproxy';
 const proxyUrl   = () => AI_PROXY || localStorage.getItem(AIPROXY_LS) || '';
+// rough "photos left" estimate: $25 pool ÷ ~13¢/image (Nano Banana Pro). Counts generations made in the app
+// (shared across both phones via room/aiUsed) — it can't read Google's real balance, so it's an estimate.
+const AI_BUDGET_USD = 25, AI_COST_USD = 0.134;
+const AI_MAX  = Math.floor(AI_BUDGET_USD / AI_COST_USD);
+let   aiUsed  = 0;
+const aiLeft  = () => Math.max(0, AI_MAX - aiUsed);
+function updateRealMenu(){ const el = $('realLeft'); if (el) el.textContent = '~' + aiLeft() + ' left'; }
+function bumpAiUsed(){
+  aiUsed++; updateRealMenu();                                     // instant local feedback
+  if (fb && fb.D) fb.D.runTransaction(fb.D.ref(fb.db, 'room/aiUsed'), n => (n || 0) + 1).catch(() => {});
+}
 
 function closeShareMenu(){
   $('shareMenu').classList.remove('on');
@@ -3720,6 +3733,7 @@ function openShareChooser(){                        // a little box that rises o
 }
 $('smNormal').onclick = () => { closeShareMenu(); shareScreenshot(); };
 $('smReal').onclick   = () => { closeShareMenu(); realisticShot(); };
+updateRealMenu();                                 // show the estimate straight away (Firebase refines it)
 
 function b64ToBlob(b64, type){
   const bin = atob(b64), arr = new Uint8Array(bin.length);
@@ -3744,14 +3758,23 @@ function promptForProxy(){
 async function realisticShot(){
   const proxy = proxyUrl();
   if (!proxy){ promptForProxy(); return; }
-  // grab the current view, scaled down to ~1024 wide (keeps it fast + the upload small)
+  // clean capture: opaque (not see-through) walls and no avatars/cat, so it reads as a real room photo
+  const charVis = charGroup.visible, catVis = cat ? cat.g.visible : null;
+  charGroup.visible = false;
+  if (cat) cat.g.visible = false;
+  const savedOpacity = {};
+  for (const wi in wallMats){ savedOpacity[wi] = wallMats[wi].opacity; wallMats[wi].opacity = 1; }
   renderer.render(scene, activeCam());
   const src = renderer.domElement;
-  const scale = Math.min(1, 1536 / src.width);       // keep more detail than before (was 1024) so the AI has more to work with
+  const scale = Math.min(1, 1536 / src.width);       // keep detail so the AI has plenty to work with
   const cw = Math.round(src.width * scale), ch = Math.round(src.height * scale);
   const cnv = document.createElement('canvas'); cnv.width = cw; cnv.height = ch;
   cnv.getContext('2d').drawImage(src, 0, 0, cw, ch);
   const inB64 = cnv.toDataURL('image/png').split(',')[1];
+  // restore the normal view right away (walls see-through again, people/cat back) for the ~10s wait
+  charGroup.visible = charVis;
+  if (cat) cat.g.visible = catVis;
+  for (const wi in savedOpacity) wallMats[wi].opacity = savedOpacity[wi];
 
   showConfirm(`<h2>Making it realistic ✨</h2><p class="wsub">Sending your room to the AI… about 10&nbsp;seconds.</p><div class="rspin"></div>`, []);
 
@@ -3779,6 +3802,7 @@ async function realisticShot(){
     const part  = parts.find(p => (p.inline_data && p.inline_data.data) || (p.inlineData && p.inlineData.data));
     const outB64 = part && ((part.inline_data && part.inline_data.data) || (part.inlineData && part.inlineData.data));
     if (!outB64){ realisticError("The AI didn't return an image. Try again."); return; }
+    bumpAiUsed();
     showRealResult(b64ToBlob(outB64, 'image/png'));
     unlock('say-cheese');
     logActivity('screenshot', 'made a realistic photo of the room ✨');
@@ -3798,6 +3822,7 @@ function showRealResult(blob){
   const url = URL.createObjectURL(blob);
   showConfirm(`<h2>Realistic view ✨</h2>
     <img class="rimg" src="${url}" alt="Realistic render">
+    <p class="wsub" style="margin-top:-2px">~${aiLeft()} photos left</p>
     <button class="btn primary" id="rShare">Share / Save</button>
     <button class="btn" id="rAgain">Try again</button>
     <button class="btn" id="rClose">Close</button>`,
@@ -4455,6 +4480,7 @@ async function initSync(){
         refreshCatalog(false, false).then(n => { if (n) toast('Furniture catalog updated 🚚'); });
       }
     });
+    D.onValue(D.ref(fb.db, 'room/aiUsed'), snap => { aiUsed = snap.val() || 0; updateRealMenu(); });   // shared "photos left"
     let lastFeedTs = 0;
     D.onValue(D.ref(fb.db, 'room/catfeed'), snap => {
       const c = snap.val();
