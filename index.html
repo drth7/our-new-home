@@ -37,6 +37,7 @@ button{font-family:inherit;touch-action:manipulation}
 .pillrow{display:flex;gap:6px}
 .pbtn{width:40px;height:40px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pbtn.tint{padding:4px}
+.pbtn.on{background:linear-gradient(135deg,#4b86d8,#6aa4f2);color:#fff}
 #tintInput{width:32px;height:32px;border:none;border-radius:8px;padding:0;background:none;cursor:pointer}
 #measure{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap;padding:0 4px 2px}
 #measure.warn{color:#e05563}
@@ -305,6 +306,7 @@ body.guest #guestNote{display:block}
     <button class="pbtn" id="rotBtn" title="Rotate 45°" data-icon="rotate"></button>
     <label class="pbtn tint" title="Colour"><input type="color" id="tintInput"></label>
     <button class="pbtn" id="sizeBtn" title="Resize" data-icon="resize"></button>
+    <button class="pbtn" id="wallBtn" title="Hang on the wall / put back on the floor" data-icon="wallmount"></button>
     <button class="pbtn" id="useBtn" title="Use" style="display:none"></button>
     <button class="pbtn" id="delBtn" title="Delete" data-icon="trash"></button>
   </div>
@@ -432,7 +434,8 @@ const ICONS = {
   save:'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
   folder:'<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.5l-2-2.5A1.5 1.5 0 0 0 9.3 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
-  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>'
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  wallmount:'<path d="M3 5h18"/><path d="M12 5v3"/><rect x="7.5" y="8" width="9" height="9" rx="1.6"/>'
 };
 const svgIcon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
 document.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', svgIcon(el.dataset.icon)));
@@ -1661,11 +1664,20 @@ function footprintOnFloor(g){
   return true;
 }
 
+// wall-mounted = inherently a wall piece (art, curtains, wall TV…) OR the user toggled this piece onto the wall
+const isWall = g => { const d = CATALOG[g.userData.type]; return !!(d && (d.wall || g.userData.onWall)); };
+// hang height: inherent-wall meshes are built centred at 1.5 m; a floor piece sent to the wall sits on its base
+function applyHangY(g){
+  const d = CATALOG[g.userData.type];
+  const hy = g.userData.hangY ?? (d.wall ? 1.5 : 1.4);
+  g.position.y = d.wall ? hy - 1.5 : hy;
+}
+
 function clampToRoom(g){
   const def = CATALOG[g.userData.type];
   const r = rectAt(g.position.x, g.position.z) || nearestRect(g.position.x, g.position.z);
-  if (def.wall){
-    // wall art: stick to the nearest wall of the room, facing inward
+  if (isWall(g)){
+    // wall-mounted: stick to the nearest wall of the room, facing inward
     const dW = g.position.x - r.x1, dE = r.x2 - g.position.x;
     const dN = g.position.z - r.z1, dS = r.z2 - g.position.z;
     const m = Math.min(dW, dE, dN, dS);
@@ -1674,6 +1686,7 @@ function clampToRoom(g){
     else if (m === dE){ g.position.x = r.x2 - off; g.rotation.y = -Math.PI/2; g.position.z = THREE.MathUtils.clamp(g.position.z, r.z1 + hw, r.z2 - hw); }
     else if (m === dN){ g.position.z = r.z1 + off; g.rotation.y = 0; g.position.x = THREE.MathUtils.clamp(g.position.x, r.x1 + hw, r.x2 - hw); }
     else { g.position.z = r.z2 - off; g.rotation.y = Math.PI; g.position.x = THREE.MathUtils.clamp(g.position.x, r.x1 + hw, r.x2 - hw); }
+    applyHangY(g);
     g.userData.room = r.room.id;
     return;
   }
@@ -1780,7 +1793,7 @@ const canWalk = (x, z) => !!rectAt(x, z) || DOOR_RECTS.some(r => x >= r.x1 && x 
 function hitsFurniture(x, z){
   for (const it of items){
     const def = CATALOG[it.userData.type];
-    if (def.wall || def.h <= 0.1) continue;        // rugs and wall art are walkable
+    if (isWall(it) || def.h <= 0.1) continue;      // rugs and wall-mounted pieces are walkable
     const {hw, hd} = halfExtents(it);
     if (Math.abs(x - it.position.x) < hw + 0.16 && Math.abs(z - it.position.z) < hd + 0.16) return it;
   }
@@ -2474,18 +2487,19 @@ function addFurniture(type, opts = {}){
   g.position.set(opts.x ?? sp.x, 0, opts.z ?? sp.z);
   g.rotation.y = opts.rotY || 0;
   g.scale.set(opts.sx || 1, opts.sy || 1, opts.sz || 1);
-  if (def.wall){
-    g.userData.hangY = opts.hy || 1.5;
-    g.position.y = g.userData.hangY - 1.5;
+  g.userData.onWall = !!opts.ow;                   // floor piece the user toggled onto the wall
+  if (isWall(g)){
+    g.userData.hangY = opts.hy || (def.wall ? 1.5 : 1.4);
+    applyHangY(g);
   }
   applyTint(g, opts.tint || def.color);
   clampToRoom(g);
-  if (opts.y != null && !def.wall && def.h > 0.1){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (rugs always stay flat)
+  if (opts.y != null && !isWall(g) && def.h > 0.1){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (rugs always stay flat)
   furnGroup.add(g);
   items.push(g);
   if (typeof refreshCatNav === 'function') refreshCatNav();   // the cat re-plans around the new piece
   if (!opts.silent){
-    if (!def.wall && !opts.fromTray){              // tray drags place directly, no drop-in
+    if (!isWall(g) && !opts.fromTray){             // tray drags place directly, no drop-in
       const floorY = g.position.y;                 // stacked items land on the tabletop, not the floor
       g.position.y = floorY + 0.9;
       dropping.push({g, v:0, floorY});
@@ -2524,7 +2538,34 @@ function select(g){
   } else {
     useBtn.style.display = 'none';
   }
+  const wallBtn = $('wallBtn');
+  if (!def.wall && def.h > 0.1){                    // any real floor piece can be hung on / taken off the wall
+    wallBtn.style.display = 'flex';
+    wallBtn.classList.toggle('on', !!g.userData.onWall);
+  } else {
+    wallBtn.style.display = 'none';
+  }
   updateMeasure();
+}
+// flip a piece between the floor and the wall
+function setOnWall(g, on){
+  const def = CATALOG[g.userData.type];
+  if (def.wall || def.h <= 0.1) return;             // inherent wall pieces / rugs don't toggle
+  pushUndo();
+  const di = dropping.findIndex(dd => dd.g === g);  // cancel any in-progress drop-in so it can't pull the piece back down
+  if (di >= 0) dropping.splice(di, 1);
+  g.userData.onWall = on;
+  if (on){
+    g.userData.hangY = g.userData.hangY || 1.4;
+    g.userData.loadY = null;
+  } else {
+    g.position.y = 0;
+  }
+  clampToRoom(g);
+  if ($('wallBtn')) $('wallBtn').classList.toggle('on', on);
+  updateMeasure(); refreshSizePanel(); updateSelPos();
+  scheduleSave();
+  toast(on ? 'Hung on the wall 🖼️ — use Resize ▸ Raise to slide it up/down' : 'Back on the floor');
 }
 
 function deselect(){
@@ -3060,6 +3101,7 @@ function serialize(){
         sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3),
         hy:+(g.userData.hangY || 1.5).toFixed(2)
       };
+      if (g.userData.onWall) rec.ow = 1;              // floor piece toggled onto the wall
       return rec;
     })
   };
@@ -3702,7 +3744,7 @@ function rugTopAt(x, z){
   let top = 0;
   for (const it of items){
     const def = CATALOG[it.userData.type];
-    if (!def || def.wall || def.h > 0.1) continue;     // only flat rugs / mats
+    if (!def || isWall(it) || def.h > 0.1) continue;   // only flat rugs / mats
     const {hw, hd} = halfExtents(it);
     if (Math.abs(x - it.position.x) <= hw && Math.abs(z - it.position.z) <= hd){
       const t = it.position.y + (it.userData.realH || def.h) * it.scale.y;
@@ -3812,7 +3854,7 @@ function updateDirt(dt){
 
 const FB_KEY = 'roomplanner.firebase';
 const DEFAULT_FB = {databaseURL:'https://our-new-home-2f608-default-rtdb.firebaseio.com'};   // our home — connects automatically
-let fb = null, syncMuted = false;
+let fb = null, syncMuted = false, gotInitialLayout = false;   // gotInitialLayout: adopt the cloud room before we're ever allowed to save over it
 const remotePlayers = {};                      // role -> latest remote state (or null when offline)
 const remoteOnline = {};
 let remoteDrag = null;                         // live drag mirror from the partner
@@ -3878,7 +3920,7 @@ function pushCat(held){
 }
 
 function pushLayout(){
-  if (!fb || syncMuted || !canEdit()) return;
+  if (!fb || syncMuted || !canEdit() || !gotInitialLayout) return;   // never save until we've adopted the cloud room
   fb.D.set(fb.D.ref(fb.db, 'room/layout'),
     {...serialize(), profile, messages, by:currentUser.role, ts:Date.now()}).catch(() => {});
 }
@@ -3992,7 +4034,12 @@ async function initSync(){
     let lastTs = 0;
     D.onValue(D.ref(fb.db, 'room/layout'), snap => {
       const d = snap.val();
-      if (d && d.by !== myRole && d.ts > lastTs){ lastTs = d.ts; applyRemoteLayout(d); }
+      if (!d){ gotInitialLayout = true; return; }                 // empty cloud room: our local layout seeds it
+      if (!gotInitialLayout){                                     // FIRST sync: always adopt the cloud room, even if we authored it,
+        gotInitialLayout = true; lastTs = d.ts || 0;              // so a stale device can never overwrite the shared home
+        applyRemoteLayout(d); return;
+      }
+      if (d.by !== myRole && d.ts > lastTs){ lastTs = d.ts; applyRemoteLayout(d); }
     });
     D.onValue(D.ref(fb.db, 'room/players'), snap => {
       const all = snap.val() || {};
@@ -4402,6 +4449,7 @@ themeBtn.onclick = () => {
 /* pill */
 $('rotBtn').onclick = rotateSel;
 $('delBtn').onclick = deleteSel;
+$('wallBtn').onclick = () => { if (sel) setOnWall(sel, !sel.userData.onWall); };
 tintInput.addEventListener('input', () => { if (sel) applyTint(sel, tintInput.value); });
 tintInput.addEventListener('change', () => {
   if (!sel) return;
@@ -4422,8 +4470,8 @@ function refreshSizePanel(){
   setv('szX', Math.round(rd.w * 100 * sel.scale.x));
   setv('szZ', Math.round(rd.d * 100 * sel.scale.z));
   setv('szY', Math.round(rd.h * 100 * sel.scale.y));
-  $('szHangRow').style.display = def.wall ? 'flex' : 'none';
-  if (def.wall) $('szHang').textContent = Math.round((sel.userData.hangY || 1.5) * 100) + ' cm';
+  $('szHangRow').style.display = isWall(sel) ? 'flex' : 'none';
+  if (isWall(sel)) $('szHang').textContent = Math.round((sel.userData.hangY || (def.wall ? 1.5 : 1.4)) * 100) + ' cm';
 }
 
 $('sizeBtn').onclick = () => {
@@ -4455,10 +4503,11 @@ function setDim(axis, cm){
 sizePanel.querySelectorAll('.szbtn').forEach(b => b.onclick = () => {
   if (!sel) return;
   const axis = b.dataset.d, dir = +b.dataset.s;
-  if (axis === 'hang'){                            // wall art rides up and down the wall
+  if (axis === 'hang'){                            // a wall-mounted piece rides up and down the wall
     pushUndo();
-    sel.userData.hangY = THREE.MathUtils.clamp((sel.userData.hangY || 1.5) + dir*0.1, 0.7, 2.2);
-    sel.position.y = sel.userData.hangY - 1.5;
+    const d0 = CATALOG[sel.userData.type];
+    sel.userData.hangY = THREE.MathUtils.clamp((sel.userData.hangY || (d0.wall ? 1.5 : 1.4)) + dir*0.1, 0.5, 2.4);
+    applyHangY(sel);
     refreshSizePanel();
     scheduleSave();
     return;
