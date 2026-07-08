@@ -1702,6 +1702,8 @@ function stackTopOf(it){
 }
 // any piece dropped so its centre sits over another piece rides on top of it (stack two washers, etc.)
 function applyStackY(g){
+  const gd = CATALOG[g.userData.type];
+  if (gd && gd.h <= 0.1){ g.position.y = 0; g.userData.loadY = null; return; }   // rugs/mats always lie flat on the floor — never stack onto anything
   let top = 0;
   for (const it of items){
     if (it === g) continue;
@@ -2478,7 +2480,7 @@ function addFurniture(type, opts = {}){
   }
   applyTint(g, opts.tint || def.color);
   clampToRoom(g);
-  if (opts.y != null && !def.wall){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout
+  if (opts.y != null && !def.wall && def.h > 0.1){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (rugs always stay flat)
   furnGroup.add(g);
   items.push(g);
   if (typeof refreshCatNav === 'function') refreshCatNav();   // the cat re-plans around the new piece
