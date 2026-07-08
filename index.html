@@ -116,6 +116,10 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 #confirm h2{font-size:18px;line-height:1.4}
 #confirm .wsub{margin-top:-2px}
 #confirm .btn{width:100%}
+#confirm input[type=text]{text-align:center}
+.rspin{width:36px;height:36px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:10px auto 4px;animation:rspin 1s linear infinite}
+@keyframes rspin{to{transform:rotate(360deg)}}
+.rimg{width:100%;border-radius:12px;display:block;margin:2px 0 4px}
 #achPanel .dhead{padding-top:14px}
 .tag{font-size:10px;background:var(--btn);color:var(--muted);border-radius:6px;padding:2px 6px;font-weight:700;vertical-align:1px}
 .ach{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);opacity:.55}
@@ -3676,6 +3680,114 @@ async function shareScreenshot(){
   }, 'image/png');
 }
 
+/* ---- Share chooser: a plain screenshot, or an AI photo-real version of the same view ---- */
+const GKEY = 'roomplanner.gkey';                 // the user's own Gemini key — kept ONLY on this device, never in the repo
+
+function openShareChooser(){
+  closeOverlays();
+  showConfirm(`
+    <h2>Share this view 📸</h2>
+    <p class="wsub">Pick a look</p>
+    <button class="btn primary" id="shNormal">📷 Normal screenshot</button>
+    <button class="btn" id="shReal">✨ Realistic (AI)</button>
+    <button class="btn" id="shCancel">Cancel</button>`,
+    [
+      ['shNormal', () => { hideConfirm(); shareScreenshot(); }],
+      ['shReal',   () => { hideConfirm(); realisticShot(); }],
+      ['shCancel', hideConfirm]
+    ]);
+}
+
+function b64ToBlob(b64, type){
+  const bin = atob(b64), arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], {type});
+}
+
+function promptForGeminiKey(){
+  showConfirm(`
+    <h2>Turn on Realistic ✨</h2>
+    <p class="wsub">It uses Google's free "Nano&nbsp;Banana" AI (~500 images/day free). Paste your key — it's saved only on this device. Your screenshot is sent to Google to make the photo.</p>
+    <input type="text" id="gkeyInput" placeholder="Paste your Gemini API key">
+    <button class="btn primary" id="gkeySave">Save &amp; continue</button>
+    <a class="btn" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key ↗</a>
+    <button class="btn" id="gkeyCancel">Cancel</button>`,
+    [
+      ['gkeySave', () => { const v = $('gkeyInput').value.trim(); if (!v) return; localStorage.setItem(GKEY, v); hideConfirm(); realisticShot(); }],
+      ['gkeyCancel', hideConfirm]
+    ]);
+  setTimeout(() => { const el = $('gkeyInput'); if (el) el.focus(); }, 120);
+}
+
+async function realisticShot(){
+  const key = localStorage.getItem(GKEY);
+  if (!key){ promptForGeminiKey(); return; }
+  // grab the current view, scaled down to ~1024 wide (keeps it fast + inside the free tier)
+  renderer.render(scene, activeCam());
+  const src = renderer.domElement;
+  const scale = Math.min(1, 1024 / src.width);
+  const cw = Math.round(src.width * scale), ch = Math.round(src.height * scale);
+  const cnv = document.createElement('canvas'); cnv.width = cw; cnv.height = ch;
+  cnv.getContext('2d').drawImage(src, 0, 0, cw, ch);
+  const inB64 = cnv.toDataURL('image/png').split(',')[1];
+
+  showConfirm(`<h2>Making it realistic ✨</h2><p class="wsub">Sending your room to the AI… about 10&nbsp;seconds.</p><div class="rspin"></div>`, []);
+
+  const prompt = "Turn this 3D room-planner screenshot into a photorealistic interior photograph. KEEP the exact same layout, camera angle, and every furniture piece in its exact position, size and proportion. Only upgrade materials, lighting, shadows and textures so they look real and high quality. Do NOT add, remove, resize or move any furniture, walls or windows.";
+  try{
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ contents: [{ parts: [ {text: prompt}, {inline_data: {mime_type: 'image/png', data: inB64}} ] }] })
+    });
+    if (!res.ok){
+      let msg = 'The AI service returned an error (' + res.status + ').';
+      if (res.status === 400 || res.status === 403) msg = 'That key was rejected. Tap "Change key" to paste a valid Gemini key.';
+      if (res.status === 429) msg = 'Daily free limit reached — try again later, or use a normal screenshot.';
+      realisticError(msg);
+      return;
+    }
+    const data = await res.json();
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const part  = parts.find(p => (p.inline_data && p.inline_data.data) || (p.inlineData && p.inlineData.data));
+    const outB64 = part && ((part.inline_data && part.inline_data.data) || (part.inlineData && part.inlineData.data));
+    if (!outB64){ realisticError("The AI didn't return an image. Try again."); return; }
+    showRealResult(b64ToBlob(outB64, 'image/png'));
+    unlock('say-cheese');
+    logActivity('screenshot', 'made a realistic photo of the room ✨');
+  }catch(e){
+    realisticError("Couldn't reach the AI — check the connection and try again.");
+  }
+}
+
+function realisticError(msg){
+  showConfirm(`<h2>Hmm 😕</h2><p class="wsub">${esc(msg)}</p>
+    <button class="btn primary" id="reOk">OK</button>
+    <button class="btn" id="reKey">Change key</button>`,
+    [['reOk', hideConfirm], ['reKey', () => { localStorage.removeItem(GKEY); hideConfirm(); promptForGeminiKey(); }]]);
+}
+
+function showRealResult(blob){
+  const url = URL.createObjectURL(blob);
+  showConfirm(`<h2>Realistic view ✨</h2>
+    <img class="rimg" src="${url}" alt="Realistic render">
+    <button class="btn primary" id="rShare">Share / Save</button>
+    <button class="btn" id="rAgain">Try again</button>
+    <button class="btn" id="rClose">Close</button>`,
+    [
+      ['rShare', async () => {
+        const file = new File([blob], 'our-new-home-realistic.png', {type: 'image/png'});
+        if (navigator.canShare && navigator.canShare({files: [file]})){
+          try { await navigator.share({files: [file], title: 'Our New Home'}); } catch(e){}
+        } else {
+          const a = document.createElement('a'); a.href = url; a.download = 'our-new-home-realistic.png'; a.click();
+        }
+      }],
+      ['rAgain', () => { hideConfirm(); URL.revokeObjectURL(url); realisticShot(); }],
+      ['rClose', () => { hideConfirm(); URL.revokeObjectURL(url); }]
+    ]);
+}
+
 /* ============================== the cat ============================== */
 
 let cat = null;
@@ -4675,7 +4787,7 @@ $('achBtn').onclick = () => {
 };
 $('closeAch').onclick = closeOverlays;
 
-$('shotBtn').onclick = shareScreenshot;
+$('shotBtn').onclick = openShareChooser;
 $('undoBtn').onclick = doUndo;
 updateUndoBtn();
 viewBtn.onclick = () => $('viewMenu').classList.toggle('on');
