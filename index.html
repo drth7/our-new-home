@@ -17,8 +17,8 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 body{font-family:ui-rounded,-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 button{font-family:inherit;touch-action:manipulation}
 :root{--blue:#4C86D6;--pink:#E8709A}
-:root[data-theme="dark"]{--bg:#0f1317;--panel:#171d24;--panel2:#1f2731;--text:#e9eef4;--muted:#93a1b0;--line:#2a3540;--btn:#232c37;--accent:#4C86D6;--shadow:0 10px 30px rgba(0,0,0,.45)}
-:root[data-theme="light"]{--bg:#eef1f5;--panel:#ffffff;--panel2:#f3f5f8;--text:#1d2733;--muted:#5c6b7a;--line:#dfe5ec;--btn:#eef1f5;--accent:#4C86D6;--shadow:0 10px 30px rgba(20,30,40,.18)}
+:root[data-theme="dark"]{--bg:#0f1317;--panel:#171d24;--panel2:#1f2731;--text:#e9eef4;--muted:#93a1b0;--line:#2a3540;--btn:#232c37;--accent:#4C86D6;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.42)}
+:root[data-theme="light"]{--bg:#eef1f5;--panel:#ffffff;--panel2:#f3f5f8;--text:#1d2733;--muted:#5c6b7a;--line:#dfe5ec;--btn:#eef1f5;--accent:#4C86D6;--shadow:0 1px 2px rgba(20,30,40,.07),0 8px 22px rgba(20,30,40,.14)}
 #app{position:fixed;inset:0}
 #app canvas{display:block;touch-action:none}
 
@@ -210,10 +210,29 @@ body.guest #guestNote{display:block}
 #topbar h1{background:rgba(22,28,36,.86);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.08)}
 #addBtn,.btn.primary{background:linear-gradient(135deg,#4b86d8,#6aa4f2);border:none;color:#fff}
 #addBtn:hover{filter:brightness(1.08)}
-.iconbtn,.btn,.tab,.model,.rbtn,.pbtn{transition:transform .12s,background .15s,filter .15s}
+.iconbtn,.btn,.tab,.model,.rbtn,.pbtn{transition:transform .14s cubic-bezier(.2,.9,.3,1.3),background .15s,filter .15s,box-shadow .15s}
 .model:hover{transform:translateY(-2px)}
 .tab.on{background:linear-gradient(135deg,#4b86d8,#6aa4f2)}
 #viewMenu button.on{background:linear-gradient(135deg,#4b86d8,#6aa4f2)}
+
+/* inline SVG icons */
+.ic{width:20px;height:20px;flex:none;pointer-events:none;display:block}
+#addBtn{gap:8px}
+#addBtn .ic{width:18px;height:18px}
+.pbtn .ic,.xbtn .ic,.szbtn .ic{width:19px;height:19px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px}
+.btn .ic{width:17px;height:17px;flex:none}
+#viewMenu button .ic{width:18px;height:18px}
+.iconbtn .ic{transition:transform .2s cubic-bezier(.2,.9,.3,1.3)}
+.iconbtn:active .ic{transform:scale(.88)}
+#themeBtn .ic{animation:icpop .3s cubic-bezier(.2,1.5,.4,1)}
+@keyframes icpop{from{transform:scale(.4) rotate(-40deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+
+/* popover entrance springs */
+#viewMenu.on{animation:menuin .2s cubic-bezier(.2,.9,.3,1.25)}
+@keyframes menuin{from{transform:translateY(-8px) scale(.95);opacity:0}}
+#pill.on,#sizePanel.on,#wallPill.on{animation:pillin .22s cubic-bezier(.2,1.35,.35,1)}
+@keyframes pillin{from{transform:translate(-50%,-100%) scale(.82);opacity:0}}
 
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -226,25 +245,25 @@ body.guest #guestNote{display:block}
 <div id="app"></div>
 
 <div id="topbar" class="bar">
-  <button class="iconbtn" id="roomsBtn" title="Rooms">🗺️</button>
+  <button class="iconbtn" id="roomsBtn" title="Rooms" data-icon="map"></button>
   <h1><span id="userDot"></span>Our New Home</h1>
   <button class="iconbtn" id="viewBtn" title="Toggle 2D / 3D view">2D</button>
-  <button class="iconbtn" id="themeBtn" title="Light / Dark">☀️</button>
-  <button class="iconbtn" id="settingsBtn" title="Settings">⚙️</button>
+  <button class="iconbtn" id="themeBtn" title="Light / Dark"></button>
+  <button class="iconbtn" id="settingsBtn" title="Settings" data-icon="settings"></button>
 </div>
 
 <div id="bottombar" class="bar">
-  <button class="iconbtn" id="addBtn">＋ Add</button>
-  <button class="iconbtn" id="undoBtn" title="Undo">↩️</button>
-  <button class="iconbtn" id="shotBtn" title="Screenshot">📷</button>
-  <button class="iconbtn" id="achBtn" title="Achievements">🏆</button>
-  <button class="iconbtn" id="actBtn" title="Activity">🔔<span id="actBadge"></span></button>
+  <button class="iconbtn" id="addBtn" data-icon="plus"><span>Add</span></button>
+  <button class="iconbtn" id="undoBtn" title="Undo" data-icon="undo"></button>
+  <button class="iconbtn" id="shotBtn" title="Screenshot" data-icon="camera"></button>
+  <button class="iconbtn" id="achBtn" title="Achievements" data-icon="trophy"></button>
+  <button class="iconbtn" id="actBtn" title="Activity" data-icon="bell"><span id="actBadge"></span></button>
 </div>
 
 <div id="viewMenu">
-  <button data-v="3d">🧊 3D orbit</button>
-  <button data-v="2d">🗺️ 2D plan</button>
-  <button data-v="tp">🚶 Walk around</button>
+  <button data-v="3d" data-icon="cube"><span>3D orbit</span></button>
+  <button data-v="2d" data-icon="grid"><span>2D plan</span></button>
+  <button data-v="tp" data-icon="walk"><span>Walk around</span></button>
 </div>
 
 <div id="joy"><div id="joyNub"></div></div>
@@ -254,11 +273,11 @@ body.guest #guestNote{display:block}
 
 <div id="pill">
   <div class="pillrow">
-    <button class="pbtn" id="rotBtn" title="Rotate 45°">⟳</button>
+    <button class="pbtn" id="rotBtn" title="Rotate 45°" data-icon="rotate"></button>
     <label class="pbtn tint" title="Colour"><input type="color" id="tintInput"></label>
-    <button class="pbtn" id="sizeBtn" title="Resize">📐</button>
+    <button class="pbtn" id="sizeBtn" title="Resize" data-icon="resize"></button>
     <button class="pbtn" id="useBtn" title="Use" style="display:none"></button>
-    <button class="pbtn" id="delBtn" title="Delete">🗑</button>
+    <button class="pbtn" id="delBtn" title="Delete" data-icon="trash"></button>
   </div>
   <div id="measure"></div>
 </div>
@@ -266,8 +285,8 @@ body.guest #guestNote{display:block}
 <div id="wallPill">
   <span>Wall</span>
   <label class="pbtn tint" title="Paint this wall"><input type="color" id="wallTint"></label>
-  <button class="pbtn" id="wallReset" title="Reset">↺</button>
-  <button class="pbtn" id="wallClose">✕</button>
+  <button class="pbtn" id="wallReset" title="Reset" data-icon="reset"></button>
+  <button class="pbtn" id="wallClose" data-icon="x"></button>
 </div>
 
 <div id="radial"></div>
@@ -280,7 +299,7 @@ body.guest #guestNote{display:block}
 </div>
 
 <div id="addSheet" class="sheet">
-  <div class="shead"><b>Add furniture</b><div style="display:flex;gap:6px"><button class="xbtn" id="refreshModels" title="Check for new models">🔄</button><button class="xbtn" id="closeAdd">✕</button></div></div>
+  <div class="shead"><b>Add furniture</b><div style="display:flex;gap:6px"><button class="xbtn" id="refreshModels" title="Check for new models" data-icon="refresh"></button><button class="xbtn" id="closeAdd" data-icon="x"></button></div></div>
   <div id="catTabs"></div>
   <div id="modelGrid"></div>
 </div>
@@ -288,7 +307,7 @@ body.guest #guestNote{display:block}
 <div id="scrim"></div>
 
 <aside id="settings" class="drawer">
-  <div class="dhead"><b>Settings</b><button class="xbtn" id="closeSettings">✕</button></div>
+  <div class="dhead"><b>Settings</b><button class="xbtn" id="closeSettings" data-icon="x"></button></div>
   <div class="dbody">
     <section>
       <h3 class="sec">You</h3>
@@ -322,21 +341,21 @@ body.guest #guestNote{display:block}
     </section>
     <section id="secLayout">
       <h3 class="sec">Layout</h3>
-      <div class="row"><button class="btn" id="saveBtn">💾 Save</button><button class="btn" id="loadBtn">📂 Load</button></div>
-      <div class="row"><button class="btn" id="exportBtn">📤 Export</button><button class="btn" id="importBtn">📥 Import</button></div>
-      <button class="btn danger" id="clearBtn">🧹 Clear all furniture</button>
+      <div class="row"><button class="btn" id="saveBtn" data-icon="save"><span>Save</span></button><button class="btn" id="loadBtn" data-icon="folder"><span>Load</span></button></div>
+      <div class="row"><button class="btn" id="exportBtn" data-icon="upload"><span>Export</span></button><button class="btn" id="importBtn" data-icon="download"><span>Import</span></button></div>
+      <button class="btn danger" id="clearBtn" data-icon="trash"><span>Clear all furniture</span></button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
   </div>
 </aside>
 
 <aside id="activity" class="drawer">
-  <div class="dhead"><b>Activity</b><button class="xbtn" id="closeActivity">✕</button></div>
+  <div class="dhead"><b>Activity</b><button class="xbtn" id="closeActivity" data-icon="x"></button></div>
   <div class="dbody" id="actList"></div>
 </aside>
 
 <aside id="rooms" class="drawer">
-  <div class="dhead"><b>Rooms</b><button class="xbtn" id="closeRooms">✕</button></div>
+  <div class="dhead"><b>Rooms</b><button class="xbtn" id="closeRooms" data-icon="x"></button></div>
   <div class="dbody" id="roomList" style="gap:0"></div>
 </aside>
 
@@ -345,7 +364,7 @@ body.guest #guestNote{display:block}
 </div>
 
 <div id="achPanel">
-  <div class="dhead"><b>Achievements <span class="tag" id="achCount"></span></b><button class="xbtn" id="closeAch">✕</button></div>
+  <div class="dhead"><b>Achievements <span class="tag" id="achCount"></span></b><button class="xbtn" id="closeAch" data-icon="x"></button></div>
   <div class="dbody" id="achList"></div>
 </div>
 
@@ -360,6 +379,34 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+/* ---- inline SVG icon set (Lucide-style, crisp & consistent across devices) ---- */
+const ICONS = {
+  map:'<path d="M9 4 3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6 9 4Z"/><path d="M9 4v14M15 6v14.5"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>',
+  settings:'<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1.5" y1="14" x2="6.5" y2="14"/><line x1="9.5" y1="8" x2="14.5" y2="8"/><line x1="17.5" y1="16" x2="22.5" y2="16"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+  camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="3.5"/>',
+  trophy:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.7V17c0 .6-.5 1-1 1.2C7.9 18.8 7 20.2 7 22"/><path d="M14 14.7V17c0 .6.5 1 1 1.2 1.1.6 2 2 2 3.8"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+  cube:'<path d="M21 8.5v7a2 2 0 0 1-1 1.7l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 15.5v-7a2 2 0 0 1 1-1.7l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8.5Z"/><path d="m3.3 7.5 8.7 5 8.7-5M12 22.5v-10"/>',
+  grid:'<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
+  walk:'<circle cx="12" cy="4.5" r="1.4"/><path d="m9 21 3-6 3 6M6 8.5l6 2 6-2M12 10.5v4"/>',
+  rotate:'<path d="M21 12a9 9 0 1 1-2.6-6.3L21 8"/><path d="M21 3v5h-5"/>',
+  resize:'<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>',
+  trash:'<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  refresh:'<path d="M21 12a9 9 0 0 0-9-9 9 9 0 0 0-6.7 3L3 8M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9 9 0 0 0 6.7-3L21 16M21 21v-5h-5"/>',
+  reset:'<path d="M3 12a9 9 0 1 0 2.6-6.3L3 8M3 3v5h5"/>',
+  save:'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+  folder:'<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.5l-2-2.5A1.5 1.5 0 0 0 9.3 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>'
+};
+const svgIcon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
+document.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', svgIcon(el.dataset.icon)));
 
 /* ============================== data & state ============================== */
 
@@ -3130,7 +3177,7 @@ function applyTheme(t, {log = false} = {}){
   hemi.intensity = s.hemi;
   sun.intensity = s.sun;
   sun.color.set(s.sunColor);
-  themeBtn.textContent = t === 'dark' ? '☀️' : '🌙';
+  themeBtn.innerHTML = svgIcon(t === 'dark' ? 'sun' : 'moon');
   buildPlan();
   if (log){
     logActivity('theme', `switched to ${t} mode`);
