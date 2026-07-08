@@ -3759,9 +3759,12 @@ async function realisticShot(){
       body: JSON.stringify({ contents: [{ parts: [ {text: prompt}, {inline_data: {mime_type: 'image/png', data: inB64}} ] }] })
     });
     if (!res.ok){
-      let msg = 'The AI service returned an error (' + res.status + ').';
-      if (res.status === 400 || res.status === 403) msg = 'That key was rejected. Tap "Change key" to paste a valid Gemini key.';
-      if (res.status === 429) msg = 'Daily free limit reached — try again later, or use a normal screenshot.';
+      let gmsg = '';
+      try { gmsg = ((await res.json()).error || {}).message || ''; } catch(e){}
+      let msg = 'The AI returned an error (' + res.status + ').';
+      if (res.status === 400 || res.status === 403) msg = 'That key was rejected — tap "Change key" and paste a fresh one.';
+      else if (res.status === 429) msg = 'Realistic mode needs billing turned on for your key\'s Google project — image generation has no free quota. It stays cheap (~4¢/image). Until then, use a normal screenshot.';
+      if (gmsg && res.status !== 429) msg += ' — ' + gmsg.slice(0, 120);
       realisticError(msg);
       return;
     }
