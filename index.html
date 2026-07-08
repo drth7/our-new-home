@@ -3877,21 +3877,21 @@ function showRealResult(blob){
 function promptCreate(){
   showConfirm(`
     <h2>Create with AI ✨</h2>
-    <p class="wsub">Type anything and it'll be built as a simple model and added to your list. Best with simple things — "ball", "floor lamp", "stool", "bean bag", "plant pot".</p>
-    <input type="text" id="genInput" placeholder="e.g. ball" maxlength="40">
+    <p class="wsub">Describe it however you like — the more detail, the better. e.g. "a tall arched floor lamp with a marble base and a warm linen shade". Enter to create, Shift+Enter for a new line.</p>
+    <textarea id="genInput" rows="3" placeholder="Describe the thing you want…"></textarea>
     <button class="btn primary" id="genGo">Create ✨</button>
     <button class="btn" id="genCancel">Cancel</button>`,
     [
       ['genGo', () => { const v = $('genInput').value.trim(); if (v) generateModel(v); }],
       ['genCancel', hideConfirm]
     ]);
-  setTimeout(() => { const el = $('genInput'); if (el){ el.focus(); el.addEventListener('keydown', e => { if (e.key === 'Enter'){ const v = el.value.trim(); if (v) generateModel(v); } }); } }, 120);
+  setTimeout(() => { const el = $('genInput'); if (el){ el.focus(); el.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); const v = el.value.trim(); if (v) generateModel(v); } }); } }, 120);
 }
 
 async function generateModel(text){
   const proxy = proxyUrl();
   if (!proxy){ promptForProxy(); return; }
-  const thing = text.trim().slice(0, 40);
+  const thing = text.trim().slice(0, 600);           // describe freely; 600 is just a sanity guard
   if (!thing) return;
   showConfirm(`<h2>Creating "${esc(thing)}" ✨</h2><p class="wsub">Sketching a 3D model… a few seconds.</p><div class="rspin"></div>`, []);
   const bad = m => showConfirm(`<h2>Hmm 😕</h2><p class="wsub">${esc(m)}</p><button class="btn primary" id="gOk">OK</button><button class="btn" id="gRetry">Try again</button>`,

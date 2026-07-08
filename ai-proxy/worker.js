@@ -59,7 +59,7 @@ export default {
 
     // ── text mode: describe an object → JSON shape recipe (cheap text model) ──
     if (body && body.generate){
-      const thing = String(body.generate).slice(0, 60);
+      const thing = String(body.generate).slice(0, 600);
       const sys = 'You output ONLY minified JSON (no prose, no markdown) describing a simple low-poly 3D furniture/prop model made of primitive parts. ' +
         'Schema: {"name":string<=16,"w":metres,"d":metres,"h":metres,"color":"#hex","parts":[{"shape":"box"|"cylinder"|"sphere"|"cone","w":m,"h":m,"d":m,"r":m,"x":m,"y":m,"z":m,"rx":deg,"ry":deg,"rz":deg,"color":"#hex"}]}. ' +
         'Rules: real-world sizes in metres; origin at the CENTRE of the floor footprint, y is UP, each part y is its centre height so the whole object rests on the floor (nothing below y=0); w/d/h are the overall bounding size; box uses w/h/d, cylinder/cone use r+h, sphere uses r; at most 12 parts; keep it recognizable but simple. ' +
