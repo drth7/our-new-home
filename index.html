@@ -122,6 +122,10 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .rspin{width:36px;height:36px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:10px auto 4px;animation:rspin 1s linear infinite}
 @keyframes rspin{to{transform:rotate(360deg)}}
 .rimg{width:100%;border-radius:12px;display:block;margin:2px 0 4px}
+/* moving rainbow outline + glow around the AI "working…" widget */
+@property --aiang{syntax:'<angle>';inherits:false;initial-value:0deg}
+#confirm.aiwait{border:3px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,conic-gradient(from var(--aiang,0deg),#ff5f6d,#ffc371,#5bd6a0,#4c86d6,#a06aff,#ff5f6d) border-box;animation:aiang 3s linear infinite;box-shadow:0 0 26px 2px rgba(160,106,255,.4),0 0 48px 10px rgba(76,134,214,.28)}
+@keyframes aiang{to{--aiang:360deg}}
 #achPanel .dhead{padding-top:14px}
 .tag{font-size:10px;background:var(--btn);color:var(--muted);border-radius:6px;padding:2px 6px;font-weight:700;vertical-align:1px}
 .ach{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);opacity:.55}
@@ -2662,7 +2666,7 @@ function addFurniture(type, opts = {}){
     g.userData.hangY = opts.hy || (def.wall ? 1.5 : 1.4);
     applyHangY(g);
   }
-  applyTint(g, opts.tint || def.color);
+  if (opts.tint || !def.gen) applyTint(g, opts.tint || def.color);   // AI models keep their own per-part colours unless you deliberately recolour
   clampToRoom(g);
   if (opts.y != null && !isWall(g) && (def.h > 0.1 || def.gen)){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (real rugs always stay flat)
   furnGroup.add(g);
@@ -5252,6 +5256,7 @@ const confirmEl = $('confirm');
 function showConfirm(html, actions){
   $('cfBody').innerHTML = html;
   actions.forEach(([id, fn]) => { $('cfBody').querySelector('#' + id).onclick = fn; });
+  confirmEl.classList.toggle('aiwait', /rspin/.test(html));   // rainbow glow only while the AI is working
   confirmEl.classList.add('on');
 }
 function hideConfirm(){ confirmEl.classList.remove('on'); }
