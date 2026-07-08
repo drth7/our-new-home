@@ -597,10 +597,15 @@ const MODEL_DEFS = [
 function applyStackRule(d){
   if (!d.wall && !d.surface && !d.seat && !d.bed && d.h <= 0.6 && d.w <= 0.6 && d.d <= 0.7) d.stack = true;
 }
+const BASE_IDS = new Set(MODEL_DEFS.map(m => m.id));         // the built-in atlas pack; everything else is a user upload
 function registerModelDef(m){
   if (!m || !m.id || !m.file || CATALOG[m.id]) return false;
   const def = {...m, model:m.file};
   if (m.file.startsWith('Sofa/')) def.plain = 1;             // the atlas doesn't fit the sofa pack — plain white, tintable
+  else if (!BASE_IDS.has(m.id)){                             // a model you added: it isn't part of the shared atlas and its
+    def.plain = 1;                                           // authoring scale can't be trusted, so give it a clean tintable
+    def.anchorSize = 1;                                      // material and size it by the catalog dimensions (not raw units)
+  }
   def.color = def.plain ? '#f2f2f2' : '#9aa8b5';
   applyStackRule(def);
   CATALOG[def.id] = def;
@@ -1136,8 +1141,8 @@ function instantiateModel(proto, def){
   let s = rawMax > 2000 ? 0.001 : rawMax > 20 ? 0.01 : 1;
   const realMax = rawMax * s;
   const refMax = Math.max(def.w, def.d, def.h);
-  if (realMax < refMax*0.55 || realMax > refMax*1.8){
-    s = refMax / rawMax;                           // implausible: anchor to the catalog size but KEEP the model's own proportions
+  if (def.anchorSize || realMax < refMax*0.55 || realMax > refMax*1.8){
+    s = refMax / rawMax;                           // user model / implausible size: anchor to the catalog size but KEEP the model's own proportions
   }
   inst.scale.multiplyScalar(s);
   box.setFromObject(inst);
