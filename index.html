@@ -620,11 +620,11 @@ const PLAN = {
   rooms: [
     // kitchen + living are one open space (no wall between them) but count as separate rooms — both run up to the hallway line
     {id:'kitchen', name:'Kitchen',        rects:[[3.6,7.8,6.5,13.2]], furnishable:true, lightPos:[[5.0,11.0]]},
-    {id:'living',  name:'Living Hall',    rects:[[6.5,7.8,13.5,13.2],[10.1,7.0,13.5,7.8]], furnishable:true, lightPos:[[10.6,11.0]]},   // extends north under bedroom 2 (TV wall moved north 0.8 m)
+    {id:'living',  name:'Living Hall',    rects:[[6.5,7.8,13.5,13.2]], furnishable:true, lightPos:[[10.6,11.0]]},
     {id:'dining',  name:'Dining',         rects:[[3.7,3.8,6.5,7.6]], furnishable:true},
     {id:'master',  name:'Master Bedroom', rects:[[3.7,0,8.2,3.6]], furnishable:true},
     {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.1,13.5,3.8]], furnishable:true},   // 3.70 m deep, flush with the building top
-    {id:'bed2',    name:'Bedroom 2',      rects:[[10.1,4.0,13.5,6.9]], furnishable:true},   // south wall pulled north 0.8 m (living hall deepened under it)
+    {id:'bed2',    name:'Bedroom 2',      rects:[[10.1,4.0,13.5,7.7]], furnishable:true},   // 3.70 m deep, ends at the hallway line (per the red reference)
     {id:'mens',    name:"Men's Sitting",  rects:[[0,1.3,3.5,4.3]], furnishable:true},   // top pulled down 1.3 m so the block (to the guest toilet) is 6.3 m
     {id:'maid',    name:'Maid Room',      rects:[[1.3,9.1,3.4,11.0]], furnishable:true},
     {id:'hall',    name:'Hallway',        rects:[[0,7.8,3.6,8.9],[8.4,2.3,9.9,7.8],[0,4.3,3.5,5.8],[1.6,5.8,3.5,7.6]], lightPos:[[1.8,8.3],[9.15,4.9]]},   // left strip + corridor below men's sitting + bedroom corridor
@@ -650,7 +650,7 @@ const PLAN = {
     {d:'v', pos:10.0, from:-0.1, to:0.5},
     {d:'h', pos:-0.1, from:10.0, to:13.7},                                 // bedroom 1 north wall — flush with the building top (setback filled)
     {d:'v', pos:13.6, from:-0.1, to:8.45, ops:[{t:'win', at:1.95, w:1.6},{t:'win', at:5.85, w:1.6}]},   // bedroom windows, centred on each room
-    {d:'h', pos:7.0,  from:9.9,  to:13.7},                                   // living-hall north / bedroom 2 south wall — moved north 0.8 m to deepen the living hall (TV wall)
+    {d:'h', pos:7.8,  from:9.9,  to:13.7},                                   // bedroom 2 south wall — on the hallway line (matches the red reference)
     {d:'h', pos:9.0,  from:1.2,  to:3.6,  ops:[{t:'door', at:2.4, w:0.9}]},  // maid room: door faces the men's sitting side
     {d:'h', pos:8.35, from:13.6, to:14.8},                                   // balcony north edge
     {d:'v', pos:-0.1, from:-0.2, to:13.4, ops:[{t:'win', at:6.7, w:0.6},{t:'door', at:12.7, w:1.0}]},   // no window on the men's-sitting west side
