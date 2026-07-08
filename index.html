@@ -3692,7 +3692,12 @@ async function shareScreenshot(){
 }
 
 /* ---- Share chooser: a plain screenshot, or an AI photo-real version of the same view ---- */
-const GKEY = 'roomplanner.gkey';                 // the user's own Gemini key — kept ONLY on this device, never in the repo
+// Realistic mode calls a Cloudflare Worker that holds the Gemini key SERVER-SIDE (see ai-proxy/worker.js) —
+// no key ever lives in this file or on the device. Bake the Worker URL into AI_PROXY once it's deployed;
+// until then the app asks for it once and remembers it (the URL is not secret).
+const AI_PROXY   = '';                            // e.g. 'https://our-new-home-ai.abdulla.workers.dev'
+const AIPROXY_LS = 'roomplanner.aiproxy';
+const proxyUrl   = () => AI_PROXY || localStorage.getItem(AIPROXY_LS) || '';
 
 function closeShareMenu(){
   $('shareMenu').classList.remove('on');
@@ -3722,25 +3727,24 @@ function b64ToBlob(b64, type){
   return new Blob([arr], {type});
 }
 
-function promptForGeminiKey(){
+function promptForProxy(){
   showConfirm(`
     <h2>Turn on Realistic ✨</h2>
-    <p class="wsub">It uses Google's free "Nano&nbsp;Banana" AI (~500 images/day free). Paste your key — it's saved only on this device. Your screenshot is sent to Google to make the photo.</p>
-    <input type="text" id="gkeyInput" placeholder="Paste your Gemini API key">
-    <button class="btn primary" id="gkeySave">Save &amp; continue</button>
-    <a class="btn" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key ↗</a>
-    <button class="btn" id="gkeyCancel">Cancel</button>`,
+    <p class="wsub">Paste the address of your image proxy — the Cloudflare Worker URL (ends in <b>.workers.dev</b>). It isn't secret; it just tells the app where to send the picture.</p>
+    <input type="text" id="pxInput" placeholder="https://…workers.dev">
+    <button class="btn primary" id="pxSave">Save &amp; continue</button>
+    <button class="btn" id="pxCancel">Cancel</button>`,
     [
-      ['gkeySave', () => { const v = $('gkeyInput').value.trim(); if (!v) return; localStorage.setItem(GKEY, v); hideConfirm(); realisticShot(); }],
-      ['gkeyCancel', hideConfirm]
+      ['pxSave', () => { let v = $('pxInput').value.trim(); if (!v) return; if (!/^https?:\/\//i.test(v)) v = 'https://' + v; localStorage.setItem(AIPROXY_LS, v.replace(/\/+$/, '')); hideConfirm(); realisticShot(); }],
+      ['pxCancel', hideConfirm]
     ]);
-  setTimeout(() => { const el = $('gkeyInput'); if (el) el.focus(); }, 120);
+  setTimeout(() => { const el = $('pxInput'); if (el) el.focus(); }, 120);
 }
 
 async function realisticShot(){
-  const key = localStorage.getItem(GKEY);
-  if (!key){ promptForGeminiKey(); return; }
-  // grab the current view, scaled down to ~1024 wide (keeps it fast + inside the free tier)
+  const proxy = proxyUrl();
+  if (!proxy){ promptForProxy(); return; }
+  // grab the current view, scaled down to ~1024 wide (keeps it fast + the upload small)
   renderer.render(scene, activeCam());
   const src = renderer.domElement;
   const scale = Math.min(1, 1024 / src.width);
@@ -3753,17 +3757,18 @@ async function realisticShot(){
 
   const prompt = "Turn this 3D room-planner screenshot into a photorealistic interior photograph. KEEP the exact same layout, camera angle, and every furniture piece in its exact position, size and proportion. Only upgrade materials, lighting, shadows and textures so they look real and high quality. Do NOT add, remove, resize or move any furniture, walls or windows.";
   try{
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent', {
+    const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
       method: 'POST',
-      headers: {'Content-Type': 'application/json', 'x-goog-api-key': key},   // header works for both old "AIza" and new "auth" (AQ.) keys
-      body: JSON.stringify({ contents: [{ parts: [ {text: prompt}, {inline_data: {mime_type: 'image/png', data: inB64}} ] }] })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ image: inB64, prompt })
     });
     if (!res.ok){
       let gmsg = '';
       try { gmsg = ((await res.json()).error || {}).message || ''; } catch(e){}
-      let msg = 'The AI returned an error (' + res.status + ').';
-      if (res.status === 400 || res.status === 403) msg = 'That key was rejected — tap "Change key" and paste a fresh one.';
-      else if (res.status === 429) msg = 'Realistic mode needs billing turned on for your key\'s Google project — image generation has no free quota. It stays cheap (~4¢/image). Until then, use a normal screenshot.';
+      let msg = 'The image service returned an error (' + res.status + ').';
+      if (res.status === 403) msg = 'The proxy refused this site — check the allowed origins in the Worker.';
+      else if (res.status === 400 || res.status === 401) msg = 'The proxy rejected the request — check the Worker\'s GEMINI_KEY.';
+      else if (res.status === 429) msg = 'The Gemini key in your proxy has no image quota — turn on billing for its Google project (then ~4¢/image). Until then, use a normal screenshot.';
       if (gmsg && res.status !== 429) msg += ' — ' + gmsg.slice(0, 120);
       realisticError(msg);
       return;
@@ -3777,15 +3782,15 @@ async function realisticShot(){
     unlock('say-cheese');
     logActivity('screenshot', 'made a realistic photo of the room ✨');
   }catch(e){
-    realisticError("Couldn't reach the AI — check the connection and try again.");
+    realisticError("Couldn't reach the image proxy — check the Worker URL (Change proxy) and your connection.");
   }
 }
 
 function realisticError(msg){
   showConfirm(`<h2>Hmm 😕</h2><p class="wsub">${esc(msg)}</p>
     <button class="btn primary" id="reOk">OK</button>
-    <button class="btn" id="reKey">Change key</button>`,
-    [['reOk', hideConfirm], ['reKey', () => { localStorage.removeItem(GKEY); hideConfirm(); promptForGeminiKey(); }]]);
+    <button class="btn" id="reKey">Change proxy</button>`,
+    [['reOk', hideConfirm], ['reKey', () => { localStorage.removeItem(AIPROXY_LS); hideConfirm(); promptForProxy(); }]]);
 }
 
 function showRealResult(blob){
