@@ -174,6 +174,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 #viewMenu.on{display:flex}
 #viewMenu button{border:none;background:none;color:var(--text);font-size:14px;font-weight:600;padding:10px 12px;border-radius:9px;text-align:left;cursor:pointer;display:flex;gap:9px;align-items:center}
 #viewMenu button:hover,#viewMenu button:active{background:var(--btn)}
+#shareMenu{position:fixed;z-index:45;transform:translateX(-50%);background:var(--panel);border-radius:14px;box-shadow:var(--shadow);padding:6px;display:none;flex-direction:column;gap:4px;min-width:210px}
+#shareMenu.on{display:flex;animation:smin .22s cubic-bezier(.2,.9,.3,1.25)}
+@keyframes smin{from{transform:translateX(-50%) translateY(12px) scale(.95);opacity:0}}
+#shareMenu button{border:none;background:none;color:var(--text);font-size:14px;font-weight:600;padding:11px 13px;border-radius:9px;text-align:left;cursor:pointer;display:flex;gap:9px;align-items:center;font-family:inherit}
+#shareMenu button:hover,#shareMenu button:active{background:var(--btn)}
+#shareMenu button .ic{width:18px;height:18px}
 #viewMenu button.on{background:var(--accent);color:#fff}
 
 #joy{position:fixed;left:18px;bottom:calc(84px + env(safe-area-inset-bottom));width:112px;height:112px;border-radius:50%;background:rgba(120,140,160,.14);border:2px solid rgba(150,170,190,.3);z-index:25;display:none;touch-action:none}
@@ -320,6 +326,11 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
   <button data-v="3d" data-icon="cube"><span>3D orbit</span></button>
   <button data-v="2d" data-icon="grid"><span>2D plan</span></button>
   <button data-v="tp" data-icon="walk"><span>Walk around</span></button>
+</div>
+
+<div id="shareMenu">
+  <button id="smNormal" data-icon="camera"><span>Screenshot</span></button>
+  <button id="smReal">✨<span>Realistic screenshot (AI)</span></button>
 </div>
 
 <div id="joy"><div id="joyNub"></div></div>
@@ -3683,20 +3694,27 @@ async function shareScreenshot(){
 /* ---- Share chooser: a plain screenshot, or an AI photo-real version of the same view ---- */
 const GKEY = 'roomplanner.gkey';                 // the user's own Gemini key — kept ONLY on this device, never in the repo
 
-function openShareChooser(){
-  closeOverlays();
-  showConfirm(`
-    <h2>Share this view 📸</h2>
-    <p class="wsub">Pick a look</p>
-    <button class="btn primary" id="shNormal">📷 Normal screenshot</button>
-    <button class="btn" id="shReal">✨ Realistic (AI)</button>
-    <button class="btn" id="shCancel">Cancel</button>`,
-    [
-      ['shNormal', () => { hideConfirm(); shareScreenshot(); }],
-      ['shReal',   () => { hideConfirm(); realisticShot(); }],
-      ['shCancel', hideConfirm]
-    ]);
+function closeShareMenu(){
+  $('shareMenu').classList.remove('on');
+  document.removeEventListener('pointerdown', shareMenuOutside, true);
 }
+function shareMenuOutside(e){
+  const t = e.target;
+  if (t instanceof Element && (t.closest('#shareMenu') || t.closest('#shotBtn'))) return;
+  closeShareMenu();
+}
+function openShareChooser(){                        // a little box that rises out of the camera button
+  const menu = $('shareMenu');
+  if (menu.classList.contains('on')){ closeShareMenu(); return; }   // tap the camera again to close it
+  closeOverlays();
+  const r = $('shotBtn').getBoundingClientRect();
+  menu.style.left   = Math.max(118, Math.min(innerWidth - 118, r.left + r.width / 2)) + 'px';
+  menu.style.bottom = (innerHeight - r.top + 8) + 'px';            // sits just above the camera button
+  menu.classList.add('on');
+  setTimeout(() => document.addEventListener('pointerdown', shareMenuOutside, true), 0);
+}
+$('smNormal').onclick = () => { closeShareMenu(); shareScreenshot(); };
+$('smReal').onclick   = () => { closeShareMenu(); realisticShot(); };
 
 function b64ToBlob(b64, type){
   const bin = atob(b64), arr = new Uint8Array(bin.length);
