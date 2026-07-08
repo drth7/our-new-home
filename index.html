@@ -3761,7 +3761,7 @@ async function realisticShot(){
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ image: inB64, prompt })
+      body: JSON.stringify({ image: inB64, prompt, model: 'pro' })   // Nano Banana Pro — much more photoreal
     });
     if (!res.ok){
       let gmsg = '';

@@ -21,7 +21,11 @@ const ALLOWED_ORIGINS = [
   'https://drth7.github.io',   // the live app
   'http://localhost:8123',     // local preview
 ];
-const MODEL = 'gemini-2.5-flash-image';
+const MODELS = {                       // app sends a short alias; add more here without touching the app
+  pro:   'gemini-3-pro-image-preview', // "Nano Banana Pro" — best realism (~13¢/image)
+  flash: 'gemini-2.5-flash-image',     // "Nano Banana" — cheaper (~4¢/image)
+};
+const DEFAULT_MODEL = 'pro';
 const MAX_IMAGE_CHARS = 8_000_000;   // ~6 MB of base64 — plenty for a 1024px screenshot
 const DEFAULT_PROMPT =
   "Turn this 3D room-planner screenshot into a photorealistic interior photograph. " +
@@ -56,8 +60,9 @@ export default {
     if (!image || typeof image !== 'string') return json({ error: 'No image supplied.' }, 400, origin);
     if (image.length > MAX_IMAGE_CHARS)      return json({ error: 'Image too large.' }, 413, origin);
     const prompt = (body.prompt && String(body.prompt)) || DEFAULT_PROMPT;
+    const model  = MODELS[body.model] || MODELS[DEFAULT_MODEL];
 
-    const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
+    const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/png', data: image } }] }] }),
