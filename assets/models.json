@@ -590,9 +590,9 @@
         "h":  1.2
     },
     {
-        "id":  "x_arteasel3glb",
-        "file":  "Art/Easel 3.glb",
-        "name":  "Easel 3",
+        "id":  "x_arteasel2fbx",
+        "file":  "Art/Easel 2.fbx",
+        "name":  "Easel 2",
         "cat":  "Art",
         "w":  0.7,
         "d":  0.7,
