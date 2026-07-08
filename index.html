@@ -246,6 +246,23 @@ body.guest #guestNote{display:block}
 .toast{animation:toastin .3s cubic-bezier(.2,1.3,.4,1)}
 @keyframes toastin{from{transform:translateY(-10px) scale(.94);opacity:0}}
 
+/* Settings: grouped cards → roomier, less crowded, modern */
+#settings .dbody{gap:12px;padding:14px;padding-bottom:calc(22px + env(safe-area-inset-bottom))}
+#settings .dbody > section{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:15px;gap:13px}
+:root[data-theme="light"] #settings .dbody > section{background:rgba(22,32,46,.03);border-color:rgba(22,32,46,.07)}
+#settings h3.sec{font-size:11.5px;margin-bottom:1px;display:flex;align-items:center;gap:7px}
+#settings h3.sec::before{content:"";width:3px;height:12px;border-radius:2px;background:linear-gradient(var(--accent),#6aa4f2)}
+#settings .field{gap:0}
+#settings .field label{margin-bottom:8px;font-size:12.5px;line-height:1.45}
+#settings #userChip{background:rgba(255,255,255,.05)}
+#settings #mpStatus{margin:0}
+#settings.on .dbody > section{animation:setin .34s cubic-bezier(.2,.9,.3,1) backwards}
+#settings.on .dbody > section:nth-child(1){animation-delay:.05s}
+#settings.on .dbody > section:nth-child(2){animation-delay:.10s}
+#settings.on .dbody > section:nth-child(3){animation-delay:.15s}
+#settings.on .dbody > section:nth-child(4){animation-delay:.20s}
+@keyframes setin{from{opacity:0;transform:translateY(14px)}}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 <script type="importmap">
@@ -3658,6 +3675,20 @@ function dirtTex(){
 }
 // only one device runs the mess timer so a spot isn't spawned twice; offline, you're the host
 const dirtHost = () => !fb || !currentUser ? canEdit() : (!isGuest() && catOwnerRole() === currentUser.role);
+// height of any flat rug/mat under this point, so dirt sits on TOP of it instead of being buried
+function rugTopAt(x, z){
+  let top = 0;
+  for (const it of items){
+    const def = CATALOG[it.userData.type];
+    if (!def || def.wall || def.h > 0.1) continue;     // only flat rugs / mats
+    const {hw, hd} = halfExtents(it);
+    if (Math.abs(x - it.position.x) <= hw && Math.abs(z - it.position.z) <= hd){
+      const t = it.position.y + (it.userData.realH || def.h) * it.scale.y;
+      if (t > top) top = t;
+    }
+  }
+  return top;
+}
 // build/remove meshes so the scene matches the (possibly remote) dirt state
 function applyDirtState(state){
   state = state || {};
@@ -3675,12 +3706,14 @@ function applyDirtState(state){
         new THREE.MeshBasicMaterial({map:dirtTex(), transparent:true, depthWrite:false}));
       m.rotation.x = -Math.PI/2;
       m.rotation.z = d.rot || 0;
-      m.position.set(d.x, 0.015, d.z);
+      m.position.set(d.x, Math.max(0.015, rugTopAt(d.x, d.z) + 0.015), d.z);   // ride on top of any rug so it isn't buried
+      m.renderOrder = 3;
       scene.add(m);
       spot = {id, m, hits:d.h || 0};
       dirtSpots.push(spot);
     }
     spot.hits = d.h || 0;
+    spot.m.position.y = Math.max(0.015, rugTopAt(d.x, d.z) + 0.015);   // stay on top if a rug moved under/over it
     spot.m.scale.setScalar(spot.hits >= 1 ? 0.7 : 1);   // shrinks after the first scrub
   }
   dirtState = state;
