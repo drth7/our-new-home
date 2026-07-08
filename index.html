@@ -2579,8 +2579,15 @@ function setOnWall(g, on){
 }
 
 /* ---- distance measure tool ---- */
-let measureMode = false, measurePts = [];
+let measureMode = false, measurePts = [], measureDrag = null;
 const measureGroup = new THREE.Group(); scene.add(measureGroup);
+// which endpoint (if any) is under the finger, so you can grab and drag it
+function pickMeasureDot(e){
+  if (!measurePts.length || !floorPoint(e, _pd)) return -1;
+  let best = -1, bestD = 0.55;                        // generous grab radius
+  measurePts.forEach((p, i) => { const d = Math.hypot(_pd.x - p.x, _pd.z - p.z); if (d < bestD){ bestD = d; best = i; } });
+  return best;
+}
 const _mmat = new THREE.MeshBasicMaterial({color:0xffd23e, depthTest:false, transparent:true});
 const _mv = new THREE.Vector3();
 function clearMeasureMeshes(){
@@ -2591,6 +2598,7 @@ function toggleMeasure(){
   document.body.classList.toggle('measuring', measureMode);
   $('measureBtn').classList.toggle('on', measureMode);
   measurePts = [];
+  measureDrag = null;
   clearMeasureMeshes();
   $('measureLabel').style.display = 'none';
   if (measureMode){ deselect(); playSound('pop'); }
@@ -2769,7 +2777,11 @@ renderer.domElement.addEventListener('pointerdown', e => {
   downDirt = null;
   downCat = false;
   downCharRole = null;
-  if (measureMode) return;                                   // measure mode: taps drop measure points, drags orbit
+  if (measureMode){                                          // measure mode: grab an endpoint to drag it, else tap=new point / drag=orbit
+    const di = pickMeasureDot(e);
+    if (di >= 0){ measureDrag = di; orbit.enabled = false; pan.enabled = false; renderer.domElement.setPointerCapture(e.pointerId); }
+    return;
+  }
   if (cat){                                                  // tap the cat -> pet/feed menu
     setNdc(e);
     ray.setFromCamera(ndc, activeCam());
@@ -2837,6 +2849,10 @@ renderer.domElement.addEventListener('pointerdown', e => {
 }, true);
 
 renderer.domElement.addEventListener('pointermove', e => {
+  if (measureDrag != null){                          // dragging a measure endpoint — move it and re-measure live
+    if (floorPoint(e, _p)){ measurePts[measureDrag] = {x:_p.x, z:_p.z}; updateMeasureTool(); moved = true; }
+    return;
+  }
   if (downCat && cat && downAt && (cat.carried || Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) > 8)){
     if (!floorPoint(e, _p)) return;
     cat.carried = true;                            // scooped up
@@ -2888,6 +2904,13 @@ renderer.domElement.addEventListener('pointermove', e => {
 }, true);
 
 renderer.domElement.addEventListener('pointerup', e => {
+  if (measureDrag != null){                        // finished dragging a measure endpoint
+    measureDrag = null;
+    orbit.enabled = view === '3d'; pan.enabled = view === '2d';
+    try { renderer.domElement.releasePointerCapture(e.pointerId); } catch(_){}
+    e.stopPropagation();
+    return;
+  }
   if (downCat && cat && cat.carried){              // set the cat down
     cat.carried = false;
     cat.g.position.y = 0;
@@ -3006,14 +3029,14 @@ renderer.domElement.addEventListener('pointerup', e => {
 function resetPointerState(){
   if (cat && cat.carried){ cat.carried = false; cat.g.position.y = 0; cat.state = 'idle'; cat.t = 1; }
   if (dragChar){ dragChar.dragFall = false; dragChar.g.position.y = 0; }
-  dragging = false; dragChar = null; downCat = false; looking = false;
+  dragging = false; dragChar = null; downCat = false; looking = false; measureDrag = null;
   downCharRole = null; downAt = null; lookLast = null; moved = false;
   orbit.enabled = view === '3d'; pan.enabled = view === '2d';
   if (typeof dropMarker !== 'undefined') dropMarker.visible = false;
   if (typeof setTempGrid === 'function') setTempGrid(false);
 }
 renderer.domElement.addEventListener('pointercancel', resetPointerState);
-renderer.domElement.addEventListener('lostpointercapture', () => { if (dragging || dragChar || downCat || looking) resetPointerState(); });
+renderer.domElement.addEventListener('lostpointercapture', () => { if (dragging || dragChar || downCat || looking || measureDrag != null) resetPointerState(); });
 addEventListener('blur', resetPointerState);
 
 function pickWall(e){
