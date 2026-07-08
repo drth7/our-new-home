@@ -590,12 +590,12 @@
         "h":  1.2
     },
     {
-        "id":  "x_arteasel2",
-        "file":  "Art/Easel 2.glb",
-        "name":  "Easel 2",
+        "id":  "x_arteasel3glb",
+        "file":  "Art/Easel 3.glb",
+        "name":  "Easel 3",
         "cat":  "Art",
-        "w":  0.5,
-        "d":  0.5,
-        "h":  0.5
+        "w":  0.7,
+        "d":  0.7,
+        "h":  1.65
     }
 ]
