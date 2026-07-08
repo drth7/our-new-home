@@ -3753,9 +3753,9 @@ async function realisticShot(){
 
   const prompt = "Turn this 3D room-planner screenshot into a photorealistic interior photograph. KEEP the exact same layout, camera angle, and every furniture piece in its exact position, size and proportion. Only upgrade materials, lighting, shadows and textures so they look real and high quality. Do NOT add, remove, resize or move any furniture, walls or windows.";
   try{
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${encodeURIComponent(key)}`, {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'x-goog-api-key': key},   // header works for both old "AIza" and new "auth" (AQ.) keys
       body: JSON.stringify({ contents: [{ parts: [ {text: prompt}, {inline_data: {mime_type: 'image/png', data: inB64}} ] }] })
     });
     if (!res.ok){
