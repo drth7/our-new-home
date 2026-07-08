@@ -3695,7 +3695,7 @@ async function shareScreenshot(){
 // Realistic mode calls a Cloudflare Worker that holds the Gemini key SERVER-SIDE (see ai-proxy/worker.js) —
 // no key ever lives in this file or on the device. Bake the Worker URL into AI_PROXY once it's deployed;
 // until then the app asks for it once and remembers it (the URL is not secret).
-const AI_PROXY   = '';                            // e.g. 'https://our-new-home-ai.abdulla.workers.dev'
+const AI_PROXY   = 'https://ournewhome.dov-dov-tak.workers.dev';   // the Cloudflare Worker that holds the key
 const AIPROXY_LS = 'roomplanner.aiproxy';
 const proxyUrl   = () => AI_PROXY || localStorage.getItem(AIPROXY_LS) || '';
 
