@@ -3945,19 +3945,24 @@ function confirmDeleteGen(id, name){
     <button class="btn" id="dgNo">Cancel</button>`,
     [['dgYes', () => { hideConfirm(); deleteGenModel(id); }], ['dgNo', hideConfirm]]);
 }
-function deleteGenModel(id){
+function removeGenLocal(id){                             // pull a created model + its placed copies out of THIS device only
   let removed = 0;
-  for (let i = items.length - 1; i >= 0; i--){          // pull any placed copies out of the room
+  for (let i = items.length - 1; i >= 0; i--){
     if (items[i].userData.type === id){
       const g = items[i];
       if (sel === g) deselect();
       furnGroup.remove(g); disposeGroup(g); items.splice(i, 1); removed++;
     }
   }
+  pendingFurniture = pendingFurniture.filter(f => f.type !== id);
   delete CATALOG[id];
   jset(GEN_LS, jget(GEN_LS, []).filter(s => s.id !== id));
-  if (fb && fb.D) fb.D.remove(fb.D.ref(fb.db, 'room/genModels/' + id)).catch(() => {});   // gone from both phones
-  if (removed) scheduleSave();
+  return removed;
+}
+function deleteGenModel(id){                             // user-initiated: remove here AND everywhere
+  const removed = removeGenLocal(id);
+  if (fb && fb.D) fb.D.remove(fb.D.ref(fb.db, 'room/genModels/' + id)).catch(() => {});   // the other phone's listener prunes it too
+  if (removed) scheduleSave();                            // push the layout without the deleted piece
   buildAddSheet();
   toast('Deleted ✨');
 }
@@ -4607,20 +4612,22 @@ async function initSync(){
       }
     });
     D.onValue(D.ref(fb.db, 'room/aiUsed'), snap => { aiUsed = snap.val() || 0; updateRealMenu(); });   // shared "photos left"
-    D.onValue(D.ref(fb.db, 'room/genModels'), snap => {   // AI-created models shared to both phones
+    D.onValue(D.ref(fb.db, 'room/genModels'), snap => {   // AI-created models — the shared set is the source of truth
       const all = snap.val() || {};
-      let added = 0;
-      const saved = jget(GEN_LS, []);
-      for (const id in all){
-        if (registerGenModel(all[id])){ added++; if (!saved.find(s => s.id === id)) saved.push(all[id]); }
+      const liveIds = new Set(Object.keys(all));
+      let changed = false;
+      for (const id in all){ if (registerGenModel(all[id])) changed = true; }       // add new
+      for (const id of Object.keys(CATALOG)){                                        // prune ones deleted on the other phone
+        if (CATALOG[id].gen && !liveIds.has(id)){ removeGenLocal(id); changed = true; }
       }
-      if (added){
-        jset(GEN_LS, saved);
-        if (pendingFurniture.length){                 // a placed piece was waiting for one of these models — build it now
+      jset(GEN_LS, Object.values(all));                 // keep the local list mirroring the shared set exactly
+      if (changed){
+        if (pendingFurniture.length){                   // a placed piece was waiting for a model that just arrived — build it
           const still = [];
           pendingFurniture.forEach(f => { if (CATALOG[f.type]) addFurniture(f.type, {...f, silent:true}); else still.push(f); });
-          if (still.length !== pendingFurniture.length){ pendingFurniture = still; saveLocal(); }
+          pendingFurniture = still;
         }
+        saveLocal();
         if (addSheet.classList.contains('on')) buildAddSheet();
       }
     });
