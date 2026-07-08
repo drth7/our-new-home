@@ -63,6 +63,7 @@ export default {
       const sys = 'You output ONLY minified JSON (no prose, no markdown) describing a simple low-poly 3D furniture/prop model made of primitive parts. ' +
         'Schema: {"name":string<=16,"w":metres,"d":metres,"h":metres,"color":"#hex","parts":[{"shape":"box"|"cylinder"|"sphere"|"cone","w":m,"h":m,"d":m,"r":m,"x":m,"y":m,"z":m,"rx":deg,"ry":deg,"rz":deg,"color":"#hex"}]}. ' +
         'Rules: real-world sizes in metres; origin at the CENTRE of the floor footprint, y is UP, each part y is its centre height so the whole object rests on the floor (nothing below y=0); w/d/h are the overall bounding size; box uses w/h/d, cylinder/cone use r+h, sphere uses r; at most 12 parts; keep it recognizable but simple. ' +
+        'COLOURS: give EVERY part its own realistic "color", and use 2-4 DIFFERENT colours across the object to show its separate materials/sections — never make the whole thing one flat colour. Examples: floor lamp = dark metal base + slim pole + warm cream shade; dining chair = wooden legs + fabric seat + cushion; plant = terracotta pot + green foliage; toaster = steel body + dark slots + red lever. Pick tasteful, true-to-life hues. ' +
         'Object to model: "' + thing + '".';
       const gg = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
         method: 'POST',
