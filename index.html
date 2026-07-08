@@ -264,6 +264,9 @@ body.guest #guestNote{display:block}
 .secinner{overflow:hidden;min-height:0;display:flex;flex-direction:column;gap:13px;padding:0 15px}
 .acc.open > .secwrap > .secinner{padding-bottom:15px}
 .mpsub{font-size:11.5px;color:var(--muted);line-height:1.55;margin:0}
+.segrow{display:flex;gap:6px}
+.segrow button{flex:1;padding:9px 0;border-radius:10px;background:var(--btn);border:none;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:background .15s}
+.segrow button.on{background:var(--accent);color:#fff}
 #settings .field{gap:0}
 #settings .field label{margin-bottom:8px;font-size:12.5px;line-height:1.45}
 #settings #userChip{background:rgba(255,255,255,.05)}
@@ -373,6 +376,18 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
         <button class="btn" id="switchUser">Not you? Switch user</button>
       </div></div>
     </section>
+    <section class="acc" id="secDisplay">
+      <button class="sechdr" type="button"><span class="sec">Display</span><span class="chev" data-icon="chevron"></span></button>
+      <div class="secwrap"><div class="secinner">
+        <div class="field"><label>Quality — lower it for smoother performance (this device only)</label>
+          <div class="segrow" id="qualityRow">
+            <button type="button" data-q="high">High</button>
+            <button type="button" data-q="mid">Mid</button>
+            <button type="button" data-q="low">Low</button>
+          </div>
+        </div>
+      </div></div>
+    </section>
     <section class="acc" id="secEnv">
       <button class="sechdr" type="button"><span class="sec">Environment</span><span class="chev" data-icon="chevron"></span></button>
       <div class="secwrap"><div class="secinner">
@@ -387,6 +402,10 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
         <div class="field"><label>Wall colour — tap a wall in the room to paint just that one</label>
           <div class="swrow" id="wallSwatches"></div>
           <input type="color" id="wallColorInput" value="#8fa1b3" hidden>
+        </div>
+        <div class="field"><label>Floor colour — sets the whole floor</label>
+          <div class="swrow" id="floorSwatches"></div>
+          <input type="color" id="floorColorInput" value="#c2a883" hidden>
         </div>
         <button class="btn" id="gridToggle"></button>
       </div></div>
@@ -739,6 +758,8 @@ let roomNames   = {};                                            // id -> custom
 let currentRoom = 'living';                                      // spawn target, set by Rooms panel
 let wallColor   = null;                                          // base wall colour (persisted in layout)
 let wallColors  = {};                                            // per-wall overrides, keyed by wall index
+let floorColor  = null;                                          // base floor colour (persisted in layout; null = theme default)
+let quality     = localStorage.getItem('roomplanner.quality') || 'high';   // render quality — THIS DEVICE only
 let lightsState = {};                                            // roomId -> ceiling light on/off
 let players     = {husband:{x:9.5, z:11.0, rotY:0}, wife:{x:10.6, z:11.0, rotY:0}, guest:{x:8.4, z:11.4, rotY:0}};
 const isGuest   = () => currentUser?.role === 'guest';
@@ -978,7 +999,7 @@ function buildPlan(){
   const glassMat = new THREE.MeshStandardMaterial({color:t.glass, transparent:true, opacity:0.28, roughness:0.15, metalness:0.1});
   roomLights = {};
   wallMats = {};
-  const base = new THREE.Color(t.floor);
+  const base = new THREE.Color(floorColor || t.floor);
   let roomIdx = 0;
   for (const r of PLAN.rooms){
     roomIdx++;
@@ -1105,6 +1126,26 @@ function onResize(){
   updateOrthoFrustum();
 }
 addEventListener('resize', onResize);
+
+// render quality is a per-DEVICE optimisation (not shared): High/Mid/Low tune pixel density + shadows
+function applyQuality(q){
+  quality = q;
+  localStorage.setItem('roomplanner.quality', q);
+  renderer.setPixelRatio(q === 'low' ? 1 : q === 'mid' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2));
+  const shadows = q !== 'low';
+  if (renderer.shadowMap.enabled !== shadows){
+    renderer.shadowMap.enabled = shadows;
+    scene.traverse(o => { if (o.isMesh && o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); });
+  }
+  sun.castShadow = shadows;
+  const ms = q === 'mid' ? 1024 : 2048;
+  if (sun.shadow.mapSize.x !== ms){
+    sun.shadow.mapSize.set(ms, ms);
+    if (sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map = null; }   // regenerate at the new size
+  }
+  renderer.setSize(innerWidth, innerHeight);
+}
+applyQuality(quality);
 
 /* ============================== furniture ============================== */
 
@@ -3247,6 +3288,7 @@ function serialize(){
     sunAz,
     wallColor,
     wallColors:{...wallColors},
+    floorColor,
     roomNames:{...roomNames},
     lights:{...lightsState},
     players:{...players},
@@ -3277,6 +3319,7 @@ function loadData(data){
   roomNames = {...(data.roomNames || {})};
   wallColor = data.wallColor || null;
   wallColors = {...(data.wallColors || {})};
+  floorColor = data.floorColor || null;
   lightsState = {...(data.lights || {})};
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   buildPlan();
@@ -4160,6 +4203,7 @@ function applyRemoteLayout(data){
   try{
     const planChanged =
       (data.wallColor || null) !== wallColor ||
+      (data.floorColor || null) !== floorColor ||
       JSON.stringify(data.wallColors || {}) !== JSON.stringify(wallColors) ||
       JSON.stringify(data.roomNames || {}) !== JSON.stringify(roomNames);
     if (data.profile){
@@ -4174,6 +4218,7 @@ function applyRemoteLayout(data){
     roomNames = {...(data.roomNames || {})};
     wallColor = data.wallColor || null;
     wallColors = {...(data.wallColors || {})};
+    floorColor = data.floorColor || null;
     lightsState = {...(data.lights || {})};
     deselect();
     clearDragFx();
@@ -4757,6 +4802,52 @@ function renderWallSwatches(){
 wallColorInput.addEventListener('change', () => applyWallColor(wallColorInput.value));
 renderWallSwatches();
 
+/* floor colour — global, shared like the walls, but one tap paints the whole floor (no per-tile hunting) */
+const FLOOR_PRESETS = ['#e7e2d8','#d8cbb4','#c2a883','#b98f66','#9aa0a6','#7f8894','#6f5b47','#4f5560'];
+const floorColorInput = $('floorColorInput');
+function applyFloorColor(c){
+  if (!canEdit()) return;
+  pushUndo();
+  floorColor = c;                                  // null = theme default
+  buildPlan();
+  scheduleSave();
+  renderFloorSwatches();
+  logActivity('edit', 'changed the floor colour');
+}
+function renderFloorSwatches(){
+  const row = $('floorSwatches');
+  if (!row) return;
+  row.innerHTML = '';
+  for (const c of FLOOR_PRESETS){
+    const b = document.createElement('button');
+    b.className = 'wsw' + (floorColor === c ? ' on' : '');
+    b.style.background = c;
+    b.onclick = () => applyFloorColor(c);
+    row.appendChild(b);
+  }
+  const pick = document.createElement('button');
+  pick.className = 'wsw util';
+  pick.textContent = '🎨';
+  pick.title = 'Custom colour';
+  pick.onclick = () => floorColorInput.click();
+  row.appendChild(pick);
+  const reset = document.createElement('button');
+  reset.className = 'wsw util' + (floorColor === null ? ' on' : '');
+  reset.textContent = '↺';
+  reset.title = 'Back to default';
+  reset.onclick = () => applyFloorColor(null);
+  row.appendChild(reset);
+}
+floorColorInput.addEventListener('change', () => applyFloorColor(floorColorInput.value));
+renderFloorSwatches();
+
+/* render quality — device-local, applies instantly */
+function renderQuality(){
+  document.querySelectorAll('#qualityRow button').forEach(b => b.classList.toggle('on', b.dataset.q === quality));
+}
+document.querySelectorAll('#qualityRow button').forEach(b => b.onclick = () => { applyQuality(b.dataset.q); renderQuality(); toast(`Quality: ${b.textContent} ✓`); });
+renderQuality();
+
 const gridToggle = $('gridToggle');
 function updateGridBtn(){ gridToggle.textContent = `📏 Floor grid (1×1 m): ${gridPref ? 'On' : 'Off'}`; }
 gridToggle.onclick = () => {
@@ -4776,6 +4867,9 @@ function syncSettingsUI(){
   sunLabel.textContent = `${compass8(sunAz)} ${sunAz}°`;
   wallColorInput.value = wallColor || '#8fa1b3';
   renderWallSwatches();
+  floorColorInput.value = floorColor || '#c2a883';
+  renderFloorSwatches();
+  renderQuality();
   updateDayNightBtn();
   syncProfileUI();
 }
