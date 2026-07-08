@@ -1184,6 +1184,7 @@ applyQuality(quality);
 /* ============================== furniture ============================== */
 
 let items = [], nextId = 1;
+let pendingFurniture = [];                        // placed pieces whose model hasn't synced yet (e.g. a partner's AI creation) — kept so we never wipe them
 
 function block(w, h, d, mat){
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -3361,7 +3362,7 @@ function serialize(){
       };
       if (g.userData.onWall) rec.ow = 1;              // floor piece toggled onto the wall
       return rec;
-    })
+    }).concat(pendingFurniture)                       // keep pieces whose model is still syncing, so a save never drops them
   };
 }
 
@@ -3381,7 +3382,11 @@ function loadData(data){
   lightsState = {...(data.lights || {})};
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   buildPlan();
-  (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));   // each carries its exact stack height
+  pendingFurniture = [];
+  (data.furniture || []).forEach(f => {
+    if (CATALOG[f.type]) addFurniture(f.type, {...f, silent:true});   // each carries its exact stack height
+    else pendingFurniture.push(f);                                    // model not registered yet — keep it
+  });
   syncCharacters();
   syncSettingsUI();
   renderRooms();
@@ -4508,7 +4513,11 @@ function applyRemoteLayout(data){
     deselect();
     clearDragFx();
     while (items.length){ const g = items.pop(); furnGroup.remove(g); disposeGroup(g); }
-    (data.furniture || []).forEach(f => addFurniture(f.type, {...f, silent:true}));   // exact positions incl. stack height
+    pendingFurniture = [];
+    (data.furniture || []).forEach(f => {
+      if (CATALOG[f.type]) addFurniture(f.type, {...f, silent:true});   // exact positions incl. stack height
+      else pendingFurniture.push(f);                                    // an AI model still syncing — hold it, don't lose it
+    });
     if (data.players){                                                                 // reposition avatars you can move while a partner is AWAY;
       for (const role of ['husband','wife','guest']){                                  // anyone who's live keeps coming from the presence stream
         if (role === currentUser?.role || remoteOnline[role]) continue;
@@ -4605,7 +4614,15 @@ async function initSync(){
       for (const id in all){
         if (registerGenModel(all[id])){ added++; if (!saved.find(s => s.id === id)) saved.push(all[id]); }
       }
-      if (added){ jset(GEN_LS, saved); if (addSheet.classList.contains('on')) buildAddSheet(); }
+      if (added){
+        jset(GEN_LS, saved);
+        if (pendingFurniture.length){                 // a placed piece was waiting for one of these models — build it now
+          const still = [];
+          pendingFurniture.forEach(f => { if (CATALOG[f.type]) addFurniture(f.type, {...f, silent:true}); else still.push(f); });
+          if (still.length !== pendingFurniture.length){ pendingFurniture = still; saveLocal(); }
+        }
+        if (addSheet.classList.contains('on')) buildAddSheet();
+      }
     });
     let lastFeedTs = 0;
     D.onValue(D.ref(fb.db, 'room/catfeed'), snap => {
