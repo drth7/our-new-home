@@ -39,6 +39,7 @@ button{font-family:inherit;touch-action:manipulation}
 .pbtn.tint{padding:4px}
 .pbtn.on{background:linear-gradient(135deg,#4b86d8,#6aa4f2);color:#fff}
 #tintInput{width:32px;height:32px;border:none;border-radius:8px;padding:0;background:none;cursor:pointer}
+#selName{font-size:12.5px;font-weight:700;color:var(--text);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;padding:2px 6px 0}
 #measure{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap;padding:0 4px 2px}
 #measure.warn{color:#e05563}
 
@@ -325,6 +326,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 <div id="achPop"><div class="apIcon"></div><div class="apTitle">ACHIEVEMENT UNLOCKED</div><div class="apName"></div></div>
 
 <div id="pill">
+  <div id="selName"></div>
   <div class="pillrow">
     <button class="pbtn" id="rotBtn" title="Rotate 45°" data-icon="rotate"></button>
     <label class="pbtn tint" title="Colour"><input type="color" id="tintInput"></label>
@@ -2648,6 +2650,8 @@ function select(g){
   pill.classList.add('on');
   tintInput.value = g.userData.tint || '#888888';
   const def = CATALOG[g.userData.type];
+  $('selName').textContent = def.name || '';         // show what you tapped
+
   const useBtn = $('useBtn');
   if (def.seat || def.bed){                        // sit or sleep by choosing the furniture
     useBtn.style.display = 'flex';
