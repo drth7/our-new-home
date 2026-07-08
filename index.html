@@ -239,6 +239,10 @@ body.guest #guestNote{display:block}
 @keyframes menuin{from{transform:translateY(-8px) scale(.95);opacity:0}}
 #pill.on,#sizePanel.on,#wallPill.on{animation:pillin .22s cubic-bezier(.2,1.35,.35,1)}
 @keyframes pillin{from{transform:translate(-50%,-100%) scale(.82);opacity:0}}
+.model{animation:cardin .3s cubic-bezier(.2,.9,.3,1) backwards}
+@keyframes cardin{from{opacity:0;transform:translateY(8px) scale(.97)}}
+.toast{animation:toastin .3s cubic-bezier(.2,1.3,.4,1)}
+@keyframes toastin{from{transform:translateY(-10px) scale(.94);opacity:0}}
 
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
