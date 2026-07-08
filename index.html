@@ -559,7 +559,7 @@ const PLAN = {
     {id:'master',  name:'Master Bedroom', rects:[[3.7,0,8.2,3.6]], furnishable:true},
     {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.1,13.5,3.8]], furnishable:true},   // 3.70 m deep, flush with the building top
     {id:'bed2',    name:'Bedroom 2',      rects:[[10.1,4.0,13.5,7.7]], furnishable:true},   // 3.70 m deep, ends at the hallway line
-    {id:'mens',    name:"Men's Sitting",  rects:[[0,0,3.5,4.3]], furnishable:true},   // 3.5 x 4.3 m, top flush with the building
+    {id:'mens',    name:"Men's Sitting",  rects:[[0,1.3,3.5,4.3]], furnishable:true},   // top pulled down 1.3 m so the block (to the guest toilet) is 6.3 m
     {id:'maid',    name:'Maid Room',      rects:[[1.3,9.1,3.4,11.0]], furnishable:true},
     {id:'hall',    name:'Hallway',        rects:[[0,7.8,3.6,8.9],[8.4,2.3,9.9,7.8],[0,4.3,3.5,5.8],[1.6,5.8,3.5,7.6]], lightPos:[[1.8,8.3],[9.15,4.9]]},   // left strip + corridor below men's sitting + bedroom corridor
     {id:'entry',   name:'Entrance',       rects:[[0,8.9,1.1,13.2]], furnishable:true, lightPos:[[0.55,11.0]]},   // the main door is at the south end of this strip
@@ -567,19 +567,20 @@ const PLAN = {
     {id:'toi2',    name:'Master Toilet',  rects:[[6.7,3.8,8.2,6.0]], tone:0.1},            // 1.5 x 2.2, door from master
     {id:'toiL',    name:'Guest Toilet',   rects:[[0,5.9,1.4,7.6]], tone:0.1},              // tucked in the corner below the men's sitting
     {id:'balcony', name:'Balcony',        rects:[[13.7,8.45,14.7,12.65]], tone:-0.15},   // centred on the living-hall east wall
-    {id:'balcony2',name:'Balcony',        rects:[[0.35,-1.2,3.15,-0.2]], tone:-0.15}   // off the men's sitting, projecting north (~1 m x 2.8 m)
+    {id:'balcony2',name:'Balcony',        rects:[[0.35,0.1,3.15,1.1]], tone:-0.15}   // off the men's sitting, moved down 1.3 m with the room; same size
     /* the old laundry (x 1.2-3.5, z 11.1-13.3) is now a sealed empty space, like the void by the master toilet */
   ],
   /* d:'h' runs along x at z=pos; d:'v' runs along z at x=pos. ops: door / win / arch / glasswall, at = world coord of centre.
      The space south of the master toilet (x 6.6-8.3, z 6.1-7.7) is a walled void — no floor on purpose. */
   walls: [
     // exterior
-    {d:'h', pos:-0.1, from:-0.2, to:0.35},                                 // north wall, west of the men's-sitting balcony
-    {d:'h', pos:-0.1, from:0.35, to:3.15, ops:[{t:'glasswall'}]},          // men's sitting balcony glass door
-    {d:'h', pos:-0.1, from:3.15, to:10.0, ops:[{t:'win', at:5.95, w:2.2}]},   // north wall + master bedroom window
-    {d:'v', pos:0.25,  from:-1.3, to:-0.1, rail:true},                     // men's sitting balcony rails
-    {d:'h', pos:-1.3,  from:0.25, to:3.25, rail:true},
-    {d:'v', pos:3.25,  from:-1.3, to:-0.1, rail:true},
+    {d:'h', pos:-0.1, from:3.6, to:10.0, ops:[{t:'win', at:5.95, w:2.2}]},   // building north edge: master bedroom (men's sitting recessed 1.3 m)
+    {d:'h', pos:1.2,  from:-0.2, to:0.35},                                 // men's sitting north wall, west of the balcony
+    {d:'h', pos:1.2,  from:0.35, to:3.15, ops:[{t:'glasswall'}]},          // men's sitting balcony glass door (moved down with the room)
+    {d:'h', pos:1.2,  from:3.15, to:3.6},                                  // men's sitting north wall, east of the balcony
+    {d:'v', pos:0.25, from:0.0,  to:1.2, rail:true},                       // men's sitting balcony rails (moved down 1.3 m)
+    {d:'h', pos:0.0,  from:0.25, to:3.25, rail:true},
+    {d:'v', pos:3.25, from:0.0,  to:1.2, rail:true},
     {d:'v', pos:10.0, from:-0.1, to:0.5},
     {d:'h', pos:-0.1, from:10.0, to:13.7},                                 // bedroom 1 north wall — flush with the building top (setback filled)
     {d:'v', pos:13.6, from:-0.1, to:8.45, ops:[{t:'win', at:1.95, w:1.6},{t:'win', at:5.85, w:1.6}]},   // bedroom windows, centred on each room
@@ -611,7 +612,7 @@ const PLAN = {
     {d:'v', pos:3.5,  from:9.0,  to:13.4}                                  // maid + empty space | living
   ]
 };
-const PB = {x1:-0.3, z1:-1.5, x2:14.9, z2:13.6};                 // plan bounds incl. walls (z1 extended for the men's-sitting balcony)
+const PB = {x1:-0.3, z1:-0.3, x2:14.9, z2:13.6};                 // plan bounds incl. walls
 const PC = {x:(PB.x1+PB.x2)/2, z:(PB.z1+PB.z2)/2};
 const PW = PB.x2-PB.x1, PL = PB.z2-PB.z1;
 const RECTS = PLAN.rooms.flatMap(r => r.rects.map(rc => ({room:r, x1:rc[0], z1:rc[1], x2:rc[2], z2:rc[3]})));
