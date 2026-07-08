@@ -1891,7 +1891,7 @@ function applyStackY(g){
   for (const it of items){
     if (it === g) continue;
     const d2 = CATALOG[it.userData.type];
-    if (d2.wall || d2.h <= 0.05) continue;          // don't perch on wall art or flat rugs
+    if (isWall(it) || d2.h <= 0.05) continue;       // never land on a wall-mounted piece (hung art OR a floor piece toggled onto the wall) or a flat rug
     const {hw, hd} = halfExtents(it);
     if (Math.abs(g.position.x - it.position.x) < hw && Math.abs(g.position.z - it.position.z) < hd){
       top = Math.max(top, stackTopOf(it));
