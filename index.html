@@ -372,7 +372,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 </div>
 
 <div id="addSheet" class="sheet">
-  <div class="shead"><b>Add furniture</b><div style="display:flex;gap:6px"><button class="xbtn" id="refreshModels" title="Check for new models" data-icon="refresh"></button><button class="xbtn" id="closeAdd" data-icon="x"></button></div></div>
+  <div class="shead"><b>Add furniture</b><div style="display:flex;gap:6px"><button class="xbtn" id="createBtn" title="Create anything with AI">✨</button><button class="xbtn" id="refreshModels" title="Check for new models" data-icon="refresh"></button><button class="xbtn" id="closeAdd" data-icon="x"></button></div></div>
   <div id="catTabs"></div>
   <div id="modelGrid"></div>
 </div>
@@ -673,7 +673,7 @@ try{
   const mr = await fetch('assets/models.json?t=' + Date.now());
   if (mr.ok) (await mr.json()).forEach(registerModelDef);
 }catch(e){ console.warn('models.json unavailable', e); }
-const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Fun'];
+const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Fun','Created'];
 
 const ACHIEVEMENTS = [
   {id:'first-piece',    icon:'🛋️', name:'First Piece',      desc:'Place your first furniture'},
@@ -701,6 +701,15 @@ const ACHIEVEMENTS = [
 const jget = (k, d) => {try {const v = JSON.parse(localStorage.getItem(k)); return v ?? d;} catch(e) {return d;}};
 const jset = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 const esc  = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const GEN_LS = 'roomplanner.genmodels';                      // AI-generated parametric models (type-a-word feature)
+function registerGenModel(spec){
+  if (!spec || !spec.id || !Array.isArray(spec.parts) || !spec.parts.length || CATALOG[spec.id]) return false;
+  CATALOG[spec.id] = {...spec, cat:'Created', gen:true};
+  applyStackRule(CATALOG[spec.id]);
+  return true;
+}
+jget(GEN_LS, []).forEach(registerGenModel);                  // bring back everything created before
 
 /* Floor plan traced from the real apartment drawing (AREA = 156.14 m²).
    Coordinates in meters; origin = top-left interior corner; +x east, +z south.
@@ -1351,6 +1360,28 @@ function buildFurniture(type){
   const lite = new THREE.MeshStandardMaterial({roughness:0.9});  lite.userData.role = 'light';
   const dark = new THREE.MeshStandardMaterial({roughness:0.85}); dark.userData.role = 'dark';
   const {w, d, h} = def;
+  if (def.parts){                                    // AI-generated model: assemble it from primitive parts
+    for (const p of def.parts){
+      let geo;
+      if (p.shape === 'cylinder') geo = new THREE.CylinderGeometry(p.r ?? 0.1, p.r ?? 0.1, p.h ?? 0.2, 18);
+      else if (p.shape === 'sphere') geo = new THREE.SphereGeometry(p.r ?? 0.15, 22, 16);
+      else if (p.shape === 'cone') geo = new THREE.ConeGeometry(p.r ?? 0.15, p.h ?? 0.3, 18);
+      else geo = new THREE.BoxGeometry(p.w ?? 0.2, p.h ?? 0.2, p.d ?? 0.2);
+      const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || def.color || '#9aa8b5'), roughness:0.85});
+      mat.userData.role = 'main';                    // so the recolour button works on it
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(p.x || 0, p.y || 0, p.z || 0);
+      if (p.rx) m.rotation.x = p.rx * Math.PI / 180;
+      if (p.ry) m.rotation.y = p.ry * Math.PI / 180;
+      if (p.rz) m.rotation.z = p.rz * Math.PI / 180;
+      m.castShadow = true; m.receiveShadow = true;
+      g.add(m);
+    }
+    const bb = new THREE.Box3().setFromObject(g);     // drop it onto the floor no matter what y's the AI chose
+    if (isFinite(bb.min.y)) g.children.forEach(c => c.position.y -= bb.min.y);
+    dbl(g);
+    return g;
+  }
   const legs = (mat, lh) => {
     for (const [sx, sz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
       const l = block(0.06, lh, 0.06, mat);
@@ -3840,6 +3871,61 @@ function showRealResult(blob){
     ]);
 }
 
+/* ---- Create with AI: type a thing → Gemini writes a shape recipe → build it + add to the list ---- */
+function promptCreate(){
+  showConfirm(`
+    <h2>Create with AI ✨</h2>
+    <p class="wsub">Type anything and it'll be built as a simple model and added to your list. Best with simple things — "ball", "floor lamp", "stool", "bean bag", "plant pot".</p>
+    <input type="text" id="genInput" placeholder="e.g. ball" maxlength="40">
+    <button class="btn primary" id="genGo">Create ✨</button>
+    <button class="btn" id="genCancel">Cancel</button>`,
+    [
+      ['genGo', () => { const v = $('genInput').value.trim(); if (v) generateModel(v); }],
+      ['genCancel', hideConfirm]
+    ]);
+  setTimeout(() => { const el = $('genInput'); if (el){ el.focus(); el.addEventListener('keydown', e => { if (e.key === 'Enter'){ const v = el.value.trim(); if (v) generateModel(v); } }); } }, 120);
+}
+
+async function generateModel(text){
+  const proxy = proxyUrl();
+  if (!proxy){ promptForProxy(); return; }
+  const thing = text.trim().slice(0, 40);
+  if (!thing) return;
+  showConfirm(`<h2>Creating "${esc(thing)}" ✨</h2><p class="wsub">Sketching a 3D model… a few seconds.</p><div class="rspin"></div>`, []);
+  const bad = m => showConfirm(`<h2>Hmm 😕</h2><p class="wsub">${esc(m)}</p><button class="btn primary" id="gOk">OK</button><button class="btn" id="gRetry">Try again</button>`,
+    [['gOk', hideConfirm], ['gRetry', () => { hideConfirm(); promptCreate(); }]]);
+  try{
+    const res = await fetch(proxy, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ generate: thing }) });
+    if (!res.ok){
+      if (res.status === 429) return bad('The Gemini key hit its quota — top up billing, or try later.');
+      return bad('Could not create that (' + res.status + '). Try a simpler word.');
+    }
+    const data = await res.json();
+    let txt = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').replace(/```json|```/g, '').trim();
+    let spec; try { spec = JSON.parse(txt); } catch(e){ return bad("The AI's reply wasn't usable — try again."); }
+    const parts = Array.isArray(spec.parts) ? spec.parts.slice(0, 16) : [];
+    if (!parts.length) return bad("The AI didn't return a shape — try a simpler word.");
+    const cl = (v, lo, hi, dflt) => { v = +v; return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt; };
+    const def = {
+      id: 'gen_' + Date.now().toString(36),
+      name: (spec.name || thing).toString().slice(0, 16),
+      cat: 'Created',
+      w: cl(spec.w, 0.05, 4, 0.4), d: cl(spec.d, 0.05, 4, 0.4), h: cl(spec.h, 0.05, 3, 0.4),
+      color: (typeof spec.color === 'string' && /^#/.test(spec.color)) ? spec.color : '#c7ccd2',
+      parts
+    };
+    if (!registerGenModel(def)) return bad('Could not add that model.');
+    const saved = jget(GEN_LS, []); saved.push(def); jset(GEN_LS, saved);
+    if (fb && fb.D) fb.D.set(fb.D.ref(fb.db, 'room/genModels/' + def.id), def).catch(() => {});   // share with the other phone
+    hideConfirm();
+    curCat = 'Created';
+    setAddOpen(true);
+    buildAddSheet();
+    toast(`Created "${esc(def.name)}" ✨ — it's in Add ▸ Created`);
+    logActivity('edit', `created "${def.name}" with AI ✨`);
+  }catch(e){ bad("Couldn't reach the AI — check the connection and try again."); }
+}
+
 /* ============================== the cat ============================== */
 
 let cat = null;
@@ -4481,6 +4567,15 @@ async function initSync(){
       }
     });
     D.onValue(D.ref(fb.db, 'room/aiUsed'), snap => { aiUsed = snap.val() || 0; updateRealMenu(); });   // shared "photos left"
+    D.onValue(D.ref(fb.db, 'room/genModels'), snap => {   // AI-created models shared to both phones
+      const all = snap.val() || {};
+      let added = 0;
+      const saved = jget(GEN_LS, []);
+      for (const id in all){
+        if (registerGenModel(all[id])){ added++; if (!saved.find(s => s.id === id)) saved.push(all[id]); }
+      }
+      if (added){ jset(GEN_LS, saved); if (addSheet.classList.contains('on')) buildAddSheet(); }
+    });
     let lastFeedTs = 0;
     D.onValue(D.ref(fb.db, 'room/catfeed'), snap => {
       const c = snap.val();
@@ -4801,6 +4896,7 @@ async function refreshCatalog(notify = true, announce = true){
   }
 }
 $('refreshModels').onclick = () => refreshCatalog(true, true);
+$('createBtn').onclick = () => { if (canEdit()) promptCreate(); else toast('Editing is off for guests'); };
 
 function setAddOpen(open){
   addSheet.classList.toggle('on', open);
