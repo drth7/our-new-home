@@ -3747,7 +3747,7 @@ async function realisticShot(){
   // grab the current view, scaled down to ~1024 wide (keeps it fast + the upload small)
   renderer.render(scene, activeCam());
   const src = renderer.domElement;
-  const scale = Math.min(1, 1024 / src.width);
+  const scale = Math.min(1, 1536 / src.width);       // keep more detail than before (was 1024) so the AI has more to work with
   const cw = Math.round(src.width * scale), ch = Math.round(src.height * scale);
   const cnv = document.createElement('canvas'); cnv.width = cw; cnv.height = ch;
   cnv.getContext('2d').drawImage(src, 0, 0, cw, ch);
@@ -3755,7 +3755,8 @@ async function realisticShot(){
 
   showConfirm(`<h2>Making it realistic ✨</h2><p class="wsub">Sending your room to the AI… about 10&nbsp;seconds.</p><div class="rspin"></div>`, []);
 
-  const prompt = "Turn this 3D room-planner screenshot into a photorealistic interior photograph. KEEP the exact same layout, camera angle, and every furniture piece in its exact position, size and proportion. Only upgrade materials, lighting, shadows and textures so they look real and high quality. Do NOT add, remove, resize or move any furniture, walls or windows.";
+  // photorealism-forward (the earlier "keep everything exactly" wording made it barely change the render)
+  const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo. It must look like a real photograph, NOT a 3D model, render or cartoon.";
   try{
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
       method: 'POST',
