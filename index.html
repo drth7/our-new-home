@@ -4206,7 +4206,7 @@ async function initSync(){
     D.onValue(D.ref(fb.db, 'room/catalog'), snap => {
       const c = snap.val();
       if (c && c.by !== myRole && c.ts > sessionStart){
-        refreshCatalog(false, false).then(n => { if (n) toast(`${nameFor(c.by)} added new furniture 🚚`); });
+        refreshCatalog(false, false).then(n => { if (n) toast('Furniture catalog updated 🚚'); });
       }
     });
     let lastFeedTs = 0;
@@ -4498,16 +4498,31 @@ async function refreshCatalog(notify = true, announce = true){
     const r = await fetch('assets/models.json?t=' + Date.now(), {cache:'reload'});
     if (!r.ok) throw 0;
     const list = await r.json();
-    let added = 0;
-    for (const m of list) if (registerModelDef(m)) added++;
-    if (added){
+    const baseIds = new Set(MODEL_DEFS.map(m => m.id));            // the built-in offline baseline is permanent
+    const inUse   = new Set(items.map(g => g.userData.type));      // never yank a model that's placed in the room
+    const liveIds = new Set(list.map(m => m.id));
+    const prevPub = Object.keys(CATALOG).filter(id => CATALOG[id].model && !baseIds.has(id));
+
+    // clear published defs so the manifest is the single source of truth (keeps placed-but-removed ones so they still render)
+    for (const id of prevPub){ if (liveIds.has(id) || !inUse.has(id)) delete CATALOG[id]; }
+    for (const m of list) registerModelDef(m);                     // re-add everything: new items, and edits (category/size/name)
+
+    const added   = list.filter(m => !baseIds.has(m.id) && !prevPub.includes(m.id)).length;
+    const removed  = prevPub.filter(id => !liveIds.has(id) && !inUse.has(id)).length;
+
+    if (added || removed){
       buildAddSheet();
       if (announce && fb && currentUser){          // tell the partner's device to refresh too
         fb.D.set(fb.D.ref(fb.db, 'room/catalog'), {ts:Date.now(), by:currentUser.role}).catch(() => {});
       }
     }
-    if (notify) toast(added ? `${added} new model${added > 1 ? 's' : ''} arrived 🚚` : 'Catalog is up to date ✓');
-    return added;
+    if (notify){
+      const bits = [];
+      if (added)   bits.push(`${added} new`);
+      if (removed) bits.push(`${removed} removed`);
+      toast(bits.length ? `Catalog updated — ${bits.join(', ')} 🚚` : 'Catalog is up to date ✓');
+    }
+    return added + removed;
   }catch(e){
     if (notify) toast('Could not check for new models 😕');
     return 0;
