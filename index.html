@@ -60,7 +60,9 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .tab{padding:7px 12px;border-radius:20px;background:var(--btn);border:none;color:var(--text);font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer}
 .tab.on{background:var(--accent);color:#fff}
 #modelGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:10px;padding:0 14px 14px;overflow-y:auto}
-.model{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;cursor:pointer;color:var(--text)}
+.model{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;cursor:pointer;color:var(--text)}
+.delgen{position:absolute;top:4px;right:4px;width:22px;height:22px;border:none;border-radius:50%;background:rgba(20,26,36,.55);color:#fff;font-size:16px;line-height:1;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.delgen:hover,.delgen:active{background:#e0555f}
 .model:active{transform:scale(.96)}
 .model .sw{height:44px;border-radius:8px;margin-bottom:6px}
 .model .sw[data-thumb]{background:var(--panel2);display:flex;align-items:center;justify-content:center;padding:2px;overflow:hidden}
@@ -1884,7 +1886,7 @@ function stackTopOf(it){
 // any piece dropped so its centre sits over another piece rides on top of it (stack two washers, etc.)
 function applyStackY(g){
   const gd = CATALOG[g.userData.type];
-  if (gd && gd.h <= 0.1){ g.position.y = 0; g.userData.loadY = null; return; }   // rugs/mats always lie flat on the floor — never stack onto anything
+  if (gd && gd.h <= 0.1 && !gd.gen){ g.position.y = 0; g.userData.loadY = null; return; }   // real rugs/mats lie flat & never stack (but a thin AI-made appliance still can)
   let top = 0;
   for (const it of items){
     if (it === g) continue;
@@ -2662,7 +2664,7 @@ function addFurniture(type, opts = {}){
   }
   applyTint(g, opts.tint || def.color);
   clampToRoom(g);
-  if (opts.y != null && !isWall(g) && def.h > 0.1){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (rugs always stay flat)
+  if (opts.y != null && !isWall(g) && (def.h > 0.1 || def.gen)){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (real rugs always stay flat)
   furnGroup.add(g);
   items.push(g);
   if (typeof refreshCatNav === 'function') refreshCatNav();   // the cat re-plans around the new piece
@@ -3926,6 +3928,31 @@ async function generateModel(text){
   }catch(e){ bad("Couldn't reach the AI — check the connection and try again."); }
 }
 
+function confirmDeleteGen(id, name){
+  const placed = items.filter(i => i.userData.type === id).length;
+  showConfirm(`<h2>Delete "${esc(name)}"?</h2>
+    <p class="wsub">${placed ? `Removes it from the list and the ${placed} already placed in the room.` : 'Removes it from your Created list.'}</p>
+    <button class="btn danger" id="dgYes">Delete</button>
+    <button class="btn" id="dgNo">Cancel</button>`,
+    [['dgYes', () => { hideConfirm(); deleteGenModel(id); }], ['dgNo', hideConfirm]]);
+}
+function deleteGenModel(id){
+  let removed = 0;
+  for (let i = items.length - 1; i >= 0; i--){          // pull any placed copies out of the room
+    if (items[i].userData.type === id){
+      const g = items[i];
+      if (sel === g) deselect();
+      furnGroup.remove(g); disposeGroup(g); items.splice(i, 1); removed++;
+    }
+  }
+  delete CATALOG[id];
+  jset(GEN_LS, jget(GEN_LS, []).filter(s => s.id !== id));
+  if (fb && fb.D) fb.D.remove(fb.D.ref(fb.db, 'room/genModels/' + id)).catch(() => {});   // gone from both phones
+  if (removed) scheduleSave();
+  buildAddSheet();
+  toast('Deleted ✨');
+}
+
 /* ============================== the cat ============================== */
 
 let cat = null;
@@ -4689,7 +4716,13 @@ function buildAddSheet(){
     el.className = 'model';
     el.innerHTML = `<div class="sw"${d.thumb ? ' data-thumb="1"' : ` style="background:${d.color}"`}>${d.thumb || ''}</div>
       <div class="nm">${d.name}</div>
-      <div class="dm">${Math.round(d.w*100)}×${Math.round(d.d*100)} cm</div>`;
+      <div class="dm">${Math.round(d.w*100)}×${Math.round(d.d*100)} cm</div>
+      ${d.gen ? '<button class="delgen" title="Delete this creation">×</button>' : ''}`;
+    if (d.gen){
+      const x = el.querySelector('.delgen');
+      x.addEventListener('pointerdown', e => e.stopPropagation());   // don't start a drag-out
+      x.addEventListener('click', e => { e.stopPropagation(); confirmDeleteGen(type, d.name); });
+    }
     let trayDragged = false;
     el.onclick = () => { if (trayDragged){ trayDragged = false; return; } addFurniture(type); };
     // Drag straight out of the tray. On touch, a quick swipe must SCROLL the list —
