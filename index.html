@@ -163,6 +163,10 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 @keyframes wglow{from{transform:translate3d(-4%,-3%,0) scale(1)}to{transform:translate3d(4%,3%,0) scale(1.14)}}
 #welcome.on{display:flex}
 #welcome.fade{opacity:0;pointer-events:none}   /* password accepted: melt away into the reveal */
+/* greeting mode (the love note after the reveal): the home stays visible — just a tint + slight blur */
+#welcome.glass{background:rgba(8,12,16,.30);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+#welcome.glass::before{display:none}
+#welcome.glass .wcard{background:rgba(22,29,40,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .wcard{background:var(--panel);border-radius:20px;padding:28px 24px;width:min(360px,90vw);text-align:center;box-shadow:var(--shadow);animation:pop .25s}
 .wcard h2{font-size:19px;line-height:1.35}
 .wsub{color:var(--muted);font-size:13.5px;margin-top:8px}
@@ -4607,7 +4611,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.intro-zoom';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.glass-greeting';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5657,8 +5661,9 @@ function playIntro(done){
 
 let greetT;
 
-function showWelcome(html){
+function showWelcome(html, glass){
   welcome.onclick = null;
+  welcome.classList.toggle('glass', !!glass);   // glass = the home stays visible behind (greeting); solid = sign-in
   welcome.classList.add('on');
   wcard.innerHTML = html;
 }
@@ -5777,7 +5782,7 @@ function greet(){
   const g = greetingText();
   showWelcome(`<div class="big-heart">${p === 'husband' ? '💙' : '💗'}</div>
     <h2 style="margin-top:10px">${esc(g.text)}</h2>
-    ${g.custom ? `<p class="wsub">— ${esc(nameFor(p))}</p>` : ''}`);
+    ${g.custom ? `<p class="wsub">— ${esc(nameFor(p))}</p>` : ''}`, true);   // glass: keep the freshly-lit home in view
   syncProfileUI();
   logActivity('open', 'entered the home');
   // arm tap-to-dismiss on the NEXT tick: the unlock tap bubbles up here and would otherwise
