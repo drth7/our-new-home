@@ -996,6 +996,46 @@ function makeGridWorld(x1, z1, x2, z2, step, color){
 
 let wallMats = {};                                   // wall index -> [matA, matB, matEdge] (per-SIDE paint: A = local +z face, B = local −z)
 
+// One drawn wall often runs past several rooms (both bedrooms share one long north wall), which
+// made "paint this wall" repaint the neighbour's room too. So the plan's walls are SPLIT at every
+// junction with a crossing wall — each piece between two corners is its own paintable wall.
+let WALLS = [];
+function computePaintWalls(){
+  const out = [];
+  PLAN.walls.forEach((w, si) => {
+    if (w.rail || (w.ops || []).some(o => o.t === 'glasswall')){ out.push({...w, src: si}); return; }   // rails/glass stay whole
+    const cuts = [];
+    for (const o of PLAN.walls){
+      if (o === w || o.d === w.d || o.rail) continue;
+      const lo = Math.min(o.from, o.to) - 0.11, hi = Math.max(o.from, o.to) + 0.11;
+      if (w.pos >= lo && w.pos <= hi && o.pos > w.from + 0.15 && o.pos < w.to - 0.15) cuts.push(o.pos);   // a crossing wall meets this one mid-span
+    }
+    cuts.sort((a, b) => a - b);
+    const pts = [w.from];
+    for (const c of cuts) if (c - pts[pts.length - 1] > 0.05) pts.push(c);
+    pts.push(w.to);
+    for (let i = 0; i < pts.length - 1; i++){
+      const a = pts[i], b = pts[i + 1];
+      if (b - a < 0.05) continue;
+      const ops = (w.ops || []).filter(op => op.at > a && op.at < b);
+      out.push({ d: w.d, pos: w.pos, from: a, to: b, src: si, ...(ops.length ? {ops} : {}) });
+    }
+  });
+  return out;
+}
+// layouts saved before the split (v<4) keyed wall paint by PLAN.walls index — spread each old
+// entry over every segment that wall became, so the home looks IDENTICAL after updating.
+function migrateWallColors(old){
+  if (!old || !Object.keys(old).length) return {};
+  if (!WALLS.length) WALLS = computePaintWalls();
+  const out = {};
+  WALLS.forEach((w, i) => {
+    const v = old[w.src];
+    if (v != null) out[i] = typeof v === 'string' ? v : {...v};
+  });
+  return out;
+}
+
 // a wall separates two rooms, so each side can hold its own colour. wallColors[wi] is either a
 // string (whole wall, the old format) or {a, b} — 'a' = the local +z face, 'b' = local −z.
 function wallSideColors(wi, themeWall){
@@ -1012,7 +1052,7 @@ function repaintWall(wi){
 }
 // which side of wall wi a world point is on ('a'|'b'), matching the local-face mapping above
 function wallSideAt(wi, pt){
-  const w = PLAN.walls[wi];
+  const w = WALLS[wi];
   if (!w) return 'a';
   if (w.d === 'h') return pt.z >= w.pos ? 'a' : 'b'; // h-group is unrotated: world +z = local +z = A
   return pt.x >= w.pos ? 'b' : 'a';                  // v-group is rotY −90°: local +z points to world −x
@@ -1158,7 +1198,8 @@ function buildPlan(){
       }
     }
   }
-  PLAN.walls.forEach((w, wi) => roomGroup.add(buildWall(w, wi, glassMat, t.wall)));
+  WALLS = computePaintWalls();
+  WALLS.forEach((w, wi) => roomGroup.add(buildWall(w, wi, glassMat, t.wall)));
   dbl(roomGroup);                                   // walls, floors, ceilings all two-sided
   scene.add(roomGroup);
   applyViewToPlan();
@@ -1945,7 +1986,7 @@ function clampToRoom(g){
     // TWO mountable faces. Rails and glass never take a picture.
     const hw = def.w * g.scale.x / 2, off = def.d * g.scale.z / 2 + 0.01, F = WALL_T / 2;
     let best = null, bd = Infinity;
-    for (const w of PLAN.walls){
+    for (const w of (WALLS.length ? WALLS : PLAN.walls)){
       if (w.rail) continue;
       if ((w.ops || []).some(o => o.t === 'glasswall')) continue;
       const lo = Math.min(w.from, w.to), hi = Math.max(w.from, w.to);
@@ -3493,7 +3534,7 @@ function serialize(){
   const genDefs = {};                                // embed the recipe of every placed AI model, so the other phone can ALWAYS build it
   items.forEach(g => { const d = CATALOG[g.userData.type]; if (d && d.gen && !genDefs[d.id]) genDefs[d.id] = {id:d.id, name:d.name, cat:'Created', w:d.w, d:d.d, h:d.h, color:d.color, parts:d.parts}; });
   return {
-    v:3,
+    v:4,                                              // v4 = wallColors keyed by SPLIT wall segments
     sunAz,
     wallColor,
     wallColors:{...wallColors},
@@ -3520,7 +3561,7 @@ function loadData(data){
   sunAz = data.sunAz ?? data.room?.sunAz ?? sunAz;   // v1 saves kept sunAz inside room
   roomNames = {...(data.roomNames || {})};
   wallColor = data.wallColor || null;
-  wallColors = {...(data.wallColors || {})};
+  wallColors = (data.v || 3) < 4 ? migrateWallColors(data.wallColors) : {...(data.wallColors || {})};   // pre-split layouts: re-key paint onto the new segments
   floorColor = data.floorColor || null;
   lightsState = {...(data.lights || {})};
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
@@ -4671,7 +4712,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.ai-icon-bold';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.walls-per-room';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -4788,7 +4829,7 @@ function applyRemoteLayout(data, adopt){
     sunAz = data.sunAz ?? sunAz;
     roomNames = {...(data.roomNames || {})};
     wallColor = data.wallColor || null;
-    wallColors = {...(data.wallColors || {})};
+    wallColors = (data.v || 3) < 4 ? migrateWallColors(data.wallColors) : {...(data.wallColors || {})};   // pre-split layouts: re-key paint onto the new segments
     floorColor = data.floorColor || null;
     lightsState = {...(data.lights || {})};
     deselect();
@@ -5901,6 +5942,8 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
     move: (id, x, z) => { const g = items.find(i => i.userData.id === id); if (!g) return null; g.position.x = x; g.position.z = z; clampToRoom(g); scheduleSave(); return {x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3), rotY:+g.rotation.y.toFixed(3)}; },
     wallpill: (wi, side) => openWallPill(wi, innerWidth/2, 200, side),
     wallState: wi => ({ stored: wallColors[wi] ?? null, mats: (wallMats[wi] || []).map(m => '#' + m.color.getHexString()), opacity: wallMats[wi] ? wallMats[wi][0].opacity : null }),
+    walls: () => WALLS,
+    migrate: o => migrateWallColors(o),
   };
 }
 
