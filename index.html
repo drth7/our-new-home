@@ -59,7 +59,7 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .xbtn.off{opacity:.4;filter:grayscale(1);cursor:default}          /* temporarily disabled action */
 /* Create-with-AI: the "AI in a box + sparkles" mark, slowly breathing through the rainbow */
 #createBtn{background:transparent;color:#4c86d6;animation:aihue 10s linear infinite}
-#createBtn svg{width:24px;height:24px;animation:aibreath 3.4s ease-in-out infinite}
+#createBtn svg{width:19px;height:19px;animation:aibreath 3.4s ease-in-out infinite}   /* same footprint as the neighbouring toolbar icons */
 @keyframes aihue{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
 @keyframes aibreath{0%,100%{opacity:.75}50%{opacity:1}}   /* breathe with light only — no size change */
 #catTabs{display:flex;gap:6px;padding:2px 14px 10px;flex-wrap:wrap;flex:none}
@@ -154,8 +154,15 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .act .t{color:var(--muted);font-size:11px;margin-top:1px}
 .empty{color:var(--muted);font-size:13.5px;text-align:center;padding:20px 0}
 
-#welcome{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(8,12,16,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#welcome{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:#0b1016;overflow:hidden;transition:opacity .55s}
+#welcome::before{content:'';position:absolute;inset:-30%;pointer-events:none;background:
+  radial-gradient(38% 32% at 28% 32%, rgba(76,134,214,.30), transparent 70%),
+  radial-gradient(34% 30% at 72% 68%, rgba(232,112,154,.26), transparent 70%),
+  radial-gradient(26% 22% at 62% 22%, rgba(160,106,255,.16), transparent 70%);
+  animation:wglow 14s ease-in-out infinite alternate}
+@keyframes wglow{from{transform:translate3d(-4%,-3%,0) scale(1)}to{transform:translate3d(4%,3%,0) scale(1.14)}}
 #welcome.on{display:flex}
+#welcome.fade{opacity:0;pointer-events:none}   /* password accepted: melt away into the reveal */
 .wcard{background:var(--panel);border-radius:20px;padding:28px 24px;width:min(360px,90vw);text-align:center;box-shadow:var(--shadow);animation:pop .25s}
 .wcard h2{font-size:19px;line-height:1.35}
 .wsub{color:var(--muted);font-size:13.5px;margin-top:8px}
@@ -4600,7 +4607,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-09.intro-dark';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.intro-zoom';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5575,8 +5582,7 @@ function darkenForIntro(){                            // called at boot, before 
   introActive = true;                                 // guards applyLightsLive + orbit while we wait at the welcome screen
   hemi.intensity = 0.04; sun.intensity = 0;
   for (const id in roomLights) for (const rl of roomLights[id]){ rl.pt.intensity = 0; rl.mat.emissiveIntensity = 0; }
-  cam.position.set(PC.x, 24, PC.z + 0.01);
-  orbit.target.set(PC.x, 0, PC.z);
+  cam.position.copy(introBase.pos).sub(introBase.target).multiplyScalar(1.22).add(introBase.target);   // parked slightly pulled back — the intro is a gentle zoom IN
   cam.lookAt(orbit.target);
   orbit.enabled = false;
 }
@@ -5600,7 +5606,8 @@ function playIntro(done){
   const cam = activeCam();
   const savePos = introBase.pos, saveTarget = introBase.target;
   const saveHemi = introBase.hemi, saveSun = introBase.sun;
-  const startPos = new THREE.Vector3(PC.x, 24, PC.z + 0.01), startTarget = new THREE.Vector3(PC.x, 0, PC.z);
+  const startTarget = saveTarget.clone();             // no bird's-eye sweep — just a slow, slight zoom into the home
+  const startPos = savePos.clone().sub(saveTarget).multiplyScalar(1.22).add(saveTarget);
   const ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;z-index:58;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;transition:opacity .7s;cursor:pointer';
   const heart = currentUser.role === 'wife' ? '💗' : '💙';
@@ -5700,7 +5707,8 @@ function askPassword(role){
     currentUser = {role};
     jset(LS.user, currentUser);
     applyGuestMode();
-    hideWelcome();
+    welcome.classList.add('fade');                   // melt the welcome away over the cinematic's black
+    setTimeout(() => { hideWelcome(); welcome.classList.remove('fade'); }, 560);
     syncProfileUI();
     refreshTags();
     initSync();
@@ -5740,7 +5748,8 @@ function askGuestName(){
     jset(LS.user, currentUser);
     applyGuestMode();
     deselect();
-    hideWelcome();
+    welcome.classList.add('fade');
+    setTimeout(() => { hideWelcome(); welcome.classList.remove('fade'); }, 560);
     syncProfileUI();
     refreshTags();
     initSync();
