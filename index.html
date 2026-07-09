@@ -2880,6 +2880,7 @@ function deleteSel(){
   furnGroup.remove(g);
   items = items.filter(i => i !== g);
   disposeGroup(g);
+  tombstone(g.userData.id);                           // mark it deleted so the other phone's union can't bring it back
   logActivity('delete', `removed the ${CATALOG[g.userData.type].name}`);
   scheduleSave();
 }
@@ -3343,6 +3344,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 /* ============================== persistence ============================== */
 
 function serialize(){
+  pruneTombstones();
   const genDefs = {};                                // embed the recipe of every placed AI model, so the other phone can ALWAYS build it
   items.forEach(g => { const d = CATALOG[g.userData.type]; if (d && d.gen && !genDefs[d.id]) genDefs[d.id] = {id:d.id, name:d.name, cat:'Created', w:d.w, d:d.d, h:d.h, color:d.color, parts:d.parts}; });
   return {
@@ -3355,18 +3357,9 @@ function serialize(){
     lights:{...lightsState},
     players:{...players},
     genDefs,
-    furniture:items.map(g => {
-      const rec = {
-        id:g.userData.id, type:g.userData.type,
-        x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3),
-        y:+g.position.y.toFixed(3),                    // stack height — so a stacked piece syncs exactly, not re-guessed
-        rotY:+g.rotation.y.toFixed(3), tint:g.userData.tint,
-        sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3),
-        hy:+(g.userData.hangY || 1.5).toFixed(2)
-      };
-      if (g.userData.onWall) rec.ow = 1;              // floor piece toggled onto the wall
-      return rec;
-    }).concat(pendingFurniture)                       // keep pieces whose model is still syncing, so a save never drops them
+    deleted:{...tombstones},                          // deletes travel with the layout so they win over the union on the other phone
+    furniture:items.map(itemRecord)
+      .concat(pendingFurniture)                       // keep pieces whose model is still syncing, so a save never drops them
   };
 }
 
@@ -3387,8 +3380,10 @@ function loadData(data){
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   buildPlan();
   if (data.genDefs) for (const id in data.genDefs) registerGenModel(data.genDefs[id]);   // recipes embedded in the layout
+  if (data.deleted) tombstones = {...data.deleted};                   // remember what was deleted, so the union never resurrects it
   pendingFurniture = [];
   (data.furniture || []).forEach(f => {
+    if (tombstones[f.id]) return;                                     // deleted — don't rebuild
     if (CATALOG[f.type]) addFurniture(f.type, {...f, silent:true});   // each carries its exact stack height
     else pendingFurniture.push(f);                                    // model not registered yet — keep it
   });
@@ -3402,6 +3397,43 @@ let saveTimer;
 function scheduleSave(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { saveLocal(); pushLayout(); }, 400);   // every edit also goes live when connected
+}
+function itemRecord(g){                               // one furniture record, the shape serialize() writes
+  const rec = {
+    id:g.userData.id, type:g.userData.type,
+    x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3), y:+g.position.y.toFixed(3),
+    rotY:+g.rotation.y.toFixed(3), tint:g.userData.tint,
+    sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3),
+    hy:+(g.userData.hangY || 1.5).toFixed(2)
+  };
+  if (g.userData.onWall) rec.ow = 1;
+  return rec;
+}
+// Two people edit at once, so furniture syncs as a UNION (a piece one of us adds is never
+// wiped by the other's save) with tombstones for deletes (a piece one of us removes stays
+// removed and doesn't resurrect via the union). tombstones: id -> when it was deleted.
+let tombstones = {};
+function tombstone(id){ if (id) tombstones[id] = Date.now(); }
+function pruneTombstones(){                           // keep it bounded — newest 300 deletes is far more history than a home needs
+  const ids = Object.keys(tombstones);
+  if (ids.length > 300){
+    ids.sort((a, b) => tombstones[a] - tombstones[b]).slice(0, ids.length - 300).forEach(id => delete tombstones[id]);
+  }
+}
+function mergeFurniture(data){                        // reconcile an incoming layout with what I already have
+  if (data.deleted) for (const id in data.deleted) tombstones[id] = Math.max(tombstones[id] || 0, data.deleted[id]);   // their deletes win
+  const remote = {};
+  (data.furniture || []).forEach(f => { if (f && f.id) remote[f.id] = f; });
+  const local = {};
+  items.forEach(g => { local[g.userData.id] = itemRecord(g); });
+  pendingFurniture.forEach(f => { if (f && f.id && !local[f.id]) local[f.id] = f; });
+  const recs = []; let mineOnly = false;
+  new Set([...Object.keys(local), ...Object.keys(remote)]).forEach(id => {
+    if (tombstones[id]) return;                       // deleted on either phone — don't rebuild it
+    if (remote[id]) recs.push(remote[id]);            // shared piece: the incoming (newer) push wins on position
+    else { recs.push(local[id]); mineOnly = true; }   // a piece only I have — keep it, then re-push so my partner gets it
+  });
+  return { recs, mineOnly };
 }
 
 /* -------- undo: snapshot the whole layout before each edit -------- */
@@ -3956,6 +3988,7 @@ function removeGenLocal(id){                             // pull a created model
     if (items[i].userData.type === id){
       const g = items[i];
       if (sel === g) deselect();
+      tombstone(g.userData.id);                       // its placed copies are gone for good — don't let the union rebuild them
       furnGroup.remove(g); disposeGroup(g); items.splice(i, 1); removed++;
     }
   }
@@ -4498,7 +4531,7 @@ function updateRemoteDrag(dt){
   if (typeof remoteDrag.rotY === 'number') it.rotation.y += (remoteDrag.rotY - it.rotation.y)*k;
 }
 
-function applyRemoteLayout(data){
+function applyRemoteLayout(data, adopt){
   syncMuted = true;
   try{
     const planChanged =
@@ -4522,13 +4555,21 @@ function applyRemoteLayout(data){
     lightsState = {...(data.lights || {})};
     deselect();
     clearDragFx();
-    while (items.length){ const g = items.pop(); furnGroup.remove(g); disposeGroup(g); }
     if (data.genDefs) for (const id in data.genDefs) registerGenModel(data.genDefs[id]);   // recipes travel WITH the layout — build reliably
+    let recs, mineOnly = false;
+    if (adopt){                                                        // first sync: the cloud room is the source of truth
+      if (data.deleted) for (const id in data.deleted) tombstones[id] = Math.max(tombstones[id] || 0, data.deleted[id]);
+      recs = (data.furniture || []).filter(f => !tombstones[f.id]);
+    } else {                                                           // live partner edit: UNION so neither of us wipes the other's piece
+      const m = mergeFurniture(data); recs = m.recs; mineOnly = m.mineOnly;
+    }
+    while (items.length){ const g = items.pop(); furnGroup.remove(g); disposeGroup(g); }
     pendingFurniture = [];
-    (data.furniture || []).forEach(f => {
+    recs.forEach(f => {
       if (CATALOG[f.type]) addFurniture(f.type, {...f, silent:true});   // exact positions incl. stack height
       else pendingFurniture.push(f);                                    // model still missing (e.g. old-code partner) — hold it, don't lose it
     });
+    if (mineOnly) scheduleSave();                                       // I had pieces this push hadn't caught up to — persist the union so my partner gets them
     if (data.players){                                                                 // reposition avatars you can move while a partner is AWAY;
       for (const role of ['husband','wife','guest']){                                  // anyone who's live keeps coming from the presence stream
         if (role === currentUser?.role || remoteOnline[role]) continue;
@@ -4560,9 +4601,9 @@ async function initSync(){
       if (!d){ gotInitialLayout = true; return; }                 // empty cloud room: our local layout seeds it
       if (!gotInitialLayout){                                     // FIRST sync: always adopt the cloud room, even if we authored it,
         gotInitialLayout = true; lastTs = d.ts || 0;              // so a stale device can never overwrite the shared home
-        applyRemoteLayout(d); return;
+        applyRemoteLayout(d, true); return;                       // adopt = take the cloud as-is (don't resurrect stale local pieces)
       }
-      if (d.by !== myRole && d.ts > lastTs){ lastTs = d.ts; applyRemoteLayout(d); }
+      if (d.by !== myRole && d.ts > lastTs){ lastTs = d.ts; applyRemoteLayout(d); }   // live partner edit: merge as a union
     });
     D.onValue(D.ref(fb.db, 'room/players'), snap => {
       const all = snap.val() || {};
@@ -5295,9 +5336,12 @@ function doClearAll(alsoCharacters){
   deselect();
   while (items.length){
     const g = items.pop();
+    tombstone(g.userData.id);                         // clear must win over the union, or the other phone re-adds everything
     furnGroup.remove(g);
     disposeGroup(g);
   }
+  pendingFurniture.forEach(f => tombstone(f.id));      // and any pieces still waiting on their model
+  pendingFurniture = [];
   if (alsoCharacters){
     players = {husband:{x:9.5, z:11.0, rotY:0, pose:'stand'}, wife:{x:10.6, z:11.0, rotY:0, pose:'stand'}, guest:{x:8.4, z:11.4, rotY:0, pose:'stand'}};
     syncCharacters();
