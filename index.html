@@ -56,6 +56,7 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .shead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
 .shead b{font-size:15px}
 .xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
+.xbtn.off{opacity:.4;filter:grayscale(1);cursor:default}          /* temporarily disabled action (e.g. Create with AI paused) */
 #catTabs{display:flex;gap:6px;padding:2px 14px 10px;flex-wrap:wrap;flex:none}
 .tab{padding:7px 12px;border-radius:20px;background:var(--btn);border:none;color:var(--text);font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer}
 .tab.on{background:var(--accent);color:#fff}
@@ -64,6 +65,8 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .delgen{position:absolute;top:4px;right:4px;width:22px;height:22px;border:none;border-radius:50%;background:rgba(20,26,36,.55);color:#fff;font-size:16px;line-height:1;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .delgen:hover,.delgen:active{background:#e0555f}
 .model:active{transform:scale(.96)}
+.model.hl{border-color:#4c86d6;box-shadow:0 0 0 2px #4c86d6,0 0 16px 2px rgba(76,134,214,.5);animation:mdlpulse 1.3s ease-in-out 2}   /* a freshly-created model, highlighted in the Created list */
+@keyframes mdlpulse{0%,100%{box-shadow:0 0 0 2px #4c86d6,0 0 12px 1px rgba(76,134,214,.35)}50%{box-shadow:0 0 0 3px #4c86d6,0 0 24px 7px rgba(76,134,214,.65)}}
 .model .sw{height:44px;border-radius:8px;margin-bottom:6px}
 .model .sw[data-thumb]{background:var(--panel2);display:flex;align-items:center;justify-content:center;padding:2px;overflow:hidden}
 .model .sw svg{width:100%;height:100%;display:block}
@@ -3922,6 +3925,7 @@ function showRealResult(blob){
 
 /* ---- Create with AI: type a thing → Gemini writes a shape recipe → build it + add to the list ---- */
 function promptCreate(){
+  setAddOpen(false);                                 // tuck the Add sheet away while you describe + create
   showConfirm(`
     <h2>Create with AI ✨</h2>
     <p class="wsub">Describe it however you like — the more detail, the better. e.g. "a tall arched floor lamp with a marble base and a warm linen shade". Enter to create, Shift+Enter for a new line.</p>
@@ -3930,7 +3934,7 @@ function promptCreate(){
     <button class="btn" id="genCancel">Cancel</button>`,
     [
       ['genGo', () => { const v = $('genInput').value.trim(); if (v) generateModel(v); }],
-      ['genCancel', hideConfirm]
+      ['genCancel', () => { hideConfirm(); setAddOpen(true); }]   // backed out without creating — bring the Add sheet back
     ]);
   setTimeout(() => { const el = $('genInput'); if (el){ el.focus(); el.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); const v = el.value.trim(); if (v) generateModel(v); } }); } }, 120);
 }
@@ -3942,7 +3946,7 @@ async function generateModel(text){
   if (!thing) return;
   showConfirm(`<h2>Creating "${esc(thing)}" ✨</h2><p class="wsub">Sketching a 3D model… a few seconds.</p><div class="rspin"></div>`, []);
   const bad = m => showConfirm(`<h2>Hmm 😕</h2><p class="wsub">${esc(m)}</p><button class="btn primary" id="gOk">OK</button><button class="btn" id="gRetry">Try again</button>`,
-    [['gOk', hideConfirm], ['gRetry', () => { hideConfirm(); promptCreate(); }]]);
+    [['gOk', () => { hideConfirm(); setAddOpen(true); }], ['gRetry', () => { hideConfirm(); promptCreate(); }]]);
   try{
     const res = await fetch(proxy, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ generate: thing }) });
     if (!res.ok){
@@ -3968,7 +3972,8 @@ async function generateModel(text){
     if (fb && fb.D) fb.D.set(fb.D.ref(fb.db, 'room/genModels/' + def.id), def).catch(() => {});   // share with the other phone
     hideConfirm();
     curCat = 'Created';
-    setAddOpen(true);
+    genHighlight = def.id;                             // flag it so the grid scrolls to + glows the new piece
+    setAddOpen(true);                                  // bring the Add sheet back, on the Created tab
     buildAddSheet();
     toast(`Created "${esc(def.name)}" ✨ — it's in Add ▸ Created`);
     logActivity('edit', `created "${def.name}" with AI ✨`);
@@ -4461,7 +4466,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-09.autoupdate';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-09.create-paused';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -4806,7 +4811,7 @@ function updateRemoteChars(dt){
 
 /* ============================== add sheet ============================== */
 
-let curCat = CATEGORIES[0];
+let curCat = CATEGORIES[0], genHighlight = null;   // genHighlight: a just-created model to flag + scroll to in the grid
 
 function buildAddSheet(){
   catTabs.innerHTML = '';
@@ -4820,7 +4825,7 @@ function buildAddSheet(){
   modelGrid.innerHTML = '';
   Object.entries(CATALOG).filter(([, d]) => d.cat === curCat).forEach(([type, d]) => {
     const el = document.createElement('button');
-    el.className = 'model';
+    el.className = 'model' + (type === genHighlight ? ' hl' : '');   // just-created piece glows
     el.innerHTML = `<div class="sw"${d.thumb ? ' data-thumb="1"' : ` style="background:${d.color}"`}>${d.thumb || ''}</div>
       <div class="nm">${d.name}</div>
       <div class="dm">${Math.round(d.w*100)}×${Math.round(d.d*100)} cm</div>
@@ -4902,6 +4907,13 @@ function buildAddSheet(){
       });
     }
   });
+  if (genHighlight){                                 // scroll the freshly-created piece into view, then let its glow fade
+    genHighlight = null;
+    requestAnimationFrame(() => {
+      const hl = modelGrid.querySelector('.model.hl');
+      if (hl){ hl.scrollIntoView({block:'nearest', behavior:'smooth'}); setTimeout(() => hl.classList.remove('hl'), 4200); }
+    });
+  }
 }
 
 /* ============================== drawers & panels ============================== */
@@ -5036,7 +5048,11 @@ async function refreshCatalog(notify = true, announce = true){
   }
 }
 $('refreshModels').onclick = () => refreshCatalog(true, true);
-$('createBtn').onclick = () => { if (canEdit()) promptCreate(); else toast('Editing is off for guests'); };
+// Create with AI is PAUSED (its multiplayer sync is being reworked) — grayed out + inert for now.
+// To re-enable: remove the .off class + restore the promptCreate() handler below.
+$('createBtn').classList.add('off');
+$('createBtn').onclick = () => toast('Create with AI is paused — back tomorrow ✨');
+// $('createBtn').onclick = () => { if (canEdit()) promptCreate(); else toast('Editing is off for guests'); };
 
 function setAddOpen(open){
   addSheet.classList.toggle('on', open);
