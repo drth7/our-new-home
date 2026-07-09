@@ -71,8 +71,9 @@ export default {
         if (!pr.ok) return json({ error: 'Page said ' + pr.status }, 422, origin);
         page = await pr.text();
       } catch { return json({ error: 'Could not reach that page.' }, 422, origin); }
-      // main product photo (og:image) — helps the model get the shape and colours right
-      const og = (page.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i) || page.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i) || [])[1];
+      // main product photo (og:image, twitter:image fallback) — the PRIMARY reference for the shape
+      const og = (page.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i) || page.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
+        || page.match(/name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i) || page.match(/content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i) || [])[1];
       let imgPart = null;
       if (og){
         try {
@@ -92,15 +93,14 @@ export default {
       const text = page
         .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
         .replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').slice(0, 14000);
-      const sys = 'You read a furniture product webpage and output ONLY minified JSON (no prose, no markdown): ' +
+      const sys = 'You are modelling the furniture in the attached product PHOTO (when present) sold on a webpage. Output ONLY minified JSON (no prose, no markdown): ' +
         '{"models":[MODEL,...]} with one MODEL per distinct furniture piece sold on the page (max 4; if the page sells a set of pieces, e.g. three different sofas, output each separately). ' +
         'MODEL schema: {"name":string<=16,"w":metres,"d":metres,"h":metres,"color":"#hex","parts":[{"shape":"box"|"cylinder"|"sphere"|"cone","w":m,"h":m,"d":m,"r":m,"x":m,"y":m,"z":m,"rx":deg,"ry":deg,"rz":deg,"color":"#hex"}]}. ' +
-        'CRITICAL: w/d/h MUST be the REAL dimensions stated on the page (convert cm/mm/inches to metres; width=w, depth=d, height=h). If the page gives no dimensions for a piece, estimate typical real-world size. ' +
-        'Rules: origin at the CENTRE of the floor footprint, y is UP, each part y is its centre height so the object rests on the floor (nothing below y=0); at most 12 parts per model; keep each recognizable but simple. ' +
-        'COLOURS: use the product photo and description — give every part its own realistic colour, 2-4 distinct colours per model, true to the actual product. ' +
+        'THE PHOTO IS THE REFERENCE: study it and reproduce what you SEE as faithfully as primitives allow — the silhouette, the proportions, arm/back/leg style, cushion count, base type, and the EXACT colours of each material in the photo. Use up to 14 parts per model when the shape needs them; a person who owns the product should recognise it. ' +
+        'DIMENSIONS: w/d/h MUST be the REAL dimensions stated in the page text (convert cm/mm/inches to metres; width=w, depth=d, height=h). The photo drives the SHAPE, the text drives the SIZE. If a piece has no stated dimensions, estimate from the photo. ' +
+        'Rules: origin at the CENTRE of the floor footprint, y is UP, each part y is its centre height so the object rests on the floor (nothing below y=0). ' +
         'PAGE TEXT: "' + text.replace(/"/g, "'") + '"';
-      const parts = [{ text: sys }];
-      if (imgPart) parts.push(imgPart);
+      const parts = imgPart ? [imgPart, { text: sys }] : [{ text: sys }];   // photo first — it is the reference
       const gg = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },

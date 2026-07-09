@@ -61,7 +61,7 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 #createBtn{background:transparent;color:#4c86d6;animation:aihue 10s linear infinite}
 #createBtn svg{width:24px;height:24px;animation:aibreath 3.4s ease-in-out infinite}
 @keyframes aihue{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
-@keyframes aibreath{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.12);opacity:1}}
+@keyframes aibreath{0%,100%{opacity:.75}50%{opacity:1}}   /* breathe with light only — no size change */
 #catTabs{display:flex;gap:6px;padding:2px 14px 10px;flex-wrap:wrap;flex:none}
 .tab{padding:7px 12px;border-radius:20px;background:var(--btn);border:none;color:var(--text);font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer}
 .tab.on{background:var(--accent);color:#fff}
@@ -95,6 +95,7 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .dhead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));border-bottom:1px solid var(--line);flex:none}
 .dhead b{font-size:16px}
 .dbody{overflow-y:auto;min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:16px;display:flex;flex-direction:column;gap:20px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}   /* min-height:0 — without it a flex child refuses to shrink and the drawer can't scroll */
+.dbody>*{flex:none}   /* sections keep their natural height — they must OVERFLOW (and scroll), never squash to fit */
 section{display:flex;flex-direction:column;gap:10px}
 h3.sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
@@ -1127,6 +1128,7 @@ function buildPlan(){
   scene.add(roomGroup);
   applyViewToPlan();
   updateSun();
+  if (introActive) for (const id in roomLights) for (const rl of roomLights[id]){ rl.pt.intensity = 0; rl.mat.emissiveIntensity = 0; }   // a rebuild mid-cinematic must stay dark
 }
 
 function applyViewToPlan(){
@@ -4598,7 +4600,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-09.create-fixed';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-09.intro-dark';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5561,21 +5563,43 @@ $('clearBtn').onclick = () => {
 };
 
 /* ============================== entrance cinematic ============================== */
-/* After unlocking: the home sits dark under a top-down view, the rooms light up one after
-   another, the sun rises, and the camera glides down into place. Tap anywhere to skip. */
-let introActive = false;
+/* The home sits DARK from the moment the app opens (behind the welcome card). After unlocking,
+   the rooms light up one after another, the sun rises, and the camera glides down into place.
+   Tap anywhere to skip. Visual-only: the real light switches are never touched. */
+let introActive = false, introPlaying = false, introBase = null;
+const wantIntro = () => !AS_ROLE && view === '3d' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+function darkenForIntro(){                            // called at boot, before the welcome card shows
+  if (!wantIntro()) return;
+  const cam = activeCam();
+  introBase = { pos:cam.position.clone(), target:orbit.target.clone(), hemi:hemi.intensity, sun:sun.intensity };
+  introActive = true;                                 // guards applyLightsLive + orbit while we wait at the welcome screen
+  hemi.intensity = 0.04; sun.intensity = 0;
+  for (const id in roomLights) for (const rl of roomLights[id]){ rl.pt.intensity = 0; rl.mat.emissiveIntensity = 0; }
+  cam.position.set(PC.x, 24, PC.z + 0.01);
+  orbit.target.set(PC.x, 0, PC.z);
+  cam.lookAt(orbit.target);
+  orbit.enabled = false;
+}
+function undarken(){                                  // put everything back exactly as captured
+  if (!introBase) return;
+  introActive = false;
+  hemi.intensity = introBase.hemi; sun.intensity = introBase.sun;
+  applyLightsLive();
+  const cam = activeCam();
+  cam.position.copy(introBase.pos); orbit.target.copy(introBase.target); cam.lookAt(orbit.target);
+  orbit.enabled = view === '3d';
+  introBase = null;
+}
 function playIntro(done){
   const finishAnd = () => { if (done) done(); };
-  if (introActive || AS_ROLE || view !== '3d' || matchMedia('(prefers-reduced-motion: reduce)').matches){ finishAnd(); return; }
-  introActive = true;
+  if (introPlaying){ finishAnd(); return; }
+  if (!wantIntro()){ undarken(); finishAnd(); return; }
+  if (!introBase) darkenForIntro();                   // safety: play from a dark start even if boot didn't pre-darken
+  if (!introBase){ finishAnd(); return; }
+  introPlaying = true;
   const cam = activeCam();
-  const savePos = cam.position.clone(), saveTarget = orbit.target.clone();
-  const saveHemi = hemi.intensity, saveSun = sun.intensity;
-  const saved = [];
-  for (const id in roomLights) for (const rl of roomLights[id]) saved.push({rl, pt:rl.pt.intensity, em:rl.mat.emissiveIntensity});
-  hemi.intensity = 0.04; sun.intensity = 0;                       // near-black, so the lights matter
-  saved.forEach(s => { s.rl.pt.intensity = 0; s.rl.mat.emissiveIntensity = 0; });
-  orbit.enabled = false;
+  const savePos = introBase.pos, saveTarget = introBase.target;
+  const saveHemi = introBase.hemi, saveSun = introBase.sun;
   const startPos = new THREE.Vector3(PC.x, 24, PC.z + 0.01), startTarget = new THREE.Vector3(PC.x, 0, PC.z);
   const ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;z-index:58;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;transition:opacity .7s;cursor:pointer';
@@ -5590,12 +5614,8 @@ function playIntro(done){
   function finish(){
     if (doneFlag) return;
     doneFlag = true;
-    introActive = false;
-    hemi.intensity = saveHemi; sun.intensity = saveSun;
-    applyLightsLive();                                            // back to the real switch states
-    cam.position.copy(savePos); orbit.target.copy(saveTarget);
-    cam.lookAt(saveTarget);
-    orbit.enabled = view === '3d';
+    introPlaying = false;
+    undarken();                                                   // exact original camera, sun and switch states
     ov.remove();
     finishAnd();
   }
@@ -5791,6 +5811,7 @@ if (AS_ROLE){                                      // sandbox tab (?room=…&as=
   currentUser = {role:AS_ROLE};
   applyGuestMode(); syncProfileUI(); refreshTags(); initSync();
 } else {
+  darkenForIntro();                                // the home waits in darkness — signing in wakes it up
   askWho();
 }
 
