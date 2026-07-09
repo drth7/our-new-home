@@ -3982,13 +3982,13 @@ function confirmDeleteGen(id, name){
     <button class="btn" id="dgNo">Cancel</button>`,
     [['dgYes', () => { hideConfirm(); deleteGenModel(id); }], ['dgNo', hideConfirm]]);
 }
-function removeGenLocal(id){                             // pull a created model + its placed copies out of THIS device only
-  let removed = 0;
+function removeGenLocal(id, tomb){                       // pull a created model + its placed copies out of THIS device only
+  let removed = 0;                                       // tomb=true ONLY for a real user delete — the sync prune must NOT tombstone
   for (let i = items.length - 1; i >= 0; i--){
     if (items[i].userData.type === id){
       const g = items[i];
       if (sel === g) deselect();
-      tombstone(g.userData.id);                       // its placed copies are gone for good — don't let the union rebuild them
+      if (tomb) tombstone(g.userData.id);               // a deliberate delete: don't let the union rebuild it
       furnGroup.remove(g); disposeGroup(g); items.splice(i, 1); removed++;
     }
   }
@@ -3998,9 +3998,9 @@ function removeGenLocal(id){                             // pull a created model
   return removed;
 }
 function deleteGenModel(id){                             // user-initiated: remove here AND everywhere
-  const removed = removeGenLocal(id);
-  if (fb && fb.D) fb.D.remove(fb.D.ref(fb.db, 'room/genModels/' + id)).catch(() => {});   // the other phone's listener prunes it too
-  if (removed) scheduleSave();                            // push the layout without the deleted piece
+  const removed = removeGenLocal(id, true);              // tombstone the placed copies so they vanish on the other phone too
+  if (fb && fb.D) fb.D.remove(fb.D.ref(fb.db, 'room/genModels/' + id)).catch(() => {});   // the other phone's listener drops it from the Add list
+  if (removed) scheduleSave();                            // push the layout without the deleted piece (+ its tombstone)
   buildAddSheet();
   toast('Deleted ✨');
 }
@@ -4664,8 +4664,12 @@ async function initSync(){
       const liveIds = new Set(Object.keys(all));
       let changed = false;
       for (const id in all){ if (registerGenModel(all[id])) changed = true; }       // add new
-      for (const id of Object.keys(CATALOG)){                                        // prune ones deleted on the other phone
-        if (CATALOG[id].gen && !liveIds.has(id)){ removeGenLocal(id); changed = true; }
+      for (const id of Object.keys(CATALOG)){                                        // drop models the other phone deleted — from the Add list only
+        if (CATALOG[id].gen && !liveIds.has(id)){
+          const placed = items.some(g => g.userData.type === id) || pendingFurniture.some(f => f.type === id);
+          if (placed) continue;                                                       // still in the room → it's a sync race, NOT a delete; a real delete tombstones the copies first
+          removeGenLocal(id); changed = true;
+        }
       }
       jset(GEN_LS, Object.values(all));                 // keep the local list mirroring the shared set exactly
       if (changed){
