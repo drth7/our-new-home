@@ -113,15 +113,16 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
 #achPanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-48%) scale(.96);opacity:0;pointer-events:none;transition:all .2s;width:min(430px,92vw);max-height:78vh;z-index:40;background:var(--panel);border-radius:18px;box-shadow:var(--shadow);display:flex;flex-direction:column}
 #achPanel.on{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
-#confirm{position:fixed;left:50%;top:50%;transform:translate(-50%,-48%) scale(.96);opacity:0;pointer-events:none;transition:all .2s;width:min(380px,92vw);z-index:55;background:var(--panel);border-radius:18px;box-shadow:var(--shadow)}
+#confirm{position:fixed;left:50%;top:50%;transform:translate(-50%,-48%) scale(.96);opacity:0;pointer-events:none;transition:all .2s;width:min(380px,92vw);max-height:90vh;max-height:90dvh;overflow:hidden;display:flex;flex-direction:column;z-index:55;background:var(--panel);border-radius:18px;box-shadow:var(--shadow)}
 #confirm.on{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
+#confirm .dbody{min-height:0}                 /* cap the modal to the screen so the body scrolls — buttons stay reachable on a phone */
 #confirm h2{font-size:18px;line-height:1.4}
 #confirm .wsub{margin-top:-2px}
 #confirm .btn{width:100%}
 #confirm input[type=text]{text-align:center}
 .rspin{width:36px;height:36px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:10px auto 4px;animation:rspin 1s linear infinite}
 @keyframes rspin{to{transform:rotate(360deg)}}
-.rimg{width:100%;border-radius:12px;display:block;margin:2px 0 4px}
+.rimg{max-width:100%;max-height:52vh;max-height:52dvh;border-radius:12px;display:block;margin:2px auto 4px}
 /* moving rainbow outline + glow around the AI "working…" widget */
 @property --aiang{syntax:'<angle>';inherits:false;initial-value:0deg}
 #confirm.aiwait{border:3px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,conic-gradient(from var(--aiang,0deg),#ff5f6d,#ffc371,#5bd6a0,#4c86d6,#a06aff,#ff5f6d) border-box;animation:aiang 3s linear infinite;box-shadow:0 0 26px 2px rgba(160,106,255,.4),0 0 48px 10px rgba(76,134,214,.28)}
