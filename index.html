@@ -1185,6 +1185,7 @@ applyQuality(quality);
 
 let items = [], nextId = 1;
 let pendingFurniture = [];                        // placed pieces whose model hasn't synced yet (e.g. a partner's AI creation) — kept so we never wipe them
+let localAdds = new Set();                         // ids I placed locally that a partner hasn't confirmed yet — so a remote sync can't wipe my fresh piece
 
 function block(w, h, d, mat){
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -3342,6 +3343,8 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 /* ============================== persistence ============================== */
 
 function serialize(){
+  const genDefs = {};                                // embed the recipe of every placed AI model, so the other phone can ALWAYS build it
+  items.forEach(g => { const d = CATALOG[g.userData.type]; if (d && d.gen && !genDefs[d.id]) genDefs[d.id] = {id:d.id, name:d.name, cat:'Created', w:d.w, d:d.d, h:d.h, color:d.color, parts:d.parts}; });
   return {
     v:3,
     sunAz,
@@ -3351,6 +3354,7 @@ function serialize(){
     roomNames:{...roomNames},
     lights:{...lightsState},
     players:{...players},
+    genDefs,
     furniture:items.map(g => {
       const rec = {
         id:g.userData.id, type:g.userData.type,
@@ -3382,6 +3386,7 @@ function loadData(data){
   lightsState = {...(data.lights || {})};
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   buildPlan();
+  if (data.genDefs) for (const id in data.genDefs) registerGenModel(data.genDefs[id]);   // recipes embedded in the layout
   pendingFurniture = [];
   (data.furniture || []).forEach(f => {
     if (CATALOG[f.type]) addFurniture(f.type, {...f, silent:true});   // each carries its exact stack height
@@ -4518,10 +4523,11 @@ function applyRemoteLayout(data){
     deselect();
     clearDragFx();
     while (items.length){ const g = items.pop(); furnGroup.remove(g); disposeGroup(g); }
+    if (data.genDefs) for (const id in data.genDefs) registerGenModel(data.genDefs[id]);   // recipes travel WITH the layout — build reliably
     pendingFurniture = [];
     (data.furniture || []).forEach(f => {
       if (CATALOG[f.type]) addFurniture(f.type, {...f, silent:true});   // exact positions incl. stack height
-      else pendingFurniture.push(f);                                    // an AI model still syncing — hold it, don't lose it
+      else pendingFurniture.push(f);                                    // model still missing (e.g. old-code partner) — hold it, don't lose it
     });
     if (data.players){                                                                 // reposition avatars you can move while a partner is AWAY;
       for (const role of ['husband','wife','guest']){                                  // anyone who's live keeps coming from the presence stream
