@@ -4461,6 +4461,33 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
+const APP_VERSION = '2026-07-09.autoupdate';   // bumped every deploy — written into presence so we can see which code each phone runs
+console.log('Our New Home — app version', APP_VERSION);
+// This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
+// running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
+async function checkForUpdate(){
+  try{
+    const res = await fetch(location.pathname + '?v=' + Date.now(), {cache:'no-store'});
+    const txt = await res.text();
+    const m = txt.match(/APP_VERSION\s*=\s*'([^']+)'/);
+    if (m && m[1] && m[1] !== APP_VERSION) showUpdateBanner();
+  }catch(e){}
+}
+function showUpdateBanner(){
+  if (document.getElementById('updBanner')) return;
+  const b = document.createElement('div');
+  b.id = 'updBanner';
+  b.style.cssText = 'position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);z-index:200;background:#4c86d6;color:#fff;padding:9px 12px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;gap:10px;align-items:center;font-size:14px;max-width:94vw';
+  b.innerHTML = '<span>Update available ✨</span>';
+  const btn = document.createElement('button');
+  btn.textContent = 'Reload';
+  btn.style.cssText = 'background:#fff;color:#4c86d6;border:0;border-radius:8px;padding:6px 12px;font-weight:700';
+  btn.onclick = () => { location.href = location.pathname + '?v=' + Date.now(); };   // fresh URL = bypass the cached copy
+  b.appendChild(btn);
+  document.body.appendChild(b);
+}
+setTimeout(checkForUpdate, 4000);
+setInterval(checkForUpdate, 300000);
 function pushPlayer(force){
   if (!fb || !currentUser) return;
   const now = performance.now();
@@ -4471,7 +4498,7 @@ function pushPlayer(force){
   fb.D.set(fb.D.ref(fb.db, 'room/players/' + currentUser.role), {
     x:+me.g.position.x.toFixed(2), y:+me.g.position.y.toFixed(2), z:+me.g.position.z.toFixed(2),
     rotY:+me.g.rotation.y.toFixed(2), pose:me.pose || 'stand',
-    name:nameFor(currentUser.role), ts:Date.now()
+    name:nameFor(currentUser.role), v:APP_VERSION, ts:Date.now()
   }).catch(() => {});
 }
 
