@@ -57,7 +57,8 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .shead b{font-size:15px}
 .xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
 .xbtn.off{opacity:.4;filter:grayscale(1);cursor:default}          /* temporarily disabled action */
-#createBtn{font-size:13px;font-weight:800;letter-spacing:.3px;color:#4c86d6;background:rgba(76,134,214,.16)}   /* the "+AI" create entry point */
+#createBtn{position:relative;overflow:visible;background:transparent;border:2px solid #4c86d6;border-radius:9px;color:#4c86d6;font-size:12px;font-weight:800;letter-spacing:.5px}   /* "AI" in an outlined box + sparkle — the button IS the outline */
+#createBtn .aisp{position:absolute;top:-4px;right:-4px;width:12px;height:12px}
 .soon{grid-column:1/-1;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:38px 16px;text-align:center;background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.07);border-radius:14px}   /* black "coming soon" tint over the create grid */
 .soon .soonIcon{font-size:34px}
 .soon .soonT{font-weight:800;font-size:19px;color:#fff;letter-spacing:.3px}
@@ -387,7 +388,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 </div>
 
 <div id="addSheet" class="sheet">
-  <div class="shead"><b>Add furniture</b><div style="display:flex;gap:6px"><button class="xbtn" id="createBtn" title="Create with AI — coming soon">+AI</button><button class="xbtn" id="refreshModels" title="Check for new models" data-icon="refresh"></button><button class="xbtn" id="closeAdd" data-icon="x"></button></div></div>
+  <div class="shead"><b>Add furniture</b><div style="display:flex;gap:6px"><button class="xbtn" id="createBtn" title="Create with AI — coming soon">AI<svg class="aisp" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg></button><button class="xbtn" id="refreshModels" title="Check for new models" data-icon="refresh"></button><button class="xbtn" id="closeAdd" data-icon="x"></button></div></div>
   <div id="catTabs"></div>
   <div id="modelGrid"></div>
 </div>
@@ -4471,7 +4472,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-09.comingsoon-tint';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-09.ai-icon';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
