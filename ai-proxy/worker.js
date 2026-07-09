@@ -57,6 +57,59 @@ export default {
     let body;
     try { body = await request.json(); } catch { return json({ error: 'Bad request body.' }, 400, origin); }
 
+    // ── link mode: a furniture product URL → one JSON recipe PER piece, at the page's real sizes ──
+    if (body && body.fetchUrl){
+      let target;
+      try { target = new URL(String(body.fetchUrl)); } catch { return json({ error: 'Bad URL.' }, 400, origin); }
+      if (!/^https?:$/.test(target.protocol)) return json({ error: 'Bad URL.' }, 400, origin);
+      let page;
+      try {
+        const pr = await fetch(target.href, { redirect: 'follow', headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+          'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'en',
+        }});
+        if (!pr.ok) return json({ error: 'Page said ' + pr.status }, 422, origin);
+        page = await pr.text();
+      } catch { return json({ error: 'Could not reach that page.' }, 422, origin); }
+      // main product photo (og:image) — helps the model get the shape and colours right
+      const og = (page.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i) || page.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i) || [])[1];
+      let imgPart = null;
+      if (og){
+        try {
+          const ir = await fetch(new URL(og, target.href).href, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          const mime = (ir.headers.get('Content-Type') || '').split(';')[0];
+          if (ir.ok && /^image\/(jpeg|png|webp)$/.test(mime)){
+            const buf = await ir.arrayBuffer();
+            if (buf.byteLength < 1_800_000){
+              let bin = ''; const bytes = new Uint8Array(buf);
+              for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+              imgPart = { inline_data: { mime_type: mime, data: btoa(bin) } };
+            }
+          }
+        } catch {}
+      }
+      // page text only (tags/scripts stripped, capped) — the dimensions almost always live in the text
+      const text = page
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').slice(0, 14000);
+      const sys = 'You read a furniture product webpage and output ONLY minified JSON (no prose, no markdown): ' +
+        '{"models":[MODEL,...]} with one MODEL per distinct furniture piece sold on the page (max 4; if the page sells a set of pieces, e.g. three different sofas, output each separately). ' +
+        'MODEL schema: {"name":string<=16,"w":metres,"d":metres,"h":metres,"color":"#hex","parts":[{"shape":"box"|"cylinder"|"sphere"|"cone","w":m,"h":m,"d":m,"r":m,"x":m,"y":m,"z":m,"rx":deg,"ry":deg,"rz":deg,"color":"#hex"}]}. ' +
+        'CRITICAL: w/d/h MUST be the REAL dimensions stated on the page (convert cm/mm/inches to metres; width=w, depth=d, height=h). If the page gives no dimensions for a piece, estimate typical real-world size. ' +
+        'Rules: origin at the CENTRE of the floor footprint, y is UP, each part y is its centre height so the object rests on the floor (nothing below y=0); at most 12 parts per model; keep each recognizable but simple. ' +
+        'COLOURS: use the product photo and description — give every part its own realistic colour, 2-4 distinct colours per model, true to the actual product. ' +
+        'PAGE TEXT: "' + text.replace(/"/g, "'") + '"';
+      const parts = [{ text: sys }];
+      if (imgPart) parts.push(imgPart);
+      const gg = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
+        body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.3 } }),
+      });
+      const t = await gg.text();
+      return new Response(t, { status: gg.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+    }
+
     // ── text mode: describe an object → JSON shape recipe (cheap text model) ──
     if (body && body.generate){
       const thing = String(body.generate).slice(0, 600);

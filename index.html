@@ -57,12 +57,11 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .shead b{font-size:15px}
 .xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
 .xbtn.off{opacity:.4;filter:grayscale(1);cursor:default}          /* temporarily disabled action */
-#createBtn{position:relative;overflow:visible;background:transparent;border:2px solid #4c86d6;border-radius:9px;color:#4c86d6;font-size:12px;font-weight:800;letter-spacing:.5px}   /* "AI" in an outlined box + sparkle — the button IS the outline */
-#createBtn .aisp{position:absolute;top:-4px;right:-4px;width:12px;height:12px}
-.soon{grid-column:1/-1;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:38px 16px;text-align:center;background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.07);border-radius:14px}   /* black "coming soon" tint over the create grid */
-.soon .soonIcon{font-size:34px}
-.soon .soonT{font-weight:800;font-size:19px;color:#fff;letter-spacing:.3px}
-.soon .soonS{font-size:12.5px;color:#c9d2de;text-transform:uppercase;letter-spacing:1.5px}
+/* Create-with-AI: the "AI in a box + sparkles" mark, slowly breathing through the rainbow */
+#createBtn{background:transparent;color:#4c86d6;animation:aihue 10s linear infinite}
+#createBtn svg{width:24px;height:24px;animation:aibreath 3.4s ease-in-out infinite}
+@keyframes aihue{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
+@keyframes aibreath{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.12);opacity:1}}
 #catTabs{display:flex;gap:6px;padding:2px 14px 10px;flex-wrap:wrap;flex:none}
 .tab{padding:7px 12px;border-radius:20px;background:var(--btn);border:none;color:var(--text);font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer}
 .tab.on{background:var(--accent);color:#fff}
@@ -79,7 +78,7 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .model .nm{font-size:12.5px;font-weight:600}
 .model .dm{font-size:10.5px;color:var(--muted)}
 
-.drawer{position:fixed;top:0;bottom:0;width:min(340px,88vw);z-index:40;background:var(--panel);box-shadow:var(--shadow);transition:transform .25s;display:flex;flex-direction:column}
+.drawer{position:fixed;top:0;height:100vh;height:100dvh;width:min(340px,88vw);z-index:40;background:var(--panel);box-shadow:var(--shadow);transition:transform .25s;display:flex;flex-direction:column}   /* dvh: track the phone's REAL visible height (URL bar), so the bottom is never cut off */
 #settings{right:0;transform:translateX(105%)}
 #settings.on{transform:none}
 #activity{left:0;transform:translateX(-105%)}
@@ -95,7 +94,7 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .rname-edit{padding:6px 8px!important;font-size:14px!important}
 .dhead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));border-bottom:1px solid var(--line);flex:none}
 .dhead b{font-size:16px}
-.dbody{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:20px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.dbody{overflow-y:auto;min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:16px;display:flex;flex-direction:column;gap:20px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}   /* min-height:0 — without it a flex child refuses to shrink and the drawer can't scroll */
 section{display:flex;flex-direction:column;gap:10px}
 h3.sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
@@ -335,6 +334,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
   <button class="iconbtn" id="addBtn" data-icon="plus"><span>Add</span></button>
   <button class="iconbtn" id="undoBtn" title="Undo" data-icon="undo"></button>
   <button class="iconbtn" id="measureBtn" title="Measure distance" data-icon="ruler"></button>
+  <button class="iconbtn" id="snapBtn" title="Snap to furniture" data-icon="magnet"></button>
   <button class="iconbtn" id="shotBtn" title="Screenshot" data-icon="camera"></button>
   <button class="iconbtn" id="achBtn" title="Achievements" data-icon="trophy"></button>
   <button class="iconbtn" id="actBtn" title="Activity" data-icon="bell"><span id="actBadge"></span></button>
@@ -388,7 +388,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 </div>
 
 <div id="addSheet" class="sheet">
-  <div class="shead"><b>Add furniture</b><div style="display:flex;gap:6px"><button class="xbtn" id="createBtn" title="Create with AI — coming soon">AI<svg class="aisp" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg></button><button class="xbtn" id="refreshModels" title="Check for new models" data-icon="refresh"></button><button class="xbtn" id="closeAdd" data-icon="x"></button></div></div>
+  <div class="shead"><b>Add furniture</b><div style="display:flex;gap:6px"><button class="xbtn" id="createBtn" title="Create anything with AI"><svg viewBox="0 0 1200 1200" fill="currentColor" aria-hidden="true"><path d="M754.84,991.71h-463.28c-68.27,0-123.82-55.55-123.82-123.82v-463.28c0-68.28,55.55-123.83,123.82-123.83h231.65c12.33,0,22.32,9.99,22.32,22.32s-9.99,22.32-22.32,22.32h-231.65c-43.66,0-79.18,35.52-79.18,79.18v463.28c0,43.66,35.52,79.18,79.18,79.18h463.28c43.66,0,79.18-35.52,79.18-79.18v-231.64c0-12.33,9.99-22.32,22.32-22.32s22.32,9.99,22.32,22.32v231.64c0,68.28-55.55,123.82-123.82,123.82Z"/><path d="M423.92,482.21l-100.43,308.07h55.77l24.08-83.47h103.33l23.89,83.47h57.85l-100.43-308.07h-64.07ZM415.71,663.94l10.84-37.59c9.79-32.6,18.84-67.46,27.32-101.56h1.88c9.05,33.82,18.09,68.96,27.89,101.56l10.76,37.59h-78.69Z"/><rect x="623.62" y="482.21" width="54.65" height="308.07"/><path d="M803.72,143.5l11,38.34c20.23,70.47,75.31,125.55,145.78,145.78l38.34,11c6.95,2,6.95,11.84,0,13.84l-38.34,11c-70.47,20.23-125.55,75.31-145.78,145.78l-11,38.34c-2,6.95-11.84,6.95-13.84,0l-11-38.34c-20.23-70.47-75.31-125.55-145.78-145.78l-38.34-11c-6.95-2-6.95-11.84,0-13.84l38.34-11c70.47-20.23,125.55-75.31,145.78-145.78l11-38.34c2-6.95,11.84-6.95,13.84,0Z"/><path d="M983.56,444.94l4.32,15.06c7.95,27.69,29.59,49.33,57.28,57.28l15.06,4.32c2.73.78,2.73,4.65,0,5.44l-15.06,4.32c-27.69,7.95-49.33,29.59-57.28,57.28l-4.32,15.06c-.78,2.73-4.65,2.73-5.44,0l-4.32-15.06c-7.95-27.69-29.59-49.33-57.28-57.28l-15.06-4.32c-2.73-.78-2.73-4.65,0-5.44l15.06-4.32c27.69-7.95,49.33-29.59,57.28-57.28l4.32-15.06c.78-2.73,4.65-2.73,5.44,0Z"/></svg></button><button class="xbtn" id="refreshModels" title="Check for new models" data-icon="refresh"></button><button class="xbtn" id="closeAdd" data-icon="x"></button></div></div>
   <div id="catTabs"></div>
   <div id="modelGrid"></div>
 </div>
@@ -514,6 +514,7 @@ const ICONS = {
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   wallmount:'<path d="M3 5h18"/><path d="M12 5v3"/><rect x="7.5" y="8" width="9" height="9" rx="1.6"/>',
   ruler:'<path d="M3.3 15.5 15.5 3.3a1.4 1.4 0 0 1 2 0l3.2 3.2a1.4 1.4 0 0 1 0 2L8.5 20.7a1.4 1.4 0 0 1-2 0l-3.2-3.2a1.4 1.4 0 0 1 0-2Z"/><path d="M8 8l2 2M11.5 4.5l1.5 1.5M4.5 11.5 6 13M15 7.5l1.5 1.5"/>',
+  magnet:'<path d="M6 15l-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4"/><path d="m12 15 4 4"/>',
   house:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>',
   chevron:'<path d="m6 9 6 6 6-6"/>'
 };
@@ -530,6 +531,12 @@ const LS = {
 };
 const COLORS = {husband:'#4C86D6', wife:'#E8709A'};
 const WALL_H = 2.6, WALL_T = 0.2;
+
+// Sandbox rooms for safe testing: ?room=anything uses a separate Firebase root (never the real home),
+// and ?as=husband|wife|guest (ONLY together with ?room=) signs straight in so two tabs can be two people.
+const _qs = new URLSearchParams(location.search);
+const ROOM = ((_qs.get('room') || 'room').replace(/[^a-zA-Z0-9_-]/g, '') || 'room');
+const AS_ROLE = (ROOM !== 'room' && ['husband','wife','guest'].includes(_qs.get('as'))) ? _qs.get('as') : null;
 
 const CATALOG = {
   sofa:      {name:'Sofa',         cat:'Seating',  w:2.20, d:0.95, h:0.85, color:'#7f9bb8', seat:0.42, slots:2},
@@ -934,6 +941,7 @@ function setTempGrid(b){
 }
 
 function applyLightsLive(){
+  if (introActive) return;                          // the entrance cinematic owns the lights until it finishes
   for (const id in roomLights){
     const on = !!lightsState[id];
     for (const rl of roomLights[id]){
@@ -1836,6 +1844,37 @@ function halfExtents(g){
   return {hw:(w*c + d*s)/2, hd:(w*s + d*c)/2};
 }
 
+/* Snap-while-dragging: pull the carried piece flush against a neighbour's edge (or line their
+   centres up) when it gets close. Device-local toggle on the toolbar magnet. */
+let snapOn = localStorage.getItem('roomplanner.snap') !== '0';
+function applySnap(g){
+  if (!snapOn || isWall(g)) return;
+  const me = halfExtents(g), T = 0.14;               // grab distance in metres
+  let bx = null, bz = null, dx = T, dz = T;          // best candidate per axis
+  for (const it of items){
+    if (it === g || isWall(it)) continue;
+    const d2 = CATALOG[it.userData.type];
+    if (!d2 || d2.h <= 0.1) continue;                // rugs aren't snap targets
+    const o = halfExtents(it);
+    const overX = Math.abs(g.position.x - it.position.x) < me.hw + o.hw + 0.4;   // only snap to things you're actually beside
+    const overZ = Math.abs(g.position.z - it.position.z) < me.hd + o.hd + 0.4;
+    if (overZ){
+      for (const cx of [it.position.x - o.hw - me.hw, it.position.x + o.hw + me.hw, it.position.x]){
+        const d = Math.abs(g.position.x - cx);
+        if (d < dx){ dx = d; bx = cx; }
+      }
+    }
+    if (overX){
+      for (const cz of [it.position.z - o.hd - me.hd, it.position.z + o.hd + me.hd, it.position.z]){
+        const d = Math.abs(g.position.z - cz);
+        if (d < dz){ dz = d; bz = cz; }
+      }
+    }
+  }
+  if (bx !== null) g.position.x = Math.round(bx * 1000) / 1000;
+  if (bz !== null) g.position.z = Math.round(bz * 1000) / 1000;
+}
+
 /* the whole footprint must stand on floor (room rects + doorways). Samples every ~17 cm:
    real walls leave a >=20 cm floorless strip between rooms, so nothing can bridge one,
    while wall-less boundaries (kitchen/living/hallway) are seamless floor and pass freely */
@@ -1881,10 +1920,24 @@ function clampToRoom(g){
   // freely across wall-less boundaries and only clamp when a real wall is in the way
   if (footprintOnFloor(g)){
     g.userData.room = r.room.id;
+    g.userData.gx = g.position.x; g.userData.gz = g.position.z;   // remember the last spot that fully fit
     applyStackY(g);                                 // ride on top of any piece underneath
     return;
   }
-  const {hw, hd} = halfExtents(g);
+  // blocked by a wall: SLIDE along it instead of jumping — try keeping each axis separately,
+  // then fall back to the last good spot. Works for any room shape (L-shapes, open seams).
+  const nx = g.position.x, nz = g.position.z, lx = g.userData.gx, lz = g.userData.gz;
+  if (lx != null){
+    g.position.x = nx; g.position.z = lz;
+    if (footprintOnFloor(g)){ g.userData.gx = nx; g.userData.room = r.room.id; applyStackY(g); return; }
+    g.position.x = lx; g.position.z = nz;
+    if (footprintOnFloor(g)){ g.userData.gz = nz; g.userData.room = r.room.id; applyStackY(g); return; }
+    g.position.x = lx; g.position.z = lz;           // fully blocked — stay where it last fit
+    g.userData.room = r.room.id;
+    applyStackY(g);
+    return;
+  }
+  const {hw, hd} = halfExtents(g);                  // no history (fresh load outside the floor) — clamp into the nearest rect
   const x1 = r.x1 + hw, x2 = r.x2 - hw, z1 = r.z1 + hd, z2 = r.z2 - hd;
   g.position.x = x1 > x2 ? (r.x1 + r.x2)/2 : THREE.MathUtils.clamp(g.position.x, x1, x2);
   g.position.z = z1 > z2 ? (r.z1 + r.z2)/2 : THREE.MathUtils.clamp(g.position.z, z1, z2);
@@ -2380,7 +2433,7 @@ function doKiss(){
     return;
   }
   playKissEffect();
-  if (fb) fb.D.set(fb.D.ref(fb.db, 'room/kiss'), {by:meR, ts:Date.now()}).catch(() => {});
+  if (fb) fb.D.set(fb.D.ref(fb.db, ROOM + '/kiss'), {by:meR, ts:Date.now()}).catch(() => {});
   unlock('first-kiss');
   logActivity('kiss', `kissed ${nameFor(pR)} 💋`);
   players[meR] = {x:+a.g.position.x.toFixed(3), z:+a.g.position.z.toFixed(3), rotY:+a.g.rotation.y.toFixed(3), pose:a.pose || 'stand'};
@@ -2515,7 +2568,7 @@ function doGesture(type){
     }
   }
   playGesture(currentUser.role, type);
-  if (fb) fb.D.set(fb.D.ref(fb.db, 'room/gesture'), {t:type, by:currentUser.role, ts:Date.now()}).catch(() => {});
+  if (fb) fb.D.set(fb.D.ref(fb.db, ROOM + '/gesture'), {t:type, by:currentUser.role, ts:Date.now()}).catch(() => {});
   logActivity(type, type === 'wave' ? 'waved 👋' : `hugged ${nameFor(partnerRole())} 🤗`);
 }
 
@@ -2547,7 +2600,7 @@ function feedCat(){
     logActivity('cat', 'fed Mimi 🐟');
   }
   if (fb && currentUser){                           // tell the cat-brain device (and the partner) he was fed
-    fb.D.set(fb.D.ref(fb.db, 'room/catfeed'), {by:currentUser.role, ts:Date.now()}).catch(() => {});
+    fb.D.set(fb.D.ref(fb.db, ROOM + '/catfeed'), {by:currentUser.role, ts:Date.now()}).catch(() => {});
   }
   progress.pets = (progress.pets || 0) + 1;
   jset(LS.progress, progress);
@@ -2818,6 +2871,13 @@ function updateMeasureLabelPos(){
   label.style.top = ((-_mv.y*0.5 + 0.5) * innerHeight) + 'px';
 }
 $('measureBtn').onclick = toggleMeasure;
+$('snapBtn').classList.toggle('on', snapOn);
+$('snapBtn').onclick = () => {
+  snapOn = !snapOn;
+  localStorage.setItem('roomplanner.snap', snapOn ? '1' : '0');
+  $('snapBtn').classList.toggle('on', snapOn);
+  toast(snapOn ? 'Snap on 🧲 — pieces settle flush against neighbours' : 'Snap off');
+};
 
 function deselect(){
   if (sel){ sel.rotation.x = 0; sel.rotation.z = 0; }   // clear any drag lean
@@ -3072,6 +3132,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   const ox = sel.position.x, oz = sel.position.z;
   sel.position.x = Math.round((_p.x + dragOff.x) * 100) / 100;   // 1 cm — light snap so the lean feels natural
   sel.position.z = Math.round((_p.z + dragOff.z) * 100) / 100;
+  applySnap(sel);                                                // magnet: settle flush against a neighbour when close
   clampToRoom(sel);
   if (!CATALOG[sel.userData.type].wall){                       // lean back against the motion, like real dragging
     dragTilt.z = THREE.MathUtils.clamp(dragTilt.z + (sel.position.x - ox) * 1.4, -0.16, 0.16);
@@ -3369,6 +3430,7 @@ function serialize(){
     players:{...players},
     genDefs,
     deleted:{...tombstones},                          // deletes travel with the layout so they win over the union on the other phone
+    revived:{...revived},                             // …and undo-revivals travel too, so an undone delete stays back
     furniture:items.map(itemRecord)
       .concat(pendingFurniture)                       // keep pieces whose model is still syncing, so a save never drops them
   };
@@ -3391,9 +3453,12 @@ function loadData(data){
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   buildPlan();
   if (data.genDefs) for (const id in data.genDefs) registerGenModel(data.genDefs[id]);   // recipes embedded in the layout
-  if (data.deleted) tombstones = {...data.deleted};                   // remember what was deleted, so the union never resurrects it
+  const hadTombs = tombstones;
+  tombstones = {...(data.deleted || {})};                             // adopt the snapshot's view of what's deleted
+  revived = {...(data.revived || {})};
   pendingFurniture = [];
   (data.furniture || []).forEach(f => {
+    if (hadTombs[f.id] && !tombstones[f.id]) revived[f.id] = Date.now();   // an undo brought it back — announce the revival so partners un-delete it too
     if (tombstones[f.id]) return;                                     // deleted — don't rebuild
     if (CATALOG[f.type]) addFurniture(f.type, {...f, silent:true});   // each carries its exact stack height
     else pendingFurniture.push(f);                                    // model not registered yet — keep it
@@ -3413,26 +3478,38 @@ function itemRecord(g){                               // one furniture record, t
   const rec = {
     id:g.userData.id, type:g.userData.type,
     x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3), y:+g.position.y.toFixed(3),
-    rotY:+g.rotation.y.toFixed(3), tint:g.userData.tint,
+    rotY:+g.rotation.y.toFixed(3),
     sx:+g.scale.x.toFixed(3), sy:+g.scale.y.toFixed(3), sz:+g.scale.z.toFixed(3),
     hy:+(g.userData.hangY || 1.5).toFixed(2)
   };
+  // ONLY set tint when it exists. An AI-created piece keeps its per-part colours and has NO tint —
+  // and `tint: undefined` makes Firebase REJECT the entire layout push (silently, via the .catch),
+  // which was the real reason a placed created piece never reached the other phone.
+  if (g.userData.tint != null) rec.tint = g.userData.tint;
   if (g.userData.onWall) rec.ow = 1;
   return rec;
 }
 // Two people edit at once, so furniture syncs as a UNION (a piece one of us adds is never
 // wiped by the other's save) with tombstones for deletes (a piece one of us removes stays
 // removed and doesn't resurrect via the union). tombstones: id -> when it was deleted.
-let tombstones = {};
-function tombstone(id){ if (id) tombstones[id] = Date.now(); }
-function pruneTombstones(){                           // keep it bounded — newest 300 deletes is far more history than a home needs
-  const ids = Object.keys(tombstones);
+let tombstones = {}, revived = {};                    // revived: an UNDO brought a deleted piece back — must beat the partner's tombstone
+function tombstone(id){ if (id) { tombstones[id] = Date.now(); delete revived[id]; } }
+function pruneMap(m){                                 // keep it bounded — newest 300 is far more history than a home needs
+  const ids = Object.keys(m);
   if (ids.length > 300){
-    ids.sort((a, b) => tombstones[a] - tombstones[b]).slice(0, ids.length - 300).forEach(id => delete tombstones[id]);
+    ids.sort((a, b) => m[a] - m[b]).slice(0, ids.length - 300).forEach(id => delete m[id]);
+  }
+}
+function pruneTombstones(){ pruneMap(tombstones); pruneMap(revived); }
+function foldDeletes(data){                           // fold a layout's deleted/revived maps into ours (newer action wins per id)
+  if (data.deleted) for (const id in data.deleted) tombstones[id] = Math.max(tombstones[id] || 0, data.deleted[id]);
+  if (data.revived) for (const id in data.revived){
+    revived[id] = Math.max(revived[id] || 0, data.revived[id]);
+    if (tombstones[id] && revived[id] > tombstones[id]) delete tombstones[id];   // the undo is newer than the delete
   }
 }
 function mergeFurniture(data){                        // reconcile an incoming layout with what I already have
-  if (data.deleted) for (const id in data.deleted) tombstones[id] = Math.max(tombstones[id] || 0, data.deleted[id]);   // their deletes win
+  foldDeletes(data);                                  // their deletes (and undo-revivals) win by timestamp
   const remote = {};
   (data.furniture || []).forEach(f => { if (f && f.id) remote[f.id] = f; });
   const local = {};
@@ -3799,7 +3876,7 @@ const aiLeft  = () => Math.max(0, AI_MAX - aiUsed);
 function updateRealMenu(){ const el = $('realLeft'); if (el) el.textContent = '~' + aiLeft() + ' left'; }
 function bumpAiUsed(){
   aiUsed++; updateRealMenu();                                     // instant local feedback
-  if (fb && fb.D) fb.D.runTransaction(fb.D.ref(fb.db, 'room/aiUsed'), n => (n || 0) + 1).catch(() => {});
+  if (fb && fb.D) fb.D.runTransaction(fb.D.ref(fb.db, ROOM + '/aiUsed'), n => (n || 0) + 1).catch(() => {});
 }
 
 function closeShareMenu(){
@@ -3933,17 +4010,74 @@ function showRealResult(blob){
 /* ---- Create with AI: type a thing → Gemini writes a shape recipe → build it + add to the list ---- */
 function promptCreate(){
   setAddOpen(false);                                 // tuck the Add sheet away while you describe + create
+  const go = () => {
+    const v = $('genInput').value.trim();
+    if (!v) return;
+    const url = (v.match(/https?:\/\/\S+/i) || [])[0];
+    if (url) generateFromUrl(url); else generateModel(v);
+  };
   showConfirm(`
     <h2>Create with AI ✨</h2>
-    <p class="wsub">Describe it however you like — the more detail, the better. e.g. "a tall arched floor lamp with a marble base and a warm linen shade". Enter to create, Shift+Enter for a new line.</p>
-    <textarea id="genInput" rows="3" placeholder="Describe the thing you want…"></textarea>
+    <p class="wsub">Describe anything — or paste a link to a furniture page and it'll be modelled at its real size (a page with several pieces makes several models).</p>
+    <textarea id="genInput" rows="3" placeholder="Describe it… or paste a product URL"></textarea>
     <button class="btn primary" id="genGo">Create ✨</button>
     <button class="btn" id="genCancel">Cancel</button>`,
     [
-      ['genGo', () => { const v = $('genInput').value.trim(); if (v) generateModel(v); }],
+      ['genGo', go],
       ['genCancel', () => { hideConfirm(); setAddOpen(true); }]   // backed out without creating — bring the Add sheet back
     ]);
-  setTimeout(() => { const el = $('genInput'); if (el){ el.focus(); el.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); const v = el.value.trim(); if (v) generateModel(v); } }); } }, 120);
+  setTimeout(() => { const el = $('genInput'); if (el){ el.focus(); el.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); go(); } }); } }, 120);
+}
+
+/* register one AI spec as a catalog model; returns the def (or null if unusable) */
+function adoptGenSpec(spec, fallbackName, i){
+  const parts = Array.isArray(spec && spec.parts) ? spec.parts.slice(0, 16) : [];
+  if (!parts.length) return null;
+  const cl = (v, lo, hi, dflt) => { v = +v; return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt; };
+  const def = {
+    id: 'gen_' + Date.now().toString(36) + (i ? '_' + i : ''),
+    name: ((spec.name || fallbackName || 'Piece') + '').slice(0, 16),
+    cat: 'Created',
+    w: cl(spec.w, 0.05, 4, 0.4), d: cl(spec.d, 0.05, 4, 0.4), h: cl(spec.h, 0.05, 3, 0.4),
+    color: (typeof spec.color === 'string' && /^#/.test(spec.color)) ? spec.color : '#c7ccd2',
+    parts
+  };
+  if (!registerGenModel(def)) return null;
+  const saved = jget(GEN_LS, []); saved.push(def); jset(GEN_LS, saved);
+  if (fb && fb.D) fb.D.set(fb.D.ref(fb.db, ROOM + '/genModels/' + def.id), JSON.parse(JSON.stringify(def))).catch(() => {});   // share with the other phone
+  return def;
+}
+
+/* paste a product URL → the Worker reads the page → one model per piece, at the page's real dimensions */
+async function generateFromUrl(url){
+  const proxy = proxyUrl();
+  if (!proxy){ promptForProxy(); return; }
+  showConfirm(`<h2>Reading that page ✨</h2><p class="wsub">Fetching the furniture and its real sizes… about 15&nbsp;seconds.</p><div class="rspin"></div>`, []);
+  const bad = m => showConfirm(`<h2>Hmm 😕</h2><p class="wsub">${esc(m)}</p><button class="btn primary" id="gOk">OK</button><button class="btn" id="gRetry">Try again</button>`,
+    [['gOk', () => { hideConfirm(); setAddOpen(true); }], ['gRetry', () => { hideConfirm(); promptCreate(); }]]);
+  try{
+    const res = await fetch(proxy, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fetchUrl: url }) });
+    if (!res.ok){
+      if (res.status === 429) return bad('The Gemini key hit its quota — try later.');
+      if (res.status === 400) return bad('The AI helper needs its one-time update for links — re-paste worker.js in Cloudflare, then try again.');
+      if (res.status === 422) return bad("Couldn't open that page (some shops block robots). Try the item's own product page, or just describe it.");
+      return bad('Could not read that link (' + res.status + ').');
+    }
+    const data = await res.json();
+    let txt = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').replace(/```json|```/g, '').trim();
+    let out; try { out = JSON.parse(txt); } catch(e){ return bad("The AI's reply wasn't usable — try again."); }
+    const specs = Array.isArray(out) ? out : (Array.isArray(out.models) ? out.models : [out]);
+    const made = [];
+    specs.slice(0, 4).forEach((s, i) => { const d = adoptGenSpec(s, 'Piece ' + (i + 1), i); if (d) made.push(d); });
+    if (!made.length) return bad("Couldn't find furniture with sizes on that page — try the item's own product page.");
+    hideConfirm();
+    curCat = 'Created';
+    genHighlight = made.map(d => d.id);
+    setAddOpen(true);
+    buildAddSheet();
+    toast(made.length === 1 ? `Created "${esc(made[0].name)}" ✨ at its real size` : `Created ${made.length} pieces ✨ — real sizes from the page`);
+    logActivity('edit', `created ${made.length} piece${made.length > 1 ? 's' : ''} from a link ✨`);
+  }catch(e){ bad("Couldn't reach the AI — check the connection and try again."); }
 }
 
 async function generateModel(text){
@@ -3963,23 +4097,11 @@ async function generateModel(text){
     const data = await res.json();
     let txt = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').replace(/```json|```/g, '').trim();
     let spec; try { spec = JSON.parse(txt); } catch(e){ return bad("The AI's reply wasn't usable — try again."); }
-    const parts = Array.isArray(spec.parts) ? spec.parts.slice(0, 16) : [];
-    if (!parts.length) return bad("The AI didn't return a shape — try a simpler word.");
-    const cl = (v, lo, hi, dflt) => { v = +v; return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt; };
-    const def = {
-      id: 'gen_' + Date.now().toString(36),
-      name: (spec.name || thing).toString().slice(0, 16),
-      cat: 'Created',
-      w: cl(spec.w, 0.05, 4, 0.4), d: cl(spec.d, 0.05, 4, 0.4), h: cl(spec.h, 0.05, 3, 0.4),
-      color: (typeof spec.color === 'string' && /^#/.test(spec.color)) ? spec.color : '#c7ccd2',
-      parts
-    };
-    if (!registerGenModel(def)) return bad('Could not add that model.');
-    const saved = jget(GEN_LS, []); saved.push(def); jset(GEN_LS, saved);
-    if (fb && fb.D) fb.D.set(fb.D.ref(fb.db, 'room/genModels/' + def.id), def).catch(() => {});   // share with the other phone
+    const def = adoptGenSpec(spec, thing, 0);
+    if (!def) return bad("The AI didn't return a shape — try a simpler word.");
     hideConfirm();
     curCat = 'Created';
-    genHighlight = def.id;                             // flag it so the grid scrolls to + glows the new piece
+    genHighlight = [def.id];                           // flag it so the grid scrolls to + glows the new piece
     setAddOpen(true);                                  // bring the Add sheet back, on the Created tab
     buildAddSheet();
     toast(`Created "${esc(def.name)}" ✨ — it's in Add ▸ Created`);
@@ -4012,7 +4134,7 @@ function removeGenLocal(id, tomb){                       // pull a created model
 }
 function deleteGenModel(id){                             // user-initiated: remove here AND everywhere
   const removed = removeGenLocal(id, true);              // tombstone the placed copies so they vanish on the other phone too
-  if (fb && fb.D) fb.D.remove(fb.D.ref(fb.db, 'room/genModels/' + id)).catch(() => {});   // the other phone's listener drops it from the Add list
+  if (fb && fb.D) fb.D.remove(fb.D.ref(fb.db, ROOM + '/genModels/' + id)).catch(() => {});   // the other phone's listener drops it from the Add list
   if (removed) scheduleSave();                            // push the layout without the deleted piece (+ its tombstone)
   buildAddSheet();
   toast('Deleted ✨');
@@ -4331,7 +4453,7 @@ function applyDirtState(state){
 }
 function pushDirt(){
   if (!fb || !currentUser || isGuest()) return;
-  fb.D.set(fb.D.ref(fb.db, 'room/dirt'), Object.keys(dirtState).length ? dirtState : null).catch(() => {});
+  fb.D.set(fb.D.ref(fb.db, ROOM + '/dirt'), Object.keys(dirtState).length ? dirtState : null).catch(() => {});
 }
 // spawn a wave of mess, but reveal the spots one at a time with a little gap between each
 function spawnDirtWave(){
@@ -4458,7 +4580,7 @@ function pushCat(held){
   const now = performance.now();
   if (now - catPushAt < (held || cat.state === 'walk' ? 150 : 2500)) return;
   catPushAt = now;
-  fb.D.set(fb.D.ref(fb.db, 'room/cat'), {
+  fb.D.set(fb.D.ref(fb.db, ROOM + '/cat'), {
     x:+cat.g.position.x.toFixed(2), y:+cat.g.position.y.toFixed(2), z:+cat.g.position.z.toFixed(2),
     rotY:+cat.g.rotation.y.toFixed(2), m:cat.state === 'walk' ? 1 : 0,
     hold:cat.carried ? 1 : 0, hun:cat.hungry ? 1 : 0,
@@ -4468,12 +4590,15 @@ function pushCat(held){
 
 function pushLayout(){
   if (!fb || syncMuted || !canEdit() || !gotInitialLayout) return;   // never save until we've adopted the cloud room
-  fb.D.set(fb.D.ref(fb.db, 'room/layout'),
-    {...serialize(), profile, messages, by:currentUser.role, ts:Date.now()}).catch(() => {});
+  try{
+    // JSON round-trip strips undefined/NaN — one bad field must never (silently) kill the whole push again
+    const payload = JSON.parse(JSON.stringify({...serialize(), profile, messages, by:currentUser.role, ts:Date.now()}));
+    fb.D.set(fb.D.ref(fb.db, ROOM + '/layout'), payload).catch(e => console.warn('layout push failed:', e && e.message));
+  }catch(e){ console.warn('layout push failed:', e && e.message); }
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-09.living-4m2';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-09.create-fixed';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -4507,7 +4632,7 @@ function pushPlayer(force){
   playerPushAt = now;
   const me = chars[currentUser.role];
   if (!me) return;
-  fb.D.set(fb.D.ref(fb.db, 'room/players/' + currentUser.role), {
+  fb.D.set(fb.D.ref(fb.db, ROOM + '/players/' + currentUser.role), {
     x:+me.g.position.x.toFixed(2), y:+me.g.position.y.toFixed(2), z:+me.g.position.z.toFixed(2),
     rotY:+me.g.rotation.y.toFixed(2), pose:me.pose || 'stand',
     name:nameFor(currentUser.role), v:APP_VERSION, ts:Date.now()
@@ -4515,7 +4640,7 @@ function pushPlayer(force){
 }
 
 function pushActivity(a){
-  if (fb && !syncMuted) fb.D.push(fb.D.ref(fb.db, 'room/activity'), a).catch(() => {});
+  if (fb && !syncMuted) fb.D.push(fb.D.ref(fb.db, ROOM + '/activity'), a).catch(() => {});
 }
 
 let dragPushAt = 0;
@@ -4524,13 +4649,13 @@ function pushDrag(){                             // stream the piece being dragg
   const now = performance.now();
   if (now - dragPushAt < 100) return;            // ~10 Hz
   dragPushAt = now;
-  fb.D.set(fb.D.ref(fb.db, 'room/drag'), {
+  fb.D.set(fb.D.ref(fb.db, ROOM + '/drag'), {
     id:sel.userData.id, x:+sel.position.x.toFixed(2), z:+sel.position.z.toFixed(2),
     rotY:+sel.rotation.y.toFixed(2), by:currentUser.role, ts:Date.now()
   }).catch(() => {});
 }
 function clearDrag(){
-  if (fb && currentUser) fb.D.set(fb.D.ref(fb.db, 'room/drag'), null).catch(() => {});
+  if (fb && currentUser) fb.D.set(fb.D.ref(fb.db, ROOM + '/drag'), null).catch(() => {});
 }
 const dragFx = {id:null, item:null, restore:[], label:null};
 function clearDragFx(){
@@ -4598,7 +4723,7 @@ function applyRemoteLayout(data, adopt){
     if (data.genDefs) for (const id in data.genDefs) registerGenModel(data.genDefs[id]);   // recipes travel WITH the layout — build reliably
     let recs, mineOnly = false;
     if (adopt){                                                        // first sync: the cloud room is the source of truth
-      if (data.deleted) for (const id in data.deleted) tombstones[id] = Math.max(tombstones[id] || 0, data.deleted[id]);
+      foldDeletes(data);
       recs = (data.furniture || []).filter(f => !tombstones[f.id]);
     } else {                                                           // live partner edit: UNION so neither of us wipes the other's piece
       const m = mergeFurniture(data); recs = m.recs; mineOnly = m.mineOnly;
@@ -4636,7 +4761,7 @@ async function initSync(){
     fb = {D, db:D.getDatabase(initializeApp(cfg))};
     const myRole = currentUser.role;
     let lastTs = 0;
-    D.onValue(D.ref(fb.db, 'room/layout'), snap => {
+    D.onValue(D.ref(fb.db, ROOM + '/layout'), snap => {
       const d = snap.val();
       if (!d){ gotInitialLayout = true; return; }                 // empty cloud room: our local layout seeds it
       if (!gotInitialLayout){                                     // FIRST sync: always adopt the cloud room, even if we authored it,
@@ -4645,13 +4770,13 @@ async function initSync(){
       }
       if (d.by !== myRole && d.ts > lastTs){ lastTs = d.ts; applyRemoteLayout(d); }   // live partner edit: merge as a union
     });
-    D.onValue(D.ref(fb.db, 'room/players'), snap => {
+    D.onValue(D.ref(fb.db, ROOM + '/players'), snap => {
       const all = snap.val() || {};
       for (const role of ['husband','wife','guest']){
         if (role === myRole) continue;
         // a node dead for over 5 minutes is a leftover from a killed app — ignore it and clean it up
         if (all[role] && Date.now() - (all[role].ts || 0) > 300000){
-          D.remove(D.ref(fb.db, 'room/players/' + role)).catch(() => {});
+          D.remove(D.ref(fb.db, ROOM + '/players/' + role)).catch(() => {});
           all[role] = null;
         }
         // freshness stamp on OUR clock, but only when THIS person's data actually changed —
@@ -4675,31 +4800,31 @@ async function initSync(){
       }
       updateCharVisibility();
     });
-    D.onValue(D.ref(fb.db, 'room/cat'), snap => {
+    D.onValue(D.ref(fb.db, ROOM + '/cat'), snap => {
       const c = snap.val();
       remoteCat = (c && c.by !== myRole) ? {...c, _rx:performance.now()} : null;
     });
-    D.onValue(D.ref(fb.db, 'room/dirt'), snap => {
+    D.onValue(D.ref(fb.db, ROOM + '/dirt'), snap => {
       const s = snap.val() || {};
       if (!dirtHost()) dirtWaveActive = false;   // followers just render whatever the host published
       applyDirtState(s);
     });
     let lastKissTs = 0;
-    D.onValue(D.ref(fb.db, 'room/kiss'), snap => {
+    D.onValue(D.ref(fb.db, ROOM + '/kiss'), snap => {
       const k = snap.val();
       if (k && k.by !== myRole && k.ts !== lastKissTs && Date.now() - k.ts < 15000){
         lastKissTs = k.ts;
         playKissEffect();                          // her kiss plays on your screen too
       }
     });
-    D.onValue(D.ref(fb.db, 'room/catalog'), snap => {
+    D.onValue(D.ref(fb.db, ROOM + '/catalog'), snap => {
       const c = snap.val();
       if (c && c.by !== myRole && c.ts > sessionStart){
         refreshCatalog(false, false).then(n => { if (n) toast('Furniture catalog updated 🚚'); });
       }
     });
-    D.onValue(D.ref(fb.db, 'room/aiUsed'), snap => { aiUsed = snap.val() || 0; updateRealMenu(); });   // shared "photos left"
-    D.onValue(D.ref(fb.db, 'room/genModels'), snap => {   // AI-created models — the shared set is the source of truth
+    D.onValue(D.ref(fb.db, ROOM + '/aiUsed'), snap => { aiUsed = snap.val() || 0; updateRealMenu(); });   // shared "photos left"
+    D.onValue(D.ref(fb.db, ROOM + '/genModels'), snap => {   // AI-created models — the shared set is the source of truth
       const all = snap.val() || {};
       const liveIds = new Set(Object.keys(all));
       let changed = false;
@@ -4723,7 +4848,7 @@ async function initSync(){
       }
     });
     let lastFeedTs = 0;
-    D.onValue(D.ref(fb.db, 'room/catfeed'), snap => {
+    D.onValue(D.ref(fb.db, ROOM + '/catfeed'), snap => {
       const c = snap.val();
       if (c && c.by !== myRole && c.ts !== lastFeedTs && Date.now() - c.ts < 15000 && cat){
         lastFeedTs = c.ts;
@@ -4736,7 +4861,7 @@ async function initSync(){
       }
     });
     let lastGestTs = 0;
-    D.onValue(D.ref(fb.db, 'room/gesture'), snap => {
+    D.onValue(D.ref(fb.db, ROOM + '/gesture'), snap => {
       const g = snap.val();
       if (g && g.by !== myRole && g.ts !== lastGestTs && Date.now() - g.ts < 15000){
         lastGestTs = g.ts;
@@ -4746,14 +4871,14 @@ async function initSync(){
       }
     });
     setInterval(() => pushPlayer(true), 10000);  // heartbeat so a killed app is detected fast
-    D.onValue(D.ref(fb.db, 'room/drag'), snap => {
+    D.onValue(D.ref(fb.db, ROOM + '/drag'), snap => {
       const d = snap.val();
       remoteDrag = (d && d.by !== myRole) ? d : null;
     });
-    const meRef = D.ref(fb.db, 'room/players/' + myRole);
+    const meRef = D.ref(fb.db, ROOM + '/players/' + myRole);
     D.onDisconnect(meRef).remove();
     addEventListener('pagehide', () => { try{ D.remove(meRef); }catch(e){} });
-    D.onChildAdded(D.query(D.ref(fb.db, 'room/activity'), D.limitToLast(30)), snap => {
+    D.onChildAdded(D.query(D.ref(fb.db, ROOM + '/activity'), D.limitToLast(30)), snap => {
       const a = snap.val();
       if (!a || a.by === currentUser?.role || a.ts <= sessionStart) return;
       activity.push(a);
@@ -4830,13 +4955,9 @@ function buildAddSheet(){
     catTabs.appendChild(b);
   });
   modelGrid.innerHTML = '';
-  if (curCat === 'Created'){                          // Create with AI is paused — show a placeholder, not the (buggy) models
-    modelGrid.innerHTML = `<div class="soon"><div class="soonIcon">✨</div><div class="soonT">Coming soon</div><div class="soonS">Create with AI</div></div>`;
-    return;
-  }
   Object.entries(CATALOG).filter(([, d]) => d.cat === curCat).forEach(([type, d]) => {
     const el = document.createElement('button');
-    el.className = 'model' + (type === genHighlight ? ' hl' : '');   // just-created piece glows
+    el.className = 'model' + ((genHighlight || []).includes(type) ? ' hl' : '');   // just-created piece(s) glow
     el.innerHTML = `<div class="sw"${d.thumb ? ' data-thumb="1"' : ` style="background:${d.color}"`}>${d.thumb || ''}</div>
       <div class="nm">${d.name}</div>
       <div class="dm">${Math.round(d.w*100)}×${Math.round(d.d*100)} cm</div>
@@ -4885,6 +5006,7 @@ function buildAddSheet(){
           if (ray.ray.intersectPlane(floorPlane, _p)){
             g.position.x = Math.round(_p.x*100)/100;
             g.position.z = Math.round(_p.z*100)/100;
+            applySnap(g);
             clampToRoom(g);
             updateDropMarker();
             updateMeasure();
@@ -4918,11 +5040,11 @@ function buildAddSheet(){
       });
     }
   });
-  if (genHighlight){                                 // scroll the freshly-created piece into view, then let its glow fade
+  if (genHighlight){                                 // scroll the freshly-created piece(s) into view, then let the glow fade
     genHighlight = null;
     requestAnimationFrame(() => {
-      const hl = modelGrid.querySelector('.model.hl');
-      if (hl){ hl.scrollIntoView({block:'nearest', behavior:'smooth'}); setTimeout(() => hl.classList.remove('hl'), 4200); }
+      const hls = modelGrid.querySelectorAll('.model.hl');
+      if (hls.length){ hls[0].scrollIntoView({block:'nearest', behavior:'smooth'}); setTimeout(() => hls.forEach(h => h.classList.remove('hl')), 4200); }
     });
   }
 }
@@ -5043,7 +5165,7 @@ async function refreshCatalog(notify = true, announce = true){
     if (added || removed){
       buildAddSheet();
       if (announce && fb && currentUser){          // tell the partner's device to refresh too
-        fb.D.set(fb.D.ref(fb.db, 'room/catalog'), {ts:Date.now(), by:currentUser.role}).catch(() => {});
+        fb.D.set(fb.D.ref(fb.db, ROOM + '/catalog'), {ts:Date.now(), by:currentUser.role}).catch(() => {});
       }
     }
     if (notify){
@@ -5059,11 +5181,7 @@ async function refreshCatalog(notify = true, announce = true){
   }
 }
 $('refreshModels').onclick = () => refreshCatalog(true, true);
-// Create with AI is PAUSED (its multiplayer sync is being reworked). The "+AI" button is clickable
-// but just opens the Created tab, which shows a "Coming soon" placeholder (no models listed yet).
-// To re-enable: restore the promptCreate() handler below + drop the Created "coming soon" branch in buildAddSheet.
-$('createBtn').onclick = () => { curCat = 'Created'; setAddOpen(true); buildAddSheet(); };
-// $('createBtn').onclick = () => { if (canEdit()) promptCreate(); else toast('Editing is off for guests'); };
+$('createBtn').onclick = () => { if (canEdit()) promptCreate(); else toast('Editing is off for guests'); };
 
 function setAddOpen(open){
   addSheet.classList.toggle('on', open);
@@ -5392,6 +5510,7 @@ function showConfirm(html, actions){
 function hideConfirm(){ confirmEl.classList.remove('on'); }
 
 function doClearAll(alsoCharacters){
+  pushUndo();                                         // clearing everything must be undoable
   deselect();
   while (items.length){
     const g = items.pop();
@@ -5440,6 +5559,72 @@ $('clearBtn').onclick = () => {
       ['cfCancel', hideConfirm]
     ]);
 };
+
+/* ============================== entrance cinematic ============================== */
+/* After unlocking: the home sits dark under a top-down view, the rooms light up one after
+   another, the sun rises, and the camera glides down into place. Tap anywhere to skip. */
+let introActive = false;
+function playIntro(done){
+  const finishAnd = () => { if (done) done(); };
+  if (introActive || AS_ROLE || view !== '3d' || matchMedia('(prefers-reduced-motion: reduce)').matches){ finishAnd(); return; }
+  introActive = true;
+  const cam = activeCam();
+  const savePos = cam.position.clone(), saveTarget = orbit.target.clone();
+  const saveHemi = hemi.intensity, saveSun = sun.intensity;
+  const saved = [];
+  for (const id in roomLights) for (const rl of roomLights[id]) saved.push({rl, pt:rl.pt.intensity, em:rl.mat.emissiveIntensity});
+  hemi.intensity = 0.04; sun.intensity = 0;                       // near-black, so the lights matter
+  saved.forEach(s => { s.rl.pt.intensity = 0; s.rl.mat.emissiveIntensity = 0; });
+  orbit.enabled = false;
+  const startPos = new THREE.Vector3(PC.x, 24, PC.z + 0.01), startTarget = new THREE.Vector3(PC.x, 0, PC.z);
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:58;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;transition:opacity .7s;cursor:pointer';
+  const heart = currentUser.role === 'wife' ? '💗' : '💙';
+  ov.innerHTML = `<div id="ovName" style="font-size:26px;font-weight:700;color:#fff;opacity:0;transition:opacity .8s;text-shadow:0 2px 18px rgba(0,0,0,.6)">${heart} Welcome home, ${esc(nameFor(currentUser.role))}</div>
+    <div style="position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:rgba(255,255,255,.55);font-size:13px">tap to skip</div>`;
+  document.body.appendChild(ov);
+  // light-up order sweeps from the front door through the home
+  const order = ['entry','hall','kitchen','living','dining','mens','maid','master','bed1','bed2','mtoi','toi2','toiL','balcony','balcony2'].filter(id => roomLights[id]);
+  const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
+  const T = 4600; let start = null, litCount = 0, doneFlag = false;
+  function finish(){
+    if (doneFlag) return;
+    doneFlag = true;
+    introActive = false;
+    hemi.intensity = saveHemi; sun.intensity = saveSun;
+    applyLightsLive();                                            // back to the real switch states
+    cam.position.copy(savePos); orbit.target.copy(saveTarget);
+    cam.lookAt(saveTarget);
+    orbit.enabled = view === '3d';
+    ov.remove();
+    finishAnd();
+  }
+  ov.onclick = finish;
+  function step(ts){
+    if (doneFlag) return;
+    if (start === null){ start = ts; requestAnimationFrame(step); return; }
+    const t = Math.min(1, (ts - start) / T);
+    if (t < 0.16) ov.style.opacity = '1'; else ov.style.opacity = '0';       // reveal the dark home
+    const nm = ov.querySelector('#ovName');
+    if (nm) nm.style.opacity = (t > 0.1 && t < 0.72) ? '1' : '0';
+    const want = Math.floor(Math.max(0, (t - 0.14) / 0.55) * order.length);  // rooms flick on, one by one
+    while (litCount < Math.min(want, order.length)){
+      const id = order[litCount++];
+      for (const rl of roomLights[id]){ rl.pt.intensity = 6; rl.mat.emissiveIntensity = 2.1; }
+      if (litCount % 3 === 1) playSound('pop');
+    }
+    const sunT = Math.max(0, (t - 0.66) / 0.30);                             // then the sun comes up
+    hemi.intensity = 0.04 + (saveHemi - 0.04) * ease(Math.min(1, sunT));
+    sun.intensity = saveSun * ease(Math.min(1, sunT));
+    const c = ease(Math.min(1, Math.max(0, (t - 0.18) / 0.74)));             // and the camera glides down
+    cam.position.lerpVectors(startPos, savePos, c);
+    orbit.target.lerpVectors(startTarget, saveTarget, c);
+    cam.lookAt(orbit.target);
+    if (t >= 1) finish(); else requestAnimationFrame(step);
+  }
+  cam.position.copy(startPos); orbit.target.copy(startTarget); cam.lookAt(startTarget);
+  requestAnimationFrame(step);
+}
 
 /* ============================== identity & welcome ============================== */
 
@@ -5498,8 +5683,8 @@ function askPassword(role){
     hideWelcome();
     syncProfileUI();
     refreshTags();
-    greet();
     initSync();
+    playIntro(() => greet());                        // the home lights up for you, then the love note
   };
   wcard.querySelector('#wgo').onclick = go;
   wcard.querySelector('#wback').onclick = askWho;
@@ -5538,8 +5723,8 @@ function askGuestName(){
     hideWelcome();
     syncProfileUI();
     refreshTags();
-    toast(`Welcome ${esc(profile.guest.name)} 👁 — look around, editing is off`);
     initSync();
+    playIntro(() => toast(`Welcome ${esc(profile.guest.name)} 👁 — look around, editing is off`));
   };
   wcard.querySelector('#wgo').onclick = go;
   wcard.querySelector('#wback').onclick = askWho;
@@ -5602,7 +5787,23 @@ renderRooms();
 buildAddSheet();
 currentUser = null;                                // sessions don't persist: every open asks for the password
 applyGuestMode();
-askWho();
+if (AS_ROLE){                                      // sandbox tab (?room=…&as=…): sign straight in, no welcome, no intro
+  currentUser = {role:AS_ROLE};
+  applyGuestMode(); syncProfileUI(); refreshTags(); initSync();
+} else {
+  askWho();
+}
+
+if (ROOM !== 'room'){                              // sandbox rooms only: expose a tiny probe so replication can be tested from the console
+  window.dbg = {
+    items: () => items.map(i => ({id:i.userData.id, type:i.userData.type, x:+i.position.x.toFixed(2), z:+i.position.z.toFixed(2)})),
+    gens: () => Object.keys(CATALOG).filter(k => CATALOG[k].gen),
+    adopt: spec => { const d = adoptGenSpec(spec, 'Test', 0); return d && d.id; },
+    place: t => { const g = addFurniture(t); return g && g.userData.id; },   // the REAL user path: canEdit, undo, scheduleSave
+    delSel: id => { const g = items.find(i => i.userData.id === id); if (g){ sel = g; deleteSel(); return true; } return false; },
+    tombs: () => Object.keys(tombstones).length,
+  };
+}
 
 let lastActivityAt = performance.now();            // 45 quiet minutes ends the session
 for (const ev of ['pointerdown','keydown']) addEventListener(ev, () => lastActivityAt = performance.now(), true);
@@ -5615,7 +5816,7 @@ const clock = new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.1);
-  if (view === '3d') orbit.update();
+  if (view === '3d' && !introActive) orbit.update();   // the intro drives the camera itself
   else if (view === '2d') pan.update();
   updateWalk(dt);
   updateRemoteChars(dt);
