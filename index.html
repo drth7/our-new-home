@@ -227,6 +227,8 @@ body.walk #bottombar{display:none}
 #wallPill{position:fixed;z-index:16;display:none;gap:6px;align-items:center;transform:translate(-50%,-100%);background:var(--panel);padding:6px;border-radius:13px;box-shadow:var(--shadow)}
 #wallPill.on{display:flex}
 #wallPill span{font-size:11.5px;color:var(--muted);font-weight:700;padding:0 4px}
+#wallScope{font-size:11.5px;font-weight:700;color:var(--text);background:var(--btn);border:none;border-radius:9px;padding:7px 10px;cursor:pointer;white-space:nowrap}
+#wallScope.whole{background:linear-gradient(135deg,#4b86d8,#6aa4f2);color:#fff}
 
 #radial{position:fixed;z-index:18;display:none;transform:translate(-50%,-50%);pointer-events:none}
 #radial.on{display:block}
@@ -384,8 +386,8 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 </div>
 
 <div id="wallPill">
-  <span>Wall</span>
-  <label class="pbtn tint" title="Paint this wall"><input type="color" id="wallTint"></label>
+  <button id="wallScope" title="Paint this side only, or the whole wall">This side</button>
+  <label class="pbtn tint" title="Paint"><input type="color" id="wallTint"></label>
   <button class="pbtn" id="wallReset" title="Reset" data-icon="reset"></button>
   <button class="pbtn" id="wallClose" data-icon="x"></button>
 </div>
@@ -992,22 +994,44 @@ function makeGridWorld(x1, z1, x2, z2, step, color){
   return new THREE.LineSegments(g, new THREE.LineBasicMaterial({color, transparent:true, opacity:0.5}));
 }
 
-let wallMats = {};                                   // wall index -> material (for per-wall paint)
+let wallMats = {};                                   // wall index -> [matA, matB, matEdge] (per-SIDE paint: A = local +z face, B = local −z)
+
+// a wall separates two rooms, so each side can hold its own colour. wallColors[wi] is either a
+// string (whole wall, the old format) or {a, b} — 'a' = the local +z face, 'b' = local −z.
+function wallSideColors(wi, themeWall){
+  const base = wallColor || themeWall;
+  const raw = wallColors[wi];
+  const A = (typeof raw === 'string' ? raw : raw && raw.a) || base;
+  const B = (typeof raw === 'string' ? raw : raw && raw.b) || base;
+  return { A, B, E: A === B ? A : base };            // edges/reveals: match when both sides match, else stay neutral
+}
+function repaintWall(wi){
+  const m = wallMats[wi]; if (!m) return;
+  const sc = wallSideColors(wi, SCENES[theme].wall);
+  m[0].color.set(sc.A); m[1].color.set(sc.B); m[2].color.set(sc.E);
+}
+// which side of wall wi a world point is on ('a'|'b'), matching the local-face mapping above
+function wallSideAt(wi, pt){
+  const w = PLAN.walls[wi];
+  if (!w) return 'a';
+  if (w.d === 'h') return pt.z >= w.pos ? 'a' : 'b'; // h-group is unrotated: world +z = local +z = A
+  return pt.x >= w.pos ? 'b' : 'a';                  // v-group is rotY −90°: local +z points to world −x
+}
 
 function buildWall(w, wi, glassMat, themeWall){
   const L = w.to - w.from, cx = (w.from + w.to)/2;
   const g = new THREE.Group();
-  const wallMat = new THREE.MeshStandardMaterial({
-    color: wallColors[wi] || wallColor || themeWall,
-    roughness:0.9, transparent:true, opacity:0.55
-  });
-  wallMats[wi] = wallMat;
+  const sc = wallSideColors(wi, themeWall);
+  const mk = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, transparent: true, opacity: 0.55 });
+  const matA = mk(sc.A), matB = mk(sc.B), matE = mk(sc.E);
+  wallMats[wi] = [matA, matB, matE];
   const eps = 1 + ((wi % 9) + 1) * 0.0011;         // per-wall size nudge so no two wall faces share a plane (kills z-fighting)
   g.scale.set(1 + ((wi % 7) + 1) * 0.0006, 1, eps);
   if (w.d === 'h'){ g.position.set(cx, 0, w.pos); }
   else { g.position.set(w.pos, 0, cx); g.rotation.y = -Math.PI/2; }  // local +x -> world +z
   const seg = (sw, sh, x, y, o = {}) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, o.glass ? 0.03 : WALL_T), o.glass ? glassMat : wallMat);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, o.glass ? 0.03 : WALL_T),
+      o.glass ? glassMat : [matE, matE, matE, matE, matA, matB]);    // box faces: +x,−x,+y,−y,+z(A),−z(B)
     m.position.set(x, y, 0);
     m.castShadow = !o.glass;               // glass lets the sun through
     if (o.plan) m.userData.planHidden = true;
@@ -1150,7 +1174,7 @@ function applyViewToPlan(){
     if (m.userData.grid1m){ m.visible = !plan && (gridPref || tempGrid); return; }
     if (m.userData.grid){ m.visible = plan; return; }               // measuring grid lives in the 2D plan
     if (m.userData.planHidden) m.visible = !plan;
-    if (!m.userData.glass) m.material.opacity = plan ? 1 : walk ? 0.96 : 0.55;
+    if (!m.userData.glass){ const o = plan ? 1 : walk ? 0.96 : 0.55; (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => x.opacity = o); }
   });
   labels.forEach(l => l.visible = plan);
 }
@@ -3278,9 +3302,9 @@ renderer.domElement.addEventListener('pointerup', e => {
           smartPoseAtItem(seatTap.it, seatTap.pose);
         }
       } else {
-        const wi = canEdit() ? pickWall(e) : null;
-        if (wi != null){
-          openWallPill(wi, e.clientX, e.clientY);            // tap a wall -> paint just that wall
+        const wHit = canEdit() ? pickWall(e) : null;
+        if (wHit){
+          openWallPill(wHit.wi, e.clientX, e.clientY, wallSideAt(wHit.wi, wHit.pt));   // tap a wall -> paint the SIDE you tapped
         } else {
           deselect();
           wallPill.classList.remove('on');
@@ -3314,7 +3338,7 @@ function pickWall(e){
   setNdc(e);
   ray.setFromCamera(ndc, activeCam());
   const hits = ray.intersectObjects(wallSegs.filter(m => m.visible && !m.userData.glass && !m.userData.ceiling && !m.userData.grid), false);
-  return hits.length ? hits[0].object.userData.wi : null;
+  return hits.length ? { wi: hits[0].object.userData.wi, pt: hits[0].point } : null;   // the point tells us which SIDE was tapped
 }
 
 function animateTilt(dt){
@@ -3397,23 +3421,39 @@ function doRadialAct(act){
 }
 
 /* -------- per-wall paint pill -------- */
-const wallPill = $('wallPill'), wallTint = $('wallTint');
-let selWallIdx = null;
+const wallPill = $('wallPill'), wallTint = $('wallTint'), wallScope = $('wallScope');
+let selWallIdx = null, selWallSide = 'a', wallWhole = false;
 let wallPaintDirty = false;
-function openWallPill(wi, x, y){
+function syncWallScopeBtn(){
+  wallScope.textContent = wallWhole ? 'Whole wall' : 'This side';
+  wallScope.classList.toggle('whole', wallWhole);
+}
+function openWallPill(wi, x, y, side){
   selWallIdx = wi;
+  selWallSide = side || 'a';
+  wallWhole = false;                                 // painting the side you tapped is the natural default
   wallPaintDirty = false;
-  const cur = wallColors[wi] || wallColor || ('#' + new THREE.Color(SCENES[theme].wall).getHexString());
+  syncWallScopeBtn();
+  const sc = wallSideColors(wi, '#' + new THREE.Color(SCENES[theme].wall).getHexString());
+  const cur = selWallSide === 'a' ? sc.A : sc.B;     // start the picker on the tapped side's current colour
   wallTint.value = /^#[0-9a-f]{6}$/i.test(cur) ? cur : '#8fa1b3';
-  wallPill.style.left = Math.min(Math.max(x, 95), innerWidth - 95) + 'px';
+  wallPill.style.left = Math.min(Math.max(x, 120), innerWidth - 120) + 'px';
   wallPill.style.top = Math.max(y - 12, 120) + 'px';
   wallPill.classList.add('on');
 }
+wallScope.onclick = () => { wallWhole = !wallWhole; syncWallScopeBtn(); };
 wallTint.addEventListener('input', () => {
   if (selWallIdx == null) return;
   if (!wallPaintDirty){ wallPaintDirty = true; pushUndo(); }   // snapshot once, before the first colour change
-  wallColors[selWallIdx] = wallTint.value;
-  if (wallMats[selWallIdx]) wallMats[selWallIdx].color.set(wallTint.value);
+  if (wallWhole){
+    wallColors[selWallIdx] = wallTint.value;         // one colour, both faces (the old format — old phones read it too)
+  } else {
+    const raw = wallColors[selWallIdx];
+    const obj = typeof raw === 'string' ? { a: raw, b: raw } : { ...(raw || {}) };
+    obj[selWallSide] = wallTint.value;
+    wallColors[selWallIdx] = obj;
+  }
+  repaintWall(selWallIdx);
 });
 wallTint.addEventListener('change', () => {
   if (selWallIdx == null) return;
@@ -3422,8 +3462,14 @@ wallTint.addEventListener('change', () => {
 });
 $('wallReset').onclick = () => {
   if (selWallIdx == null) return;
-  delete wallColors[selWallIdx];
-  if (wallMats[selWallIdx]) wallMats[selWallIdx].color.set(wallColor || SCENES[theme].wall);
+  const raw = wallColors[selWallIdx];
+  if (wallWhole || typeof raw === 'string' || !raw){
+    delete wallColors[selWallIdx];                   // whole wall back to the base colour
+  } else {
+    delete raw[selWallSide];                         // only this side back to base
+    if (!raw.a && !raw.b) delete wallColors[selWallIdx];
+  }
+  repaintWall(selWallIdx);
   scheduleSave();
 };
 $('wallClose').onclick = () => { wallPill.classList.remove('on'); selWallIdx = null; };
@@ -3830,7 +3876,7 @@ function fadeWallsBetweenCameraAndMe(me){
   const solid = wallSegs.filter(m => m.visible && !m.userData.glass && !m.userData.ceiling && !m.userData.grid);
   const blocking = new Set();
   for (const h of _fadeRay.intersectObjects(solid, false)) blocking.add(h.object.userData.wi);
-  for (const wi in wallMats) wallMats[wi].opacity = blocking.has(+wi) ? 0.16 : 0.96;
+  for (const wi in wallMats){ const o = blocking.has(+wi) ? 0.16 : 0.96; for (const m of wallMats[wi]) m.opacity = o; }
 }
 
 function updateWalkCamera(){
@@ -3957,7 +4003,7 @@ async function realisticShot(){
   charGroup.visible = false;
   if (cat) cat.g.visible = false;
   const savedOpacity = {};
-  for (const wi in wallMats){ savedOpacity[wi] = wallMats[wi].opacity; wallMats[wi].opacity = 1; }
+  for (const wi in wallMats){ savedOpacity[wi] = wallMats[wi][0].opacity; for (const m of wallMats[wi]) m.opacity = 1; }
   renderer.render(scene, activeCam());
   const src = renderer.domElement;
   const scale = Math.min(1, 1536 / src.width);       // keep detail so the AI has plenty to work with
@@ -3968,7 +4014,7 @@ async function realisticShot(){
   // restore the normal view right away (walls see-through again, people/cat back) for the ~10s wait
   charGroup.visible = charVis;
   if (cat) cat.g.visible = catVis;
-  for (const wi in savedOpacity) wallMats[wi].opacity = savedOpacity[wi];
+  for (const wi in savedOpacity) for (const m of wallMats[wi]) m.opacity = savedOpacity[wi];
 
   showConfirm(`<h2>Making it realistic ✨</h2><p class="wsub">Sending your room to the AI… about 10&nbsp;seconds.</p><div class="rspin"></div>`, []);
 
@@ -4625,7 +4671,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.wall-mounts';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.paint-sides';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5853,6 +5899,8 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
     tombs: () => Object.keys(tombstones).length,
     plan: () => PLAN,
     move: (id, x, z) => { const g = items.find(i => i.userData.id === id); if (!g) return null; g.position.x = x; g.position.z = z; clampToRoom(g); scheduleSave(); return {x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3), rotY:+g.rotation.y.toFixed(3)}; },
+    wallpill: (wi, side) => openWallPill(wi, innerWidth/2, 200, side),
+    wallState: wi => ({ stored: wallColors[wi] ?? null, mats: (wallMats[wi] || []).map(m => '#' + m.color.getHexString()), opacity: wallMats[wi] ? wallMats[wi][0].opacity : null }),
   };
 }
 
