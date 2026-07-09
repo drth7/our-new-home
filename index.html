@@ -733,8 +733,8 @@ jget(GEN_LS, []).forEach(registerGenModel);                  // bring back every
 const PLAN = {
   rooms: [
     // kitchen + living are one open space (no wall between them) but count as separate rooms — both run up to the hallway line
-    {id:'kitchen', name:'Kitchen',        rects:[[3.6,7.8,6.5,13.2]], furnishable:true, lightPos:[[5.0,11.0]]},
-    {id:'living',  name:'Living Hall',    rects:[[6.5,7.8,13.5,13.2]], furnishable:true, lightPos:[[10.6,11.0]]},
+    {id:'kitchen', name:'Kitchen',        rects:[[3.6,7.8,6.5,12.0]], furnishable:true, lightPos:[[5.0,11.0]]},   // south wall pulled 1.2 m north (measured 4.2 m deep)
+    {id:'living',  name:'Living Hall',    rects:[[6.5,7.8,13.5,12.0]], furnishable:true, lightPos:[[10.6,11.0]]},  // south wall pulled 1.2 m north
     {id:'dining',  name:'Dining',         rects:[[3.7,3.8,6.5,7.6]], furnishable:true},
     {id:'master',  name:'Master Bedroom', rects:[[3.7,0,8.2,3.6]], furnishable:true},
     {id:'bed1',    name:'Bedroom 1',      rects:[[10.1,0.1,13.5,3.8]], furnishable:true},   // 3.70 m deep, flush with the building top
@@ -746,7 +746,7 @@ const PLAN = {
     {id:'mtoi',    name:'Bathroom',       rects:[[8.4,0,9.9,2.1]], tone:0.1},              // shared by bedrooms 1 & 2
     {id:'toi2',    name:'Master Toilet',  rects:[[6.7,3.8,8.2,6.0]], tone:0.1},            // 1.5 x 2.2, door from master
     {id:'toiL',    name:'Guest Toilet',   rects:[[0,5.9,1.4,7.6]], tone:0.1},              // tucked in the corner below the men's sitting
-    {id:'balcony', name:'Balcony',        rects:[[13.7,8.45,14.7,12.65]], tone:-0.15},   // centred on the living-hall east wall
+    {id:'balcony', name:'Balcony',        rects:[[13.7,8.45,14.7,11.45]], tone:-0.15},   // south end pulled 1.2 m north with the living-hall wall
     {id:'balcony2',name:'Balcony',        rects:[[0.35,0.1,3.15,1.1]], tone:-0.15}   // off the men's sitting, moved down 1.3 m with the room; same size
     /* the old laundry (x 1.2-3.5, z 11.1-13.3) is now a sealed empty space, like the void by the master toilet */
   ],
@@ -768,11 +768,12 @@ const PLAN = {
     {d:'h', pos:9.0,  from:1.2,  to:3.6,  ops:[{t:'door', at:2.4, w:0.9}]},  // maid room: door faces the men's sitting side
     {d:'h', pos:8.35, from:13.6, to:14.8},                                   // balcony north edge
     {d:'v', pos:-0.1, from:-0.2, to:13.4, ops:[{t:'win', at:6.7, w:0.6},{t:'door', at:12.7, w:1.0}]},   // no window on the men's-sitting west side
-    {d:'h', pos:13.3, from:-0.2, to:13.7},                                 // south side of kitchen & living: no windows
-    {d:'v', pos:13.6, from:8.45, to:12.65, ops:[{t:'glasswall'}]},         // balcony glass door, centred on the living-hall east wall
-    {d:'v', pos:13.6, from:12.65, to:13.3},                                // solid wall below the balcony
-    {d:'v', pos:14.7, from:8.35, to:12.75, rail:true},
-    {d:'h', pos:12.75, from:13.6, to:14.8, rail:true},
+    {d:'h', pos:13.3, from:-0.2, to:3.5},                                  // south wall of the entrance + void (unchanged)
+    {d:'h', pos:12.1, from:3.5,  to:13.7},                                 // south side of kitchen & living — pulled 1.2 m north (L-jog at x 3.5)
+    {d:'v', pos:13.6, from:8.45, to:11.45, ops:[{t:'glasswall'}]},         // balcony glass door (south end pulled 1.2 m north)
+    {d:'v', pos:13.6, from:11.45, to:12.1},                                // solid wall from the balcony down to the new south wall
+    {d:'v', pos:14.7, from:8.35, to:11.55, rail:true},
+    {d:'h', pos:11.55, from:13.6, to:14.8, rail:true},
     // interior
     {d:'v', pos:3.6,  from:-0.1, to:4.4},
     {d:'h', pos:5.8,  from:-0.2, to:1.5},                                  // guest toilet, now in the corner of men's sitting
@@ -4472,7 +4473,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-09.ai-icon';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-09.living-4m2';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
