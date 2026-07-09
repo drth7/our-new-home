@@ -58,10 +58,10 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
 .xbtn.off{opacity:.4;filter:grayscale(1);cursor:default}          /* temporarily disabled action */
 #createBtn{font-size:13px;font-weight:800;letter-spacing:.3px;color:#4c86d6;background:rgba(76,134,214,.16)}   /* the "+AI" create entry point */
-.soon{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:34px 16px;text-align:center}
-.soon .soonIcon{font-size:30px}
-.soon .soonT{font-weight:700;font-size:15px;color:var(--text)}
-.soon .soonS{font-size:12.5px;color:var(--muted);background:var(--btn);padding:3px 12px;border-radius:999px;letter-spacing:.2px}
+.soon{grid-column:1/-1;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:38px 16px;text-align:center;background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.07);border-radius:14px}   /* black "coming soon" tint over the create grid */
+.soon .soonIcon{font-size:34px}
+.soon .soonT{font-weight:800;font-size:19px;color:#fff;letter-spacing:.3px}
+.soon .soonS{font-size:12.5px;color:#c9d2de;text-transform:uppercase;letter-spacing:1.5px}
 #catTabs{display:flex;gap:6px;padding:2px 14px 10px;flex-wrap:wrap;flex:none}
 .tab{padding:7px 12px;border-radius:20px;background:var(--btn);border:none;color:var(--text);font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer}
 .tab.on{background:var(--accent);color:#fff}
@@ -4471,7 +4471,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-09.create-comingsoon';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-09.comingsoon-tint';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -4829,7 +4829,7 @@ function buildAddSheet(){
   });
   modelGrid.innerHTML = '';
   if (curCat === 'Created'){                          // Create with AI is paused — show a placeholder, not the (buggy) models
-    modelGrid.innerHTML = `<div class="soon"><div class="soonIcon">✨</div><div class="soonT">Create with AI</div><div class="soonS">Coming soon</div></div>`;
+    modelGrid.innerHTML = `<div class="soon"><div class="soonIcon">✨</div><div class="soonT">Coming soon</div><div class="soonS">Create with AI</div></div>`;
     return;
   }
   Object.entries(CATALOG).filter(([, d]) => d.cat === curCat).forEach(([type, d]) => {
