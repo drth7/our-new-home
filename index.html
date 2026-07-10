@@ -1469,8 +1469,17 @@ function buildFurniture(type){
   if (def.parts){                                    // AI-generated model: assemble it from primitive parts
     for (const p of def.parts){
       let geo;
-      if (p.shape === 'cylinder') geo = new THREE.CylinderGeometry(p.r ?? 0.1, p.r ?? 0.1, p.h ?? 0.2, 18);
+      if (p.shape === 'cylinder'){
+        const arc = Math.min(360, Math.max(20, +p.arc || 360));           // arc < 360 = open curved SHELL (barrel chair backs, curved headboards)
+        if (arc < 360){
+          const a = arc * Math.PI / 180;
+          geo = new THREE.CylinderGeometry(p.r ?? 0.1, p.r ?? 0.1, p.h ?? 0.2, 24, 1, true, -a / 2, a);   // centred on +z, aim with ry
+        } else {
+          geo = new THREE.CylinderGeometry(p.r ?? 0.1, p.r ?? 0.1, p.h ?? 0.2, 18);
+        }
+      }
       else if (p.shape === 'sphere') geo = new THREE.SphereGeometry(p.r ?? 0.15, 22, 16);
+      else if (p.shape === 'capsule') geo = new THREE.CapsuleGeometry(p.r ?? 0.1, Math.max(0.01, (p.h ?? 0.3) - 2 * (p.r ?? 0.1)), 6, 14);   // pill: soft cushions, padded arms
       else if (p.shape === 'cone') geo = new THREE.ConeGeometry(p.r ?? 0.15, p.h ?? 0.3, 18);
       else geo = new THREE.BoxGeometry(p.w ?? 0.2, p.h ?? 0.2, p.d ?? 0.2);
       const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || def.color || '#9aa8b5'), roughness:0.85});
@@ -1480,6 +1489,8 @@ function buildFurniture(type){
       if (p.rx) m.rotation.x = p.rx * Math.PI / 180;
       if (p.ry) m.rotation.y = p.ry * Math.PI / 180;
       if (p.rz) m.rotation.z = p.rz * Math.PI / 180;
+      const cl = v => Math.min(4, Math.max(0.05, +v || 1));
+      if (p.sx || p.sy || p.sz) m.scale.set(cl(p.sx), cl(p.sy), cl(p.sz));   // squash/stretch: ovals, flattened cushions
       m.castShadow = true; m.receiveShadow = true;
       g.add(m);
     }
@@ -4713,7 +4724,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.url-v2';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.curved-shapes';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
