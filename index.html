@@ -1064,7 +1064,7 @@ function computePaintWalls(){
       const a = pts[i], b = pts[i + 1];
       if (b - a < 0.05) continue;
       const ops = (w.ops || []).filter(op => op.at > a && op.at < b);
-      out.push({ d: w.d, pos: w.pos, from: a, to: b, src: si, ...(ops.length ? {ops} : {}) });
+      out.push({ d: w.d, pos: w.pos, from: a, to: b, src: si, ...(w.h ? {h: w.h} : {}), ...(ops.length ? {ops} : {}) });   // custom height survives the split
     }
   });
   return out;
@@ -1267,18 +1267,18 @@ function buildPlan(){
       strip.position.set(w.d === 'h' ? o.at : w.pos, 0.007, w.d === 'h' ? w.pos : o.at);
       strip.userData.grid1m = true; strip.visible = false;
       roomGroup.add(strip); wallSegs.push(strip);
-      if (o.t === 'door'){                           // the classic swing arc + leaf
+      if (o.t === 'door'){                           // swing arc + leaf — EXACTLY the wall editor's math, so the plans agree
         const hg = o.hinge || 1, sw = o.swing || 1;
         const jamb = o.at - hg * o.w / 2;
+        const hx = w.d === 'h' ? jamb : w.pos, hz = w.d === 'h' ? w.pos : jamb;   // the hinge
+        const ax = w.d === 'h' ? hg : 0, az = w.d === 'h' ? 0 : hg;               // closed-door direction (toward the other jamb)
         const pts = [];
         for (let i = 0; i <= 16; i++){
-          const a = (i / 16) * (Math.PI / 2);
-          const along = Math.cos(a) * o.w * hg, perp = Math.sin(a) * o.w * sw;
-          pts.push(w.d === 'h'
-            ? new THREE.Vector3(jamb + along, 0.012, w.pos + perp)
-            : new THREE.Vector3(w.pos + perp, 0.012, jamb + along));
+          const th = (i / 16) * (Math.PI / 2) * sw;  // rotate the leaf from closed to open, on the swing side
+          const c = Math.cos(th), s = Math.sin(th);
+          pts.push(new THREE.Vector3(hx + o.w * (ax * c - az * s), 0.012, hz + o.w * (ax * s + az * c)));
         }
-        pts.push(w.d === 'h' ? new THREE.Vector3(jamb, 0.012, w.pos) : new THREE.Vector3(w.pos, 0.012, jamb));
+        pts.push(new THREE.Vector3(hx, 0.012, hz));
         const arc = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
           new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85 }));
         arc.userData.grid1m = true; arc.visible = false;
@@ -5045,7 +5045,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.editor-polish';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.arcs-agree';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5970,7 +5970,7 @@ function openWallEditor(){
   wrap.id = 'edWrap';
   wrap.style.cssText = 'position:fixed;inset:0;z-index:70;background:#12161d';
   edFrame = document.createElement('iframe');
-  edFrame.src = 'wall-editor.html?embed=1';
+  edFrame.src = 'wall-editor.html?embed=1&v=' + encodeURIComponent(APP_VERSION);   // cache-bust: phones must never run a stale editor
   edFrame.style.cssText = 'width:100%;height:100%;border:0';
   wrap.appendChild(edFrame);
   document.body.appendChild(wrap);
@@ -6353,7 +6353,11 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
     validate: s => validateGenSpec(s),
     repair: s => repairSpec(s, proxyUrl()),
     rot: id => { const g = items.find(i => i.userData.id === id); return g ? {y:+g.rotation.y.toFixed(3), z:+g.rotation.z.toFixed(3), order:g.rotation.order, onWall:!!g.userData.onWall} : null; },
-    doorMarks: () => wallSegs.filter(m => m.userData.grid1m && (m.isLine || m.geometry?.type === 'PlaneGeometry')).map(m => ({ line: !!m.isLine, x: +m.position.x.toFixed(2), z: +m.position.z.toFixed(2), visible: m.visible })),
+    doorMarks: () => wallSegs.filter(m => m.userData.grid1m && (m.isLine || m.geometry?.type === 'PlaneGeometry')).map(m => {
+      const o = { line: !!m.isLine, x: +m.position.x.toFixed(2), z: +m.position.z.toFixed(2), visible: m.visible };
+      if (m.isLine){ const a = m.geometry.attributes.position.array; if (a.length === 54){ o.closed = [+a[0].toFixed(2), +a[2].toFixed(2)]; o.open = [+a[48].toFixed(2), +a[50].toFixed(2)]; o.hinge = [+a[51].toFixed(2), +a[53].toFixed(2)]; } }
+      return o;
+    }),
   };
 }
 
