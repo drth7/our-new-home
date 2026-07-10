@@ -5045,7 +5045,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.editor-saves';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.editor-polish';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6353,6 +6353,7 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
     validate: s => validateGenSpec(s),
     repair: s => repairSpec(s, proxyUrl()),
     rot: id => { const g = items.find(i => i.userData.id === id); return g ? {y:+g.rotation.y.toFixed(3), z:+g.rotation.z.toFixed(3), order:g.rotation.order, onWall:!!g.userData.onWall} : null; },
+    doorMarks: () => wallSegs.filter(m => m.userData.grid1m && (m.isLine || m.geometry?.type === 'PlaneGeometry')).map(m => ({ line: !!m.isLine, x: +m.position.x.toFixed(2), z: +m.position.z.toFixed(2), visible: m.visible })),
   };
 }
 

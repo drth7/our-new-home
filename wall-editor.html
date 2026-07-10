@@ -345,7 +345,11 @@ function openRename(key, px, py){
     box.remove(); renderRooms(); draw();
   };
   box.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') finish(true); if (ev.key === 'Escape') finish(false); });
-  box.addEventListener('blur', () => finish(true));
+  box.addEventListener('pointerdown', ev => ev.stopPropagation());
+  setTimeout(() => {                                 // arm the click-away AFTER the opening tap has fully settled,
+    box.focus(); box.select();                       // or the same tap's pointerup blurs the box instantly on phones
+    box.addEventListener('blur', () => finish(true));
+  }, 200);
 }
 
 let roomsOpen = innerWidth > 720;                    // phones start with the list tucked away
@@ -401,15 +405,17 @@ function draw(){
     if (r.hidden) return;
     ctx.fillStyle = ROOM_TINTS[i % ROOM_TINTS.length];
     for (const [a, b, c, d] of r.rects) ctx.fillRect(sx(a), sz(b), (c - a) * cam.s, (d - b) * cam.s);
-    ctx.fillStyle = '#e8edf3'; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText(r.name, sx(r.cx), sz(r.cz) - 4);
-    ctx.fillStyle = '#8b97a5'; ctx.font = '11px system-ui';
-    ctx.fillText(r.area.toFixed(1) + ' m²', sx(r.cx), sz(r.cz) + 11);
+    const fs = Math.max(11, Math.min(30, cam.s * 0.24));   // room labels zoom WITH the plan
+    ctx.fillStyle = '#e8edf3'; ctx.font = `600 ${fs}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText(r.name, sx(r.cx), sz(r.cz) - fs * 0.3);
+    ctx.fillStyle = '#8b97a5'; ctx.font = `${Math.max(9, fs * 0.78)}px system-ui`;
+    ctx.fillText(r.area.toFixed(1) + ' m²', sx(r.cx), sz(r.cz) + fs * 0.85);
+    ctx.font = `600 ${fs}px system-ui`;              // measure the NAME with its own font, not the area's
     const pw = ctx.measureText(r.name).width;        // little pen right after the name — tap it to rename
-    const px = sx(r.cx) + pw / 2 + 14, py = sz(r.cz) - 8;
-    ctx.fillStyle = 'rgba(139,151,165,.9)'; ctx.font = '12px system-ui';
-    ctx.fillText('✎', px, py + 4);
-    penHits.push({ x: px, y: py, key: r.key });
+    const px = sx(r.cx) + pw / 2 + fs * 0.9, py = sz(r.cz) - fs * 0.45;
+    ctx.fillStyle = 'rgba(139,151,165,.95)'; ctx.font = `${fs * 0.95}px system-ui`;
+    ctx.fillText('✎', px, py + fs * 0.35);
+    penHits.push({ x: px, y: py + fs * 0.1, key: r.key });
   });
   // walls
   plan.walls.forEach((w, i) => {
@@ -604,8 +610,8 @@ cv.addEventListener('pointerdown', e => {
     return;
   }
   // select tool — first tap SELECTS, dragging only moves something already selected (like furniture in the app)
-  const pen = penHits.find(p => Math.hypot(e.clientX - p.x, e.clientY - p.y) < 20);
-  if (pen){ openRename(pen.key, pen.x, pen.y); return; }   // the ✎ next to a room name: type right there
+  const pen = penHits.find(p => Math.hypot(e.clientX - p.x, e.clientY - p.y) < Math.max(20, cam.s * 0.3));
+  if (pen){ e.preventDefault(); openRename(pen.key, pen.x, pen.y); return; }   // the ✎ next to a room name: type right there
   const ep = hitEndpoint(x, z);
   if (ep){ pushUndo(); dragMode = { kind: 'end', which: ep }; return; }
   const oi = hitOp(x, z);
