@@ -597,5 +597,14 @@
         "w":  0.7,
         "d":  0.7,
         "h":  1.65
+    },
+    {
+        "id":  "x_artsoftboxfbx",
+        "file":  "Art/Soft Box.fbx",
+        "name":  "Soft Box",
+        "cat":  "Art",
+        "w":  0.7,
+        "d":  0.7,
+        "h":  1.65
     }
 ]
