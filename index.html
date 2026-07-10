@@ -3493,7 +3493,7 @@ function pickWall(e){
 function animateTilt(dt){
   dragTilt.x += (0 - dragTilt.x) * Math.min(1, dt*8);
   dragTilt.z += (0 - dragTilt.z) * Math.min(1, dt*8);
-  if (sel && !CATALOG[sel.userData.type].wall){
+  if (sel && !isWall(sel)){                          // NEVER touch a wall-mounted piece — its rotation.z IS the user's in-wall spin
     sel.rotation.x = dragTilt.x;
     sel.rotation.z = dragTilt.z;
     if (!dragging && Math.abs(dragTilt.x) < 0.004 && Math.abs(dragTilt.z) < 0.004){
@@ -4916,7 +4916,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.wall-rotate';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.wall-rotate-fix';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
