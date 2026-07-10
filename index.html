@@ -468,6 +468,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
       <div class="secwrap"><div class="secinner">
         <div class="row"><button class="btn" id="saveBtn" data-icon="save"><span>Save</span></button><button class="btn" id="loadBtn" data-icon="folder"><span>Load</span></button></div>
         <div class="row"><button class="btn" id="exportBtn" data-icon="upload"><span>Export</span></button><button class="btn" id="importBtn" data-icon="download"><span>Import</span></button></div>
+        <button class="btn" id="wallEdBtn">🧱 <span>Wall editor (beta)</span></button>
         <button class="btn danger" id="clearBtn" data-icon="trash"><span>Clear all furniture</span></button>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div></div>
@@ -985,7 +986,7 @@ function toggleLight(id){
 
 function disposeGroup(g){
   g.traverse(o => {
-    if (o.isMesh || o.isLineSegments){
+    if (o.isMesh || o.isLine){                       // isLine covers Line + LineSegments (door arcs included)
       o.geometry.dispose();
       (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
     }
@@ -1208,6 +1209,37 @@ function buildPlan(){
   }
   WALLS = computePaintWalls();
   WALLS.forEach((w, wi) => roomGroup.add(buildWall(w, wi, glassMat, t.wall)));
+  // door + arch floor marks — they show WITH the grid, so you can see where doors open while arranging
+  for (const w of WALLS){
+    for (const o of (w.ops || [])){
+      if (o.t !== 'door' && o.t !== 'arch') continue;
+      const col = o.t === 'door' ? 0x7fd08f : 0xc9a86a;
+      const strip = new THREE.Mesh(
+        new THREE.PlaneGeometry(w.d === 'h' ? o.w : WALL_T + 0.16, w.d === 'h' ? WALL_T + 0.16 : o.w),
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.3 }));
+      strip.rotation.x = -Math.PI / 2;
+      strip.position.set(w.d === 'h' ? o.at : w.pos, 0.007, w.d === 'h' ? w.pos : o.at);
+      strip.userData.grid1m = true; strip.visible = false;
+      roomGroup.add(strip); wallSegs.push(strip);
+      if (o.t === 'door'){                           // the classic swing arc + leaf
+        const hg = o.hinge || 1, sw = o.swing || 1;
+        const jamb = o.at - hg * o.w / 2;
+        const pts = [];
+        for (let i = 0; i <= 16; i++){
+          const a = (i / 16) * (Math.PI / 2);
+          const along = Math.cos(a) * o.w * hg, perp = Math.sin(a) * o.w * sw;
+          pts.push(w.d === 'h'
+            ? new THREE.Vector3(jamb + along, 0.012, w.pos + perp)
+            : new THREE.Vector3(w.pos + perp, 0.012, jamb + along));
+        }
+        pts.push(w.d === 'h' ? new THREE.Vector3(jamb, 0.012, w.pos) : new THREE.Vector3(w.pos, 0.012, jamb));
+        const arc = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+          new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85 }));
+        arc.userData.grid1m = true; arc.visible = false;
+        roomGroup.add(arc); wallSegs.push(arc);
+      }
+    }
+  }
   dbl(roomGroup);                                   // walls, floors, ceilings all two-sided
   scene.add(roomGroup);
   applyViewToPlan();
@@ -4970,7 +5002,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.softbox';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.editor-live';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5866,6 +5898,7 @@ $('loadBtn').onclick = () => {
 };
 $('exportBtn').onclick = exportLayout;
 $('importBtn').onclick = () => $('importFile').click();
+$('wallEdBtn').onclick = () => { location.href = 'wall-editor.html'; };   // the editor works on a DRAFT — it never touches the live home
 
 $('importFile').addEventListener('change', e => {
   const f = e.target.files[0];

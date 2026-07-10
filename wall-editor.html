@@ -68,6 +68,8 @@ select.tb{background:var(--panel2);border-color:var(--line)}
   <button class="tb" id="exportB">Export</button>
   <button class="tb" id="importB">Import</button>
   <button class="tb" id="resetB">Reset to apartment</button>
+  <span class="sep"></span>
+  <button class="tb" id="exitB">← Back to home</button>
 </div>
 <canvas id="cv"></canvas>
 <div id="insp"></div>
@@ -336,6 +338,7 @@ function draw(){
   for (let z = gz1; z < gz2; z += step){ ctx.moveTo(0, sz(z)); ctx.lineTo(innerWidth, sz(z)); }
   ctx.stroke();
   // rooms (hidden/sealed spaces stay blank on the plan)
+  penHits.length = 0;
   roomsD.forEach((r, i) => {
     if (r.hidden) return;
     ctx.fillStyle = ROOM_TINTS[i % ROOM_TINTS.length];
@@ -344,6 +347,11 @@ function draw(){
     ctx.fillText(r.name, sx(r.cx), sz(r.cz) - 4);
     ctx.fillStyle = '#8b97a5'; ctx.font = '11px system-ui';
     ctx.fillText(r.area.toFixed(1) + ' m²', sx(r.cx), sz(r.cz) + 11);
+    const pw = ctx.measureText(r.name).width;        // little pen right after the name — tap it to rename
+    const px = sx(r.cx) + pw / 2 + 14, py = sz(r.cz) - 8;
+    ctx.fillStyle = 'rgba(139,151,165,.9)'; ctx.font = '12px system-ui';
+    ctx.fillText('✎', px, py + 4);
+    penHits.push({ x: px, y: py, key: r.key });
   });
   // walls
   plan.walls.forEach((w, i) => {
@@ -484,9 +492,10 @@ function hitEndpoint(x, z){
 
 /* ============ pointer interaction ============ */
 let drawing = null, dragMode = null, panLast = null, detectT = null;
+const penHits = [];                                  // screen positions of the ✎ glyphs, rebuilt every draw
 function scheduleDetect(){ clearTimeout(detectT); detectT = setTimeout(() => { detect(); save(); draw(); }, 300); }
 cv.addEventListener('pointerdown', e => {
-  cv.setPointerCapture(e.pointerId);
+  try { cv.setPointerCapture(e.pointerId); } catch(_){}
   const x = wx(e.clientX), z = wz(e.clientY);
   if (tool === 'wall' || tool === 'zone'){ pushUndo(); drawing = { x1: snap(x), z1: snap(z), x2: snap(x), z2: snap(z), zone: tool === 'zone' }; return; }
   if (tool === 'door' || tool === 'win' || tool === 'arch'){
@@ -527,6 +536,12 @@ cv.addEventListener('pointerdown', e => {
     return;
   }
   // select tool — first tap SELECTS, dragging only moves something already selected (like furniture in the app)
+  const pen = penHits.find(p => Math.hypot(e.clientX - p.x, e.clientY - p.y) < 14);
+  if (pen){                                          // the ✎ next to a room name opens its rename box in the panel
+    const btn = document.querySelector(`#rooms [data-edit="${pen.key}"]`);
+    if (btn) btn.click();
+    return;
+  }
   const ep = hitEndpoint(x, z);
   if (ep){ pushUndo(); dragMode = { kind: 'end', which: ep }; return; }
   const oi = hitOp(x, z);
@@ -719,6 +734,7 @@ document.getElementById('file').addEventListener('change', e => {
   e.target.value = '';
 });
 document.getElementById('resetB').onclick = () => { if (confirm('Reset to the real apartment plan?')){ pushUndo(); plan = fresh(); names = {}; selW = selOp = selLight = -1; detect(); save(); draw(); } };
+document.getElementById('exitB').onclick = () => { save(); location.href = './'; };   // draft is kept — come back any time
 
 /* ============ 3D preview (openings are REAL cuts: segments + lintels/sills) ============ */
 let three = null;
@@ -823,6 +839,7 @@ window.ED = {
   addWall: w => { plan.walls.push(w); detect(); save(); draw(); return plan.walls.length - 1; },
   addOp: (wi, op) => { const w = plan.walls[wi]; w.ops = w.ops || []; w.ops.push(op); detect(); save(); draw(); return w.ops.length - 1; },
   lights: () => plan.lights, export: () => ({ walls: plan.walls, lights: plan.lights, rooms: roomsD.map(r => ({ name: r.name, rects: r.rects })) }),
+  pens: () => penHits.slice(),
   reset: () => { plan = fresh(); names = {}; detect(); save(); draw(); }
 };
 resize();
