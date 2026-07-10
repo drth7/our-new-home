@@ -5,31 +5,46 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Wall Editor — prototype</title>
 <style>
-:root{--bg:#141a22;--panel:#1d2530;--panel2:#232c39;--line:#2e3947;--text:#e8edf3;--muted:#8b97a5;--accent:#4c86d6;--warn:#e0a33e;--danger:#e0555f}
+:root{--bg:#12161d;--panel:rgba(26,33,44,.88);--panel2:#242e3c;--line:rgba(255,255,255,.08);--text:#e9eef5;--muted:#8b97a5;--accent:#4c86d6;--accent2:#6aa4f2;--danger:#e0555f;--gold:#ffd23e}
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
-#top{position:fixed;left:0;right:0;top:0;z-index:10;display:flex;gap:6px;align-items:center;padding:8px;background:var(--panel);box-shadow:0 2px 14px rgba(0,0,0,.35);flex-wrap:wrap}
-#top b{font-size:14px;margin-right:6px}
-.tb{border:none;border-radius:9px;background:var(--panel2);color:var(--text);padding:8px 11px;font-size:13px;font-weight:600;cursor:pointer;display:flex;gap:6px;align-items:center}
-.tb.on{background:var(--accent);color:#fff}
-.tb.danger.on{background:var(--danger)}
-.sep{width:1px;height:22px;background:var(--line);margin:0 3px}
+#top{position:fixed;left:50%;transform:translateX(-50%);top:10px;z-index:10;display:flex;gap:5px;align-items:center;padding:7px;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 34px rgba(0,0,0,.45);flex-wrap:wrap;max-width:96vw;justify-content:center}
+#top b{font-size:13.5px;margin:0 6px 0 4px;letter-spacing:.2px}
+.tb{border:1px solid transparent;border-radius:11px;background:transparent;color:var(--text);padding:8px 11px;font-size:12.5px;font-weight:650;cursor:pointer;display:flex;gap:6px;align-items:center;transition:background .15s,border-color .15s,transform .1s}
+.tb:hover{background:var(--panel2)}
+.tb:active{transform:scale(.96)}
+.tb.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 3px 12px rgba(76,134,214,.35)}
+.tb.danger.on{background:linear-gradient(135deg,#d84b56,#f07680);box-shadow:0 3px 12px rgba(224,85,95,.35)}
+select.tb{background:var(--panel2);border-color:var(--line)}
+.sep{width:1px;height:20px;background:var(--line);margin:0 3px}
 #cv{position:fixed;inset:0;top:0;cursor:crosshair;touch-action:none}
-#insp{position:fixed;right:10px;top:56px;z-index:9;width:230px;background:var(--panel);border-radius:14px;padding:12px;box-shadow:0 8px 28px rgba(0,0,0,.4);display:none}
-#insp h3{font-size:13px;margin-bottom:8px;color:var(--accent)}
-#insp label{display:block;font-size:11.5px;color:var(--muted);margin:7px 0 3px}
-#insp input,#insp select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 8px;font-size:13px}
+#insp{position:fixed;right:12px;top:74px;z-index:9;width:240px;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 12px 36px rgba(0,0,0,.45);display:none}
+#insp h3{font-size:12px;margin-bottom:2px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+#insp .big{font-size:22px;font-weight:750;margin:2px 0 6px;color:var(--gold)}
+#insp label{display:block;font-size:11.5px;color:var(--muted);margin:9px 0 4px}
+#insp input,#insp select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:7px 9px;font-size:13.5px;outline:none}
+#insp input:focus{border-color:var(--accent)}
+#insp .tip{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:10px}
 #insp .row{display:flex;gap:6px}
-#insp button{margin-top:9px;width:100%;border:none;border-radius:9px;padding:8px;background:var(--danger);color:#fff;font-weight:700;cursor:pointer}
-#rooms{position:fixed;left:10px;bottom:10px;z-index:9;background:rgba(29,37,48,.92);border-radius:12px;padding:10px 12px;max-width:260px;max-height:40vh;overflow:auto;font-size:12.5px}
-#rooms h3{font-size:12px;color:var(--muted);margin-bottom:6px}
-#rooms div{padding:2px 0}
-#hint{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:8;background:rgba(20,26,34,.85);border-radius:10px;padding:7px 13px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+#insp button{margin-top:11px;width:100%;border:none;border-radius:10px;padding:9px;background:rgba(224,85,95,.16);color:#f0949c;font-weight:700;cursor:pointer;transition:background .15s}
+#insp button:hover{background:rgba(224,85,95,.32);color:#fff}
+#rooms{position:fixed;left:12px;bottom:12px;z-index:9;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:11px 13px;width:272px;max-height:44vh;overflow:auto;font-size:12.5px;box-shadow:0 12px 36px rgba(0,0,0,.45)}
+#rooms h3{font-size:12px;margin-bottom:7px}
+#rooms .sub{color:var(--muted);font-weight:400;font-size:11px}
+.rr{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:9px}
+.rr:hover{background:var(--panel2)}
+.rr .rn{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rr .ra{color:var(--muted);font-size:11px;flex:none}
+.rr .ric{border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;padding:3px 5px;border-radius:7px;flex:none}
+.rr .ric:hover{background:rgba(255,255,255,.09);color:var(--text)}
+.rr.off{opacity:.5}
+.rnedit{flex:1;background:var(--panel2);border:1px solid var(--accent);border-radius:7px;color:var(--text);padding:3px 7px;font-size:12.5px;outline:none;min-width:0}
+#hint{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:8;background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:11px;padding:7px 14px;font-size:12px;color:var(--muted);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
 #p3d{position:fixed;inset:0;z-index:20;background:#0d1117;display:none}
 #p3d canvas{position:absolute;inset:0}
 #close3d{position:absolute;top:12px;right:12px;z-index:21}
 #file{display:none}
-@media (max-width:720px){ #insp{width:200px} .tb{padding:8px 9px;font-size:12px} }
+@media (max-width:720px){ #insp{width:210px;top:auto;bottom:70px} #rooms{width:230px;max-height:30vh} .tb{padding:7px 9px;font-size:12px} }
 </style>
 </head>
 <body>
@@ -227,12 +242,31 @@ function detect(){
       }
     }
     const area = cells.length * res * res;
-    return { rects, cx, cz, area, key: Math.round(cx * 2) / 2 + '|' + Math.round(cz * 2) / 2 };
+    // does anything open INTO this space? no door/arch/glass door = a sealed void, not a room
+    let access = false;
+    for (const w2 of W){
+      for (const o of (w2.ops || [])){
+        if (o.t === 'win') continue;
+        const at = o.t === 'glasswall' ? (w2.from + w2.to) / 2 : o.at;
+        for (const off of [0.25, -0.25, 0.4, -0.4]){   // clear of the wall's rasterised thickness on either side
+          const px = w2.d === 'h' ? at : w2.pos + off;
+          const pz = w2.d === 'h' ? w2.pos + off : at;
+          const ix = Math.floor((px - x1) / res), izq = Math.floor((pz - z1) / res);
+          if (ix >= 0 && izq >= 0 && ix < gw && izq < gh && mask.has(izq * gw + ix)){ access = true; break; }
+        }
+        if (access) break;
+      }
+      if (access) break;
+    }
+    return { rects, cx, cz, area, access, key: Math.round(cx * 2) / 2 + '|' + Math.round(cz * 2) / 2 };
   });
-  // keep names; new rooms get one + an automatic centre light
+  // keep names; hidden = sealed voids (no way in) or manually dismissed; real new rooms get a name + a centre light
+  plan.ignored = plan.ignored || [];
   for (const r of roomsD){
-    const old = prev.find(p => Math.hypot(p.cx - r.cx, p.cz - r.cz) < 1.2);
+    r.hidden = !r.access || plan.ignored.includes(r.key);
+    const old = prev.find(p => !p.hidden && Math.hypot(p.cx - r.cx, p.cz - r.cz) < 1.2);   // placeholder names of hidden spaces don't carry over
     r.name = names[r.key] || (old && old.name) || null;
+    if (r.hidden){ if (!r.name) r.name = r.access ? 'Hidden' : 'Sealed space'; continue; }
     if (!r.name){
       r.name = 'Room ' + (Object.keys(names).length + 1);
       names[r.key] = r.name;
@@ -246,9 +280,37 @@ function detect(){
 function inRoom(r, x, z){ return r.rects.some(([a, b, c, d]) => x >= a && x <= c && z >= b && z <= d); }
 function renderRooms(){
   const el = document.getElementById('rooms');
-  el.innerHTML = '<h3>Detected rooms (double-tap a name on the plan to rename)</h3>' +
-    roomsD.map(r => `<div>• ${r.name} — ${r.area.toFixed(1)} m²</div>`).join('') +
-    (roomsD.length ? '' : '<div style="color:var(--muted)">none yet — close a shape with walls</div>');
+  const vis = roomsD.filter(r => !r.hidden);
+  const sealed = roomsD.filter(r => r.hidden && !r.access);
+  const dismissed = roomsD.filter(r => r.hidden && r.access);
+  el.innerHTML = `<h3>Rooms <span class="sub">· a room's shape follows its walls — move a wall to reshape it</span></h3>` +
+    vis.map(r => `<div class="rr" data-k="${r.key}">
+      <span class="rn">${r.name}</span><span class="ra">${r.area.toFixed(1)} m²</span>
+      <button class="ric" data-edit="${r.key}" title="Rename">✎</button>
+      <button class="ric" data-hide="${r.key}" title="This isn't a room">✕</button></div>`).join('') +
+    (vis.length ? '' : '<div class="sub" style="padding:4px 0">no rooms yet — close a shape with walls</div>') +
+    (sealed.length ? `<div class="sub" style="margin-top:7px">${sealed.length} sealed space${sealed.length > 1 ? 's' : ''} hidden (no door in) — add a door or arch to make one a room</div>` : '') +
+    dismissed.map(r => `<div class="rr off"><span class="rn">${r.name}</span><span class="ra">${r.area.toFixed(1)} m²</span>
+      <button class="ric" data-restore="${r.key}" title="Restore">↺</button></div>`).join('');
+  el.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
+    const row = b.closest('.rr'), r = roomsD.find(x => x.key === b.dataset.edit);
+    const span = row.querySelector('.rn');
+    const inp = document.createElement('input');
+    inp.value = r.name; inp.maxLength = 24; inp.className = 'rnedit';
+    span.replaceWith(inp); inp.focus(); inp.select();
+    const done = () => { const n = inp.value.trim(); if (n){ names[r.key] = r.name = n; save(); } renderRooms(); draw(); };
+    inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') done(); if (ev.key === 'Escape') renderRooms(); });
+    inp.addEventListener('blur', done);
+  });
+  el.querySelectorAll('[data-hide]').forEach(b => b.onclick = () => {
+    plan.ignored = plan.ignored || [];
+    plan.ignored.push(b.dataset.hide);
+    detect(); save(); draw();
+  });
+  el.querySelectorAll('[data-restore]').forEach(b => b.onclick = () => {
+    plan.ignored = (plan.ignored || []).filter(k => k !== b.dataset.restore);
+    detect(); save(); draw();
+  });
 }
 
 /* ============ drawing ============ */
@@ -265,8 +327,9 @@ function draw(){
   for (let x = gx1; x < gx2; x += step){ ctx.moveTo(sx(x), 0); ctx.lineTo(sx(x), innerHeight); }
   for (let z = gz1; z < gz2; z += step){ ctx.moveTo(0, sz(z)); ctx.lineTo(innerWidth, sz(z)); }
   ctx.stroke();
-  // rooms
+  // rooms (hidden/sealed spaces stay blank on the plan)
   roomsD.forEach((r, i) => {
+    if (r.hidden) return;
     ctx.fillStyle = ROOM_TINTS[i % ROOM_TINTS.length];
     for (const [a, b, c, d] of r.rects) ctx.fillRect(sx(a), sz(b), (c - a) * cam.s, (d - b) * cam.s);
     ctx.fillStyle = '#e8edf3'; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center';
@@ -279,12 +342,14 @@ function draw(){
     const seld = i === selW;
     const t = (WALL_T / 2) * cam.s;
     const col = w.rail ? '#5b8ba6' : w.ops && w.ops[0] && w.ops[0].t === 'glasswall' ? '#69b7e0' : seld ? '#ffd23e' : '#9db1c5';
+    ctx.globalAlpha = (w.h && w.h < 2.2) ? 0.6 : 1;   // half-walls read lighter on the plan
     ctx.fillStyle = col;
     const segs = solidSegs(w);
     for (const [a, b] of segs){
       if (w.d === 'h') ctx.fillRect(sx(a), sz(w.pos) - t, (b - a) * cam.s, t * 2);
       else ctx.fillRect(sx(w.pos) - t, sz(a), t * 2, (b - a) * cam.s);
     }
+    ctx.globalAlpha = 1;
     // ops glyphs
     (w.ops || []).forEach((o, oi) => {
       if (o.t === 'glasswall') return;
@@ -436,15 +501,27 @@ cv.addEventListener('pointerdown', e => {
     }
     return;
   }
-  // select tool
+  // select tool — first tap SELECTS, dragging only moves something already selected (like furniture in the app)
   const ep = hitEndpoint(x, z);
   if (ep){ pushUndo(); dragMode = { kind: 'end', which: ep }; return; }
   const oi = hitOp(x, z);
-  if (oi >= 0){ pushUndo(); selOp = oi; selLight = -1; dragMode = { kind: 'op' }; inspect(); draw(); return; }
+  if (oi >= 0){
+    if (oi === selOp){ pushUndo(); dragMode = { kind: 'op' }; }
+    else { selOp = oi; selLight = -1; }
+    inspect(); draw(); return;
+  }
   const li = hitLight(x, z);
-  if (li >= 0){ pushUndo(); selLight = li; selW = selOp = -1; dragMode = { kind: 'light' }; inspect(); draw(); return; }
+  if (li >= 0){
+    if (li === selLight){ pushUndo(); dragMode = { kind: 'light' }; }
+    else { selLight = li; selW = selOp = -1; }
+    inspect(); draw(); return;
+  }
   const wi = hitWall(x, z);
-  if (wi >= 0){ pushUndo(); selW = wi; selOp = -1; selLight = -1; dragMode = { kind: 'wall' }; inspect(); draw(); return; }
+  if (wi >= 0){
+    if (wi === selW && selOp < 0){ pushUndo(); dragMode = { kind: 'wall' }; }
+    else { selW = wi; selOp = -1; selLight = -1; }
+    inspect(); draw(); return;
+  }
   selW = selOp = selLight = -1; dragMode = null; panLast = { x: e.clientX, y: e.clientY };
   inspect(); draw();
 });
@@ -501,12 +578,8 @@ cv.addEventListener('wheel', e => {
   cam.z = pz - (e.clientY - innerHeight / 2) / cam.s;
   draw();
 }, { passive: false });
-cv.addEventListener('dblclick', e => {
-  const x = wx(e.clientX), z = wz(e.clientY);
-  const r = roomsD.find(r => inRoom(r, x, z));
-  if (r){ const n = prompt('Room name', r.name); if (n){ names[r.key] = r.name = n.trim().slice(0, 24); save(); renderRooms(); draw(); } }
-});
 addEventListener('keydown', e => {
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;   // typing in a field must NEVER demolish a wall
   if (e.key === 'Delete' || e.key === 'Backspace'){
     if (selW >= 0 && selOp >= 0){ pushUndo(); plan.walls[selW].ops.splice(selOp, 1); selOp = -1; }
     else if (selLight >= 0){ pushUndo(); plan.lights.splice(selLight, 1); selLight = -1; }
@@ -529,8 +602,8 @@ function inspect(){
       <label>${o.t === 'door' ? 'Door height (m)' : isWin ? 'Window height (m)' : 'Opening height (m)'}</label>
       <input id="opH" type="number" step="0.05" min="0.4" max="${WALL_H}" value="${o.h ?? (o.t === 'door' ? 2.05 : isWin ? 1.2 : 2.3)}">
       ${isWin ? `<label>Sill height from floor (m)</label><input id="opS" type="number" step="0.05" min="0" max="2" value="${o.sill ?? 0.9}">` : ''}
-      <label>Position along wall (m)</label><input id="opAt" type="number" step="0.05" value="${o.at}">
-      <button id="opDel">Delete ${o.t}</button>`;
+      <label>Slide along the wall (m)</label><input id="opAt" type="number" step="0.05" value="${o.at}">
+      <button id="opDel">Remove ${o.t === 'win' ? 'window' : o.t}</button>`;
     const upd = () => {
       o.w = Math.max(0.3, +el.querySelector('#opW').value || o.w);
       o.h = Math.min(WALL_H, Math.max(0.4, +el.querySelector('#opH').value || o.h || 2));
@@ -543,20 +616,25 @@ function inspect(){
   } else if (selW >= 0){
     const w = plan.walls[selW];
     el.style.display = 'block';
-    el.innerHTML = `<h3>${w.rail ? 'Rail' : 'Wall'} — ${(w.to - w.from).toFixed(2)} m</h3>
-      <label>${w.d === 'h' ? 'Z position' : 'X position'} (m)</label><input id="wPos" type="number" step="0.05" value="${w.pos}">
-      <div class="row"><div style="flex:1"><label>From (m)</label><input id="wFrom" type="number" step="0.05" value="${w.from}"></div>
-      <div style="flex:1"><label>To (m)</label><input id="wTo" type="number" step="0.05" value="${w.to}"></div></div>
-      <label style="margin-top:8px;color:var(--muted)">Tip: with this wall selected, use the +Door / +Window / +Arch tools to punch openings into it. Multiple openings per wall are fine.</label>
-      <button id="wDel">Delete wall</button>`;
-    const upd = () => {
-      w.pos = +el.querySelector('#wPos').value || w.pos;
-      const f = +el.querySelector('#wFrom').value, t = +el.querySelector('#wTo').value;
-      if (isFinite(f)) w.from = f;
-      if (isFinite(t)) w.to = Math.max(t, w.from + 0.3);
+    el.innerHTML = `<h3>${w.rail ? 'Balcony rail' : 'Wall'}</h3>
+      <div class="big">${(w.to - w.from).toFixed(2)} m</div>
+      <label>Length (m)</label><input id="wLen" type="number" step="0.05" min="0.3" value="${(w.to - w.from).toFixed(2)}">
+      <label>Wall height (m)</label><input id="wH" type="number" step="0.05" min="0.4" max="4" value="${w.h ?? 2.6}">
+      <p class="tip">Drag the wall to slide it · drag the round yellow ends to stretch it · with it selected, the +Door / +Window / +Arch tools punch openings into it (as many as you like).</p>
+      <button id="wDel">Demolish wall</button>`;
+    el.querySelector('#wLen').addEventListener('change', ev => {
+      pushUndo();
+      const L = Math.max(0.3, +ev.target.value || 0.3);
+      w.to = w.from + L;
+      (w.ops || []).forEach(o => { o.at = Math.min(w.to - o.w / 2, Math.max(w.from + o.w / 2, o.at)); });
       save(); scheduleDetect(); draw(); inspect();
-    };
-    el.querySelectorAll('input').forEach(i => i.addEventListener('change', () => { pushUndo(); upd(); }));
+    });
+    el.querySelector('#wH').addEventListener('change', ev => {
+      pushUndo();
+      const v = +ev.target.value;
+      w.h = (isFinite(v) && Math.abs(v - 2.6) > 0.01) ? Math.min(4, Math.max(0.4, v)) : undefined;   // 2.6 = the standard, stored only when different
+      save(); draw();
+    });
     el.querySelector('#wDel').onclick = () => { pushUndo(); plan.walls.splice(selW, 1); selW = -1; selOp = -1; inspect(); scheduleDetect(); draw(); };
   } else if (selLight >= 0){
     const L = plan.lights[selLight];
@@ -650,28 +728,29 @@ function build3d(){
   }
   for (const w of plan.walls){
     const grp = new THREE.Group();
+    const H = w.h ?? WALL_H;                         // per-wall height (half-walls, counters, parapets)
     const L = w.to - w.from, cx0 = (w.from + w.to) / 2;
     if (w.d === 'h') grp.position.set(cx0, 0, w.pos); else { grp.position.set(w.pos, 0, cx0); grp.rotation.y = -Math.PI / 2; }
     const seg = (sw, sh, x, y, glass) => { const m = box(sw, sh, glass ? 0.04 : WALL_T, glass ? glassMat : wallMat); m.position.set(x, y, 0); grp.add(m); };
     if (w.rail){ seg(L, 1.0, 0, 0.5); sc.add(grp); continue; }
-    if ((w.ops || [])[0] && w.ops[0].t === 'glasswall'){ seg(L, 2.25, 0, 0.05 + 2.25 / 2, true); seg(L, WALL_H - 2.3, 0, 2.3 + (WALL_H - 2.3) / 2); sc.add(grp); continue; }
+    if ((w.ops || [])[0] && w.ops[0].t === 'glasswall'){ seg(L, Math.min(2.25, H - 0.3), 0, 0.05 + Math.min(2.25, H - 0.3) / 2, true); if (H > 2.3) seg(L, H - 2.3, 0, 2.3 + (H - 2.3) / 2); sc.add(grp); continue; }
     const ops = (w.ops || []).slice().sort((a, b) => a.at - b.at);
     let cur = -L / 2;
     for (const o of ops){
       const u = o.at - cx0, half = o.w / 2;
-      if (u - half - cur > 0.01) seg(u - half - cur, WALL_H, cur + (u - half - cur) / 2, WALL_H / 2);
+      if (u - half - cur > 0.01) seg(u - half - cur, H, cur + (u - half - cur) / 2, H / 2);
       if (o.t === 'win'){
-        const sill = o.sill ?? 0.9, wh = o.h ?? 1.2;
+        const sill = Math.min(o.sill ?? 0.9, H - 0.1), wh = Math.min(o.h ?? 1.2, H - sill);
         if (sill > 0.02) seg(o.w, sill, u, sill / 2);
-        if (sill + wh < WALL_H - 0.02) seg(o.w, WALL_H - sill - wh, u, sill + wh + (WALL_H - sill - wh) / 2);
+        if (sill + wh < H - 0.02) seg(o.w, H - sill - wh, u, sill + wh + (H - sill - wh) / 2);
         seg(o.w, wh, u, sill + wh / 2, true);
       } else {
-        const oh = o.h ?? (o.t === 'arch' ? 2.3 : 2.05);
-        if (oh < WALL_H - 0.02) seg(o.w, WALL_H - oh, u, oh + (WALL_H - oh) / 2);
+        const oh = Math.min(o.h ?? (o.t === 'arch' ? 2.3 : 2.05), H);
+        if (oh < H - 0.02) seg(o.w, H - oh, u, oh + (H - oh) / 2);
       }
       cur = u + half;
     }
-    if (L / 2 - cur > 0.01) seg(L / 2 - cur, WALL_H, cur + (L / 2 - cur) / 2, WALL_H / 2);
+    if (L / 2 - cur > 0.01) seg(L / 2 - cur, H, cur + (L / 2 - cur) / 2, H / 2);
     sc.add(grp);
   }
   const liteGeo = { disc: [0.19, 0.06], dome: [0.16, 0.12], ring: [0.24, 0.05], bar: [0.5, 0.07], pendant: [0.12, 0.3] };
