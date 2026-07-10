@@ -707,7 +707,7 @@ function registerModelDef(m){
   CATALOG[def.id] = def;
   return true;
 }
-for (const k in CATALOG) applyStackRule(CATALOG[k]);
+for (const k in CATALOG){ CATALOG[k].id = CATALOG[k].id || k; applyStackRule(CATALOG[k]); }   // every def knows its own id (thumbnails build by id)
 MODEL_DEFS.forEach(registerModelDef);              // built-in baseline (works even offline)
 /* the LIVE list is assets/models.json — drop models in the folder, run publish-models.bat,
    then the Refresh button in the Add tray picks them up on every device */
@@ -1402,45 +1402,54 @@ let thumbKit = null;
 const thumbMem = {};
 async function getThumb(def){
   if (thumbMem[def.id]) return thumbMem[def.id];
-  const key = 'roomplanner.thumb.' + def.id;
+  const key = 'roomplanner.thumb2.' + def.id;        // v2: bounding-sphere framing (old cropped thumbs regenerate)
   try { const c = localStorage.getItem(key); if (c){ thumbMem[def.id] = c; return c; } } catch(e){}
-  let inst = null;
-  if (def.gen){
-    inst = buildFurniture(def.id);                 // AI pieces photograph themselves — no file to load
-    if (!inst) return null;
-  } else {
+  let inst = null, builtHere = false;
+  if (def.model || def.custom){
     const proto = await loadModel(def);
     if (!proto) return null;
     inst = instantiateModel(proto, def);
+  } else {
+    inst = buildFurniture(def.id);                   // parametric + AI pieces photograph themselves
+    builtHere = true;
+    if (!inst) return null;
   }
   if (!thumbKit){
     const r = new THREE.WebGLRenderer({antialias:true, alpha:true});
-    r.setSize(96, 96);
+    r.setSize(128, 128);
     const sc = new THREE.Scene();
     sc.add(new THREE.HemisphereLight(0xffffff, 0x55606c, 1.1));
     const dl = new THREE.DirectionalLight(0xffffff, 1.6);
     dl.position.set(2, 3, 2.5);
     sc.add(dl);
-    const cam = new THREE.PerspectiveCamera(32, 1, 0.01, 30);
+    const cam = new THREE.PerspectiveCamera(32, 1, 0.01, 200);
     thumbKit = {r, sc, cam};
   }
-  const size = Math.max(def.w, def.d, def.h);
-  if (def.gen){
-    const a = Math.PI / 4;                          // the classic 45° three-quarter product shot
-    thumbKit.cam.position.set(Math.sin(a) * size * 1.5, size * 0.85, Math.cos(a) * size * 1.5);
-  } else {
-    thumbKit.cam.position.set(size*1.15, size*0.95, size*1.5);
-  }
-  thumbKit.cam.lookAt(0, def.h*0.42, 0);
+  // frame the WHOLE piece: fit its bounding sphere in the view, 45° three-quarter angle — no crop, ever
   thumbKit.sc.add(inst);
+  const bb = new THREE.Box3().setFromObject(inst);
+  const ctr = bb.getCenter(new THREE.Vector3());
+  const radius = Math.max(0.05, bb.getBoundingSphere(new THREE.Sphere()).radius);
+  const dist = (radius / Math.sin(THREE.MathUtils.degToRad(32) / 2)) * 1.08;
+  const az = Math.PI / 4, el = 0.5;                  // 45° around, ~29° up
+  thumbKit.cam.position.set(
+    ctr.x + Math.sin(az) * Math.cos(el) * dist,
+    ctr.y + Math.sin(el) * dist,
+    ctr.z + Math.cos(az) * Math.cos(el) * dist);
+  thumbKit.cam.lookAt(ctr);
   thumbKit.r.render(thumbKit.sc, thumbKit.cam);
   const url = thumbKit.r.domElement.toDataURL('image/png');
   thumbKit.sc.remove(inst);
-  if (def.gen) disposeGroup(inst);                  // built just for the photo
+  if (builtHere) disposeGroup(inst);                 // built just for the photo
   thumbMem[def.id] = url;
   try { localStorage.setItem(key, url); } catch(e){}
   return url;
 }
+try {                                                // clear the old cropped-thumb cache (collect first — removing while iterating skips keys)
+  const olds = [];
+  for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.startsWith('roomplanner.thumb.')) olds.push(k); }
+  olds.forEach(k => localStorage.removeItem(k));
+} catch(e){}
 
 /* every painting gets its own little abstract artwork — Miaad can imagine hers on the canvas */
 function makeArtTexture(){
@@ -1943,7 +1952,9 @@ function applyTint(g, hex){
     if (role === 'main') o.material.color.copy(c);
     else if (role === 'light') o.material.color.copy(c.clone().lerp(new THREE.Color('#ffffff'), 0.45));
     else if (role === 'dark') o.material.color.copy(c.clone().lerp(new THREE.Color('#000000'), 0.45));
+    if (o.userData.baseCol) o.userData.baseCol.copy(o.material.color);   // a recoloured lamp remembers its NEW colour as "on"
   });
+  if (g.userData.lampLight) setLampLit(g, g.userData.lit);               // and stays correctly lit/dark after the recolour
 }
 
 function realDims(g){
@@ -2849,14 +2860,26 @@ function animateChars(dt){
   }
 }
 
-// lamps really light up: a warm point light at the shade + a soft glow on the shade itself
+// lamps behave like the ceiling lights: OFF = dark shade + NO light in the scene at all
+// (a switched-off light costs nothing); ON = the shade brightens and a warm light joins.
 function setLampLit(g, on){
   g.userData.lit = !!on;
-  if (g.userData.lampLight) g.userData.lampLight.intensity = on ? 2.4 : 0;
+  const L = g.userData.lampLight;
+  if (L){
+    if (on){ if (L.parent !== g) g.add(L); L.intensity = 2.2; }
+    else if (L.parent) L.parent.remove(L);
+  }
   g.traverse(o => {
     if (o.isMesh && o.material && o.material.emissive && (o.userData.glow || o.material.userData?.role === 'light')){
-      o.material.emissive.set(0xffd9a0);
-      o.material.emissiveIntensity = on ? 1.1 : 0;
+      if (!o.userData.baseCol) o.userData.baseCol = o.material.color.clone();
+      if (on){
+        o.material.color.copy(o.userData.baseCol);
+        o.material.emissive.set(0xffd9a0);
+        o.material.emissiveIntensity = 1.1;
+      } else {
+        o.material.color.copy(o.userData.baseCol).multiplyScalar(0.4);   // visibly OFF, like a dark ceiling fixture
+        o.material.emissiveIntensity = 0;
+      }
     }
   });
 }
@@ -2879,14 +2902,13 @@ function addFurniture(type, opts = {}){
     applyHangY(g);
   }
   if (opts.tint || !def.gen) applyTint(g, opts.tint || def.color);   // AI models keep their own per-part colours unless you deliberately recolour
-  if (def.lamp){                                     // give the lamp its actual light, anchored to the shade
+  if (def.lamp){                                     // give the lamp its switch (light joins the scene only when ON)
     let glowMesh = null;
     g.traverse(o => { if (o.isMesh && (o.userData.glow || o.material?.userData?.role === 'light') && (!glowMesh || o.position.y > glowMesh.position.y)) glowMesh = o; });
     const pt = new THREE.PointLight(0xffd9a6, 0, Math.max(2.5, def.h * 2.2), 1.7);
     if (glowMesh) pt.position.copy(glowMesh.position); else pt.position.set(0, def.h * 0.72, 0);
-    g.add(pt);
-    g.userData.lampLight = pt;
-    setLampLit(g, opts.lit != null ? !!opts.lit : true);   // new lamps arrive switched on
+    g.userData.lampLight = pt;                       // NOT added to the group yet — setLampLit does that
+    setLampLit(g, opts.lit != null ? !!opts.lit : false);   // like the ceiling lights: off until you switch it on
   }
   clampToRoom(g);
   if (opts.y != null && !isWall(g) && (def.h > 0.1 || def.gen) && !def.rug){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (rugs always stay flat)
@@ -4889,7 +4911,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.lamps-thumbs-glass';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.thumbs-all';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5322,14 +5344,12 @@ function buildAddSheet(){
       el.addEventListener('touchmove', tmove, {passive:false});
     });
     modelGrid.appendChild(el);
-    if (d.model || d.custom || d.gen){             // real 3D thumbnail, rendered once then cached (AI pieces too)
-      getThumb(d).then(url => {
-        if (!url) return;
-        const sw = el.querySelector('.sw');
-        sw.style.background = 'var(--panel2)';
-        sw.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain">`;
-      });
-    }
+    getThumb(d).then(url => {                      // EVERY piece gets a real 3D thumbnail, rendered once then cached
+      if (!url) return;
+      const sw = el.querySelector('.sw');
+      sw.style.background = 'var(--panel2)';
+      sw.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain">`;
+    });
   });
   if (genHighlight){                                 // scroll the freshly-created piece(s) into view, then let the glow fade
     genHighlight = null;
