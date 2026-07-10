@@ -2891,6 +2891,7 @@ function addFurniture(type, opts = {}){
   const sp = spawnPos();
   g.position.set(opts.x ?? sp.x, 0, opts.z ?? sp.z);
   g.rotation.y = opts.rotY || 0;
+  if (opts.rz) g.rotation.z = opts.rz;               // restore a hung piece's in-wall spin
   g.scale.set(opts.sx || 1, opts.sy || 1, opts.sz || 1);
   g.userData.onWall = !!opts.ow;                   // floor piece the user toggled onto the wall
   if (isWall(g)){
@@ -2996,6 +2997,7 @@ function setOnWall(g, on){
     g.userData.loadY = null;
   } else {
     g.position.y = 0;
+    g.rotation.z = 0;                                // back on the floor: stand upright again
   }
   clampToRoom(g);
   if ($('wallBtn')) $('wallBtn').classList.toggle('on', on);
@@ -3130,7 +3132,11 @@ function updateMeasure(){
 function rotateSel(){
   if (!sel || !canEdit()) return;
   pushUndo();
-  sel.rotation.y = (sel.rotation.y + Math.PI/4) % (Math.PI*2);
+  if (isWall(sel)){                                  // hung pieces spin IN the wall plane (shelf horizontal ↔ tilted ↔ vertical)
+    sel.rotation.z = (sel.rotation.z + Math.PI/4) % (Math.PI*2);
+  } else {
+    sel.rotation.y = (sel.rotation.y + Math.PI/4) % (Math.PI*2);
+  }
   clampToRoom(sel);
   updateMeasure();
   logActivity('rotate', `rotated the ${CATALOG[sel.userData.type].name}`);
@@ -3709,6 +3715,7 @@ function itemRecord(g){                               // one furniture record, t
   // which was the real reason a placed created piece never reached the other phone.
   if (g.userData.tint != null) rec.tint = g.userData.tint;
   if (g.userData.onWall) rec.ow = 1;
+  if (Math.abs(g.rotation.z) > 0.001) rec.rz = +g.rotation.z.toFixed(3);   // a hung piece's in-wall spin
   if (CATALOG[g.userData.type]?.lamp) rec.lit = g.userData.lit ? 1 : 0;   // lamp switch state syncs
   return rec;
 }
@@ -4909,7 +4916,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.busy-fallback';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.wall-rotate';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
