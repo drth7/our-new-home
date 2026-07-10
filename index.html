@@ -620,6 +620,7 @@ const CATALOG = {
   rugrun2:   {name:'Long runner',  cat:'Decor',    w:1.00, d:6.50, h:0.02, color:'#5a6a8a', soft:true},
   rugpersian:{name:'Patterned rug',cat:'Decor',    w:2.20, d:1.50, h:0.02, color:'#8a3a3a'},
   plant:     {name:'Plant',        cat:'Decor',    w:0.45, d:0.45, h:1.20, color:'#5f9d68', stack:true},
+  softbox:   {name:'Softbox light',cat:'Decor',    w:0.65, d:0.65, h:1.95, color:'#3a3f46', lamp:true},
   lamp1:     {name:'Floor lamp',   cat:'Decor',    w:0.35, d:0.35, h:1.55, color:'#8a7a5e', lamp:true},
   lamp2:     {name:'Tripod lamp',  cat:'Decor',    w:0.48, d:0.48, h:1.45, color:'#c9a86a', lamp:true},
   lamp3:     {name:'Arc lamp',     cat:'Decor',    w:0.90, d:0.35, h:1.80, color:'#9aa5b0', lamp:true},
@@ -1709,6 +1710,26 @@ function buildFurniture(type){
       const shadeMat = new THREE.MeshStandardMaterial({color:0xf5e6c4, emissive:0xffd9a0, emissiveIntensity:0, roughness:0.6});
       const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.14, 12, 1, true), shadeMat); shade.position.y = h - 0.12; shade.userData.glow = true; g.add(shade);
       break;                                         // the light itself comes from the lamp switch (setLampLit)
+    }
+    case 'softbox': {                                // studio softbox on a tripod — the diffuser panel is the glow
+      for (let i = 0; i < 3; i++){
+        const a = i * Math.PI*2/3 + Math.PI/6;
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 1.15, 10), dark);
+        leg.position.set(Math.sin(a)*0.17, 0.55, Math.cos(a)*0.17);
+        leg.rotation.z = Math.sin(a)*0.3; leg.rotation.x = -Math.cos(a)*0.3;
+        leg.castShadow = true; g.add(leg);
+      }
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.85, 10), dark);
+      pole.position.y = 1.4; pole.castShadow = true; g.add(pole);
+      const tilt = -0.26;                            // head aims slightly down into the room
+      const head = block(0.62, 0.42, 0.16, main);
+      head.position.set(0, 1.75, 0.05); head.rotation.x = tilt; g.add(head);
+      const diff = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.36, 0.02),
+        new THREE.MeshStandardMaterial({color:0xf7f3ea, emissive:0xfff1d6, emissiveIntensity:0, roughness:0.5}));
+      diff.material.userData.role = 'light';
+      diff.position.set(0, 1.75 + Math.sin(-tilt)*0.09, 0.05 + Math.cos(tilt)*0.09);
+      diff.rotation.x = tilt; diff.userData.glow = true; g.add(diff);
+      break;
     }
     case 'chair': {
       const seat = block(w, 0.08, d, main); seat.position.y = 0.45; g.add(seat);
@@ -4949,7 +4970,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.upload-fit';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.softbox';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
