@@ -599,9 +599,9 @@
         "h":  1.65
     },
     {
-        "id":  "x_artsoftboxfbx",
-        "file":  "Art/Soft Box.fbx",
-        "name":  "Soft Box",
+        "id":  "x_artsoftboxlightfbx",
+        "file":  "Art/softBoxLight.fbx",
+        "name":  "Softboxlight",
         "cat":  "Art",
         "w":  0.7,
         "d":  0.7,
