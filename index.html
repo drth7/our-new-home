@@ -58,7 +58,7 @@ body.addopen #bottombar{transform:translateY(calc(-1 * min(44vh,330px) - 8px))}
 .xbtn{width:34px;height:34px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
 .xbtn.off{opacity:.4;filter:grayscale(1);cursor:default}          /* temporarily disabled action */
 /* Create-with-AI: the "AI in a box + sparkles" mark, slowly breathing through the rainbow */
-#createBtn{background:transparent;color:#4c86d6;animation:aihue 10s linear infinite}
+#createBtn{color:#4c86d6;animation:aihue 10s linear infinite}   /* same button chip as its neighbours (.xbtn bg), rainbow lives on the icon */
 #createBtn svg{width:19px;height:19px;animation:aibreath 3.4s ease-in-out infinite}   /* same footprint as the neighbouring toolbar icons */
 @keyframes aihue{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
 @keyframes aibreath{0%,100%{opacity:.75}50%{opacity:1}}   /* breathe with light only — no size change */
@@ -161,7 +161,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   radial-gradient(26% 22% at 62% 22%, rgba(160,106,255,.16), transparent 70%);
   animation:wglow 14s ease-in-out infinite alternate}
 @keyframes wglow{from{transform:translate3d(-4%,-3%,0) scale(1)}to{transform:translate3d(4%,3%,0) scale(1.14)}}
-#welcome.on{display:flex}
+#welcome.on{display:flex;animation:welcin .6s ease}   /* every welcome (sign-in card, love note) fades in softly */
+@keyframes welcin{from{opacity:0}to{opacity:1}}
 #welcome.fade{opacity:0;pointer-events:none}   /* password accepted: melt away into the reveal */
 /* greeting mode (the love note after the reveal): the home stays visible — just a tint + slight blur */
 #welcome.glass{background:rgba(8,12,16,.30);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
@@ -1988,7 +1989,7 @@ function clampToRoom(g){
     let best = null, bd = Infinity;
     for (const w of (WALLS.length ? WALLS : PLAN.walls)){
       if (w.rail) continue;
-      if ((w.ops || []).some(o => o.t === 'glasswall')) continue;
+      if (!def.curtain && (w.ops || []).some(o => o.t === 'glasswall')) continue;   // glass takes no art — but a curtain hangs right over it
       const lo = Math.min(w.from, w.to), hi = Math.max(w.from, w.to);
       if (hi - lo < hw * 2) continue;                 // wall shorter than the piece
       if (w.d === 'h'){
@@ -3378,8 +3379,8 @@ function pickWall(e){
   if (view !== '2d' && view !== '3d') return null;
   setNdc(e);
   ray.setFromCamera(ndc, activeCam());
-  const hits = ray.intersectObjects(wallSegs.filter(m => m.visible && !m.userData.glass && !m.userData.ceiling && !m.userData.grid), false);
-  return hits.length ? { wi: hits[0].object.userData.wi, pt: hits[0].point } : null;   // the point tells us which SIDE was tapped
+  const hits = ray.intersectObjects(wallSegs.filter(m => m.visible && !m.userData.glass && !m.userData.ceiling && !m.userData.grid && !m.userData.grid1m), false);
+  return (hits.length && hits[0].object.userData.wi != null) ? { wi: hits[0].object.userData.wi, pt: hits[0].point } : null;   // the point tells us which SIDE was tapped (grid sheets aren't walls)
 }
 
 function animateTilt(dt){
@@ -4712,7 +4713,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.walls-per-room';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.curtains-chip';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
