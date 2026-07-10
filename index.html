@@ -377,6 +377,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
   <div id="selName"></div>
   <div class="pillrow">
     <button class="pbtn" id="rotBtn" title="Rotate 45°" data-icon="rotate"></button>
+    <button class="pbtn" id="flipBtn" title="Flip to the other side" data-icon="flip" style="display:none"></button>
     <label class="pbtn tint" title="Colour"><input type="color" id="tintInput"></label>
     <button class="pbtn" id="sizeBtn" title="Resize" data-icon="resize"></button>
     <button class="pbtn" id="wallBtn" title="Hang on the wall / put back on the floor" data-icon="wallmount"></button>
@@ -533,6 +534,7 @@ const ICONS = {
   ruler:'<path d="M3.3 15.5 15.5 3.3a1.4 1.4 0 0 1 2 0l3.2 3.2a1.4 1.4 0 0 1 0 2L8.5 20.7a1.4 1.4 0 0 1-2 0l-3.2-3.2a1.4 1.4 0 0 1 0-2Z"/><path d="M8 8l2 2M11.5 4.5l1.5 1.5M4.5 11.5 6 13M15 7.5l1.5 1.5"/>',
   magnet:'<path d="M6 15l-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4"/><path d="m12 15 4 4"/>',
   shoplink:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  flip:'<path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><path d="M12 2v2"/><path d="M12 8v2"/><path d="M12 14v2"/><path d="M12 20v2"/>',
   house:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>',
   chevron:'<path d="m6 9 6 6 6-6"/>'
 };
@@ -2052,7 +2054,7 @@ function clampToRoom(g){
         if (d2 < bd){ bd = d2; best = { x: w.pos + side * (F + off), z: az, rotY: side > 0 ? Math.PI / 2 : -Math.PI / 2 }; }
       }
     }
-    if (best){ g.position.set(best.x, g.position.y, best.z); g.rotation.y = best.rotY; }
+    if (best){ g.position.set(best.x, g.position.y, best.z); g.rotation.y = best.rotY + (g.userData.flip ? Math.PI : 0); }   // flipped = show the other face
     applyHangY(g);
     g.userData.room = r.room.id;
     return;
@@ -2894,6 +2896,7 @@ function addFurniture(type, opts = {}){
   if (opts.rz) g.rotation.z = opts.rz;               // restore a hung piece's in-wall spin
   g.scale.set(opts.sx || 1, opts.sy || 1, opts.sz || 1);
   g.userData.onWall = !!opts.ow;                   // floor piece the user toggled onto the wall
+  g.userData.flip = !!opts.fl;                     // which face a hung piece shows
   if (isWall(g)){
     g.userData.hangY = opts.hy || (def.wall ? 1.5 : 1.4);
     applyHangY(g);
@@ -2961,6 +2964,9 @@ function select(g){
   } else {
     wallBtn.style.display = 'none';
   }
+  const flipBtn = $('flipBtn');                     // hung pieces can show their other face
+  flipBtn.style.display = isWall(g) ? 'flex' : 'none';
+  flipBtn.classList.toggle('on', !!g.userData.flip);
   const shopBtn = $('shopBtn');                     // an AI piece made from a link remembers its shop page
   if (def.url && /^https?:\/\//i.test(def.url)){
     shopBtn.style.display = 'flex';
@@ -2998,9 +3004,11 @@ function setOnWall(g, on){
   } else {
     g.position.y = 0;
     g.rotation.z = 0;                                // back on the floor: stand upright again
+    g.userData.flip = false;                         // and face forward
   }
   clampToRoom(g);
   if ($('wallBtn')) $('wallBtn').classList.toggle('on', on);
+  if ($('flipBtn')){ $('flipBtn').style.display = isWall(g) ? 'flex' : 'none'; $('flipBtn').classList.toggle('on', !!g.userData.flip); }   // flip appears the moment it hangs
   updateMeasure(); refreshSizePanel(); updateSelPos();
   scheduleSave();
   toast(on ? 'Hung on the wall 🖼️ — use Resize ▸ Raise to slide it up/down' : 'Back on the floor');
@@ -3716,6 +3724,7 @@ function itemRecord(g){                               // one furniture record, t
   if (g.userData.tint != null) rec.tint = g.userData.tint;
   if (g.userData.onWall) rec.ow = 1;
   if (Math.abs(g.rotation.z) > 0.001) rec.rz = +g.rotation.z.toFixed(3);   // a hung piece's in-wall spin
+  if (g.userData.flip) rec.fl = 1;                  // …and which face it shows
   if (CATALOG[g.userData.type]?.lamp) rec.lit = g.userData.lit ? 1 : 0;   // lamp switch state syncs
   return rec;
 }
@@ -4916,7 +4925,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.wall-rotate-fix';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.wall-flip';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5549,6 +5558,16 @@ themeBtn.onclick = () => {
 
 /* pill */
 $('rotBtn').onclick = rotateSel;
+$('flipBtn').onclick = () => {
+  if (!sel || !canEdit() || !isWall(sel)) return;
+  pushUndo();
+  sel.userData.flip = !sel.userData.flip;
+  clampToRoom(sel);                                  // re-mount with the other face out
+  $('flipBtn').classList.toggle('on', !!sel.userData.flip);
+  updateMeasure();
+  logActivity('rotate', `flipped the ${CATALOG[sel.userData.type].name}`);
+  scheduleSave();
+};
 $('delBtn').onclick = deleteSel;
 $('wallBtn').onclick = () => { if (sel) setOnWall(sel, !sel.userData.onWall); };
 tintInput.addEventListener('input', () => { if (sel) applyTint(sel, tintInput.value); });
