@@ -531,7 +531,7 @@ const ICONS = {
   wallmount:'<path d="M3 5h18"/><path d="M12 5v3"/><rect x="7.5" y="8" width="9" height="9" rx="1.6"/>',
   ruler:'<path d="M3.3 15.5 15.5 3.3a1.4 1.4 0 0 1 2 0l3.2 3.2a1.4 1.4 0 0 1 0 2L8.5 20.7a1.4 1.4 0 0 1-2 0l-3.2-3.2a1.4 1.4 0 0 1 0-2Z"/><path d="M8 8l2 2M11.5 4.5l1.5 1.5M4.5 11.5 6 13M15 7.5l1.5 1.5"/>',
   magnet:'<path d="M6 15l-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4"/><path d="m12 15 4 4"/>',
-  shoplink:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  shoplink:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   house:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>',
   chevron:'<path d="m6 9 6 6 6-6"/>'
 };
@@ -2070,7 +2070,7 @@ function stackTopOf(it){
 // any piece dropped so its centre sits over another piece rides on top of it (stack two washers, etc.)
 function applyStackY(g){
   const gd = CATALOG[g.userData.type];
-  if (gd && gd.h <= 0.1 && !gd.gen){ g.position.y = 0; g.userData.loadY = null; return; }   // real rugs/mats lie flat & never stack (but a thin AI-made appliance still can)
+  if (gd && gd.h <= 0.1 && (!gd.gen || gd.rug)){ g.position.y = 0; g.userData.loadY = null; return; }   // rugs/mats lie flat & never stack — incl. AI-made rugs (a thin AI appliance still stacks)
   let top = 0;
   for (const it of items){
     if (it === g) continue;
@@ -2848,7 +2848,7 @@ function addFurniture(type, opts = {}){
   }
   if (opts.tint || !def.gen) applyTint(g, opts.tint || def.color);   // AI models keep their own per-part colours unless you deliberately recolour
   clampToRoom(g);
-  if (opts.y != null && !isWall(g) && (def.h > 0.1 || def.gen)){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (real rugs always stay flat)
+  if (opts.y != null && !isWall(g) && (def.h > 0.1 || def.gen) && !def.rug){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (rugs always stay flat)
   furnGroup.add(g);
   items.push(g);
   if (typeof refreshCatNav === 'function') refreshCatNav();   // the cat re-plans around the new piece
@@ -3561,7 +3561,13 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 function serialize(){
   pruneTombstones();
   const genDefs = {};                                // embed the recipe of every placed AI model, so the other phone can ALWAYS build it
-  items.forEach(g => { const d = CATALOG[g.userData.type]; if (d && d.gen && !genDefs[d.id]) genDefs[d.id] = {id:d.id, name:d.name, cat:'Created', w:d.w, d:d.d, h:d.h, color:d.color, parts:d.parts, ...(d.url ? {url:d.url} : {})}; });
+  items.forEach(g => {
+    const d = CATALOG[g.userData.type];
+    if (!d || !d.gen || genDefs[d.id]) return;
+    const rec = {id:d.id, name:d.name, cat:'Created', w:d.w, d:d.d, h:d.h, color:d.color, parts:d.parts};
+    for (const k of ['url','seat','slots','bed','surface','rug']) if (d[k] != null) rec[k] = d[k];   // behaviours travel with the recipe
+    genDefs[d.id] = rec;
+  });
   return {
     v:4,                                              // v4 = wallColors keyed by SPLIT wall segments
     sunAz,
@@ -4186,6 +4192,23 @@ function adoptGenSpec(spec, fallbackName, i, srcUrl){
     parts
   };
   if (srcUrl && /^https?:\/\//i.test(srcUrl)) def.url = String(srcUrl).slice(0, 500);   // remember the shop page it came from
+  // the AI says what it built ("kind") — grant the matching behaviour, so a created chair is
+  // sittable, a bed sleepable, a table stackable, a rug flat. Name words are the fallback.
+  const nm = (def.name + ' ' + (fallbackName || '')).toLowerCase();
+  let kind = String(spec.kind || '').toLowerCase();
+  if (!kind){
+    if (/sofa|couch|sectional|loveseat|كنب|أريك/.test(nm)) kind = 'sofa';
+    else if (/chair|stool|bench|seat|كرسي|مقعد/.test(nm)) kind = 'chair';
+    else if (/\bbed\b|mattress|سرير/.test(nm)) kind = 'bed';
+    else if (/table|desk|طاول|مكتب/.test(nm)) kind = 'table';
+    else if (/rug|carpet|mat\b|سجاد/.test(nm)) kind = 'rug';
+  }
+  const seatH = cl(spec.seatH, 0.15, Math.max(0.16, def.h * 0.9), Math.min(0.45, def.h * 0.6));
+  if (kind === 'chair' || kind === 'stool' || kind === 'bench'){ def.seat = seatH; }
+  else if (kind === 'sofa'){ def.seat = seatH; def.slots = 2; }
+  else if (kind === 'bed'){ def.bed = true; def.slots = 2; }
+  else if (kind === 'table' || kind === 'desk'){ def.surface = true; }
+  else if (kind === 'rug'){ def.rug = true; }
   if (!registerGenModel(def)) return null;
   const saved = jget(GEN_LS, []); saved.push(def); jset(GEN_LS, saved);
   if (fb && fb.D) fb.D.set(fb.D.ref(fb.db, ROOM + '/genModels/' + def.id), JSON.parse(JSON.stringify(def))).catch(() => {});   // share with the other phone
@@ -4742,7 +4765,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.curtains-any-wall';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.ai-knows-kinds';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
