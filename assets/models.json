@@ -597,14 +597,5 @@
         "w":  0.7,
         "d":  0.7,
         "h":  1.65
-    },
-    {
-        "id":  "x_decorstudiolightfbx",
-        "file":  "Decor/Studio_Light.fbx",
-        "name":  "Studio Light",
-        "cat":  "Decor",
-        "w":  0.35,
-        "d":  0.35,
-        "h":  0.35
     }
 ]
