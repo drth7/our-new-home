@@ -1363,9 +1363,29 @@ function loadModel(def){
   }
   return modelCache[key];
 }
+// measure a model from its MESH CLUSTER, ignoring stray helper meshes parked far away
+// (they inflated the box → huge collision and wrong centring on some uploads)
+function fitBoxOf(root){
+  const boxes = [], centers = [];
+  root.traverse(o => {
+    if (o.isMesh && o.visible && o.geometry){
+      const b = new THREE.Box3().setFromObject(o);
+      if (!b.isEmpty()){ boxes.push(b); centers.push(b.getCenter(new THREE.Vector3())); }
+    }
+  });
+  if (boxes.length < 3) return new THREE.Box3().setFromObject(root);   // tiny scenes: nothing to trim
+  const mid = centers.reduce((a, c) => a.add(c), new THREE.Vector3()).multiplyScalar(1 / centers.length);
+  const dists = centers.map(c => c.distanceTo(mid)).sort((a, b) => a - b);
+  const diags = boxes.map(b => b.getSize(new THREE.Vector3()).length()).sort((a, b) => a - b);
+  const limit = Math.max(dists[Math.floor(dists.length/2)] * 3, diags[Math.floor(diags.length/2)] * 3);
+  const out = new THREE.Box3();
+  boxes.forEach((b, i) => { if (centers[i].distanceTo(mid) <= limit) out.union(b); });
+  return out.isEmpty() ? new THREE.Box3().setFromObject(root) : out;
+}
+
 function instantiateModel(proto, def){
   const inst = proto.clone(true);
-  const box = new THREE.Box3().setFromObject(inst);
+  const box = fitBoxOf(inst);
   const size = box.getSize(new THREE.Vector3());
   const rawMax = Math.max(size.x, size.y, size.z) || 1;
   // TRUE SIZE FIRST: detect the authoring unit (m / cm / mm) and keep the model's real
@@ -1374,11 +1394,15 @@ function instantiateModel(proto, def){
   let s = rawMax > 2000 ? 0.001 : rawMax > 20 ? 0.01 : 1;
   const realMax = rawMax * s;
   const refMax = Math.max(def.w, def.d, def.h);
-  if (def.anchorSize || realMax < refMax*0.55 || realMax > refMax*1.8){
-    s = refMax / rawMax;                           // user model / implausible size: anchor to the catalog size but KEEP the model's own proportions
+  // user uploads (anchorSize): trust the file's own PLAUSIBLE real size — the manifest entry is
+  // often just the folder default (a real 1.5 m piece must not shrink to a 35 cm Decor cube);
+  // anchor to the catalog only when the detected size is nonsense.
+  const plausible = realMax >= 0.15 && realMax <= 4.5;
+  if (def.anchorSize ? !plausible : (realMax < refMax*0.55 || realMax > refMax*1.8)){
+    s = refMax / rawMax;                           // implausible size: anchor to the catalog size but KEEP the model's own proportions
   }
   inst.scale.multiplyScalar(s);
-  box.setFromObject(inst);
+  box.min.multiplyScalar(s); box.max.multiplyScalar(s);   // uniform root scale — the measured box scales linearly
   const c = box.getCenter(new THREE.Vector3());
   inst.position.x -= c.x;                          // origin: centre of footprint, feet on the floor
   inst.position.z -= c.z;
@@ -4925,7 +4949,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.wall-flip';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.upload-fit';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
