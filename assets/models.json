@@ -597,5 +597,14 @@
         "w":  0.7,
         "d":  0.7,
         "h":  1.65
+    },
+    {
+        "id":  "x_decorsoftlightfbx",
+        "file":  "Decor/Soft Light.fbx",
+        "name":  "Soft Light",
+        "cat":  "Decor",
+        "w":  0.35,
+        "d":  0.35,
+        "h":  0.35
     }
 ]
