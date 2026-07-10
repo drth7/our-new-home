@@ -339,6 +339,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 
 <div id="topbar" class="bar">
   <button class="iconbtn" id="roomsBtn" title="Rooms" data-icon="house"></button>
+  <button class="iconbtn" id="wallEdBtn" title="Wall editor" data-icon="blueprint"></button>
   <h1><span id="userDot"></span><span id="homeTitle">Our New Home</span></h1>
   <button class="iconbtn" id="viewBtn" title="Toggle 2D / 3D view">2D</button>
   <button class="iconbtn" id="themeBtn" title="Light / Dark"></button>
@@ -468,7 +469,6 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
       <div class="secwrap"><div class="secinner">
         <div class="row"><button class="btn" id="saveBtn" data-icon="save"><span>Save</span></button><button class="btn" id="loadBtn" data-icon="folder"><span>Load</span></button></div>
         <div class="row"><button class="btn" id="exportBtn" data-icon="upload"><span>Export</span></button><button class="btn" id="importBtn" data-icon="download"><span>Import</span></button></div>
-        <button class="btn" id="wallEdBtn">🧱 <span>Wall editor (beta)</span></button>
         <button class="btn danger" id="clearBtn" data-icon="trash"><span>Clear all furniture</span></button>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div></div>
@@ -534,6 +534,7 @@ const ICONS = {
   wallmount:'<path d="M3 5h18"/><path d="M12 5v3"/><rect x="7.5" y="8" width="9" height="9" rx="1.6"/>',
   ruler:'<path d="M3.3 15.5 15.5 3.3a1.4 1.4 0 0 1 2 0l3.2 3.2a1.4 1.4 0 0 1 0 2L8.5 20.7a1.4 1.4 0 0 1-2 0l-3.2-3.2a1.4 1.4 0 0 1 0-2Z"/><path d="M8 8l2 2M11.5 4.5l1.5 1.5M4.5 11.5 6 13M15 7.5l1.5 1.5"/>',
   magnet:'<path d="M6 15l-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4"/><path d="m12 15 4 4"/>',
+  blueprint:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11.5h18"/><path d="M9.5 7v4.5"/><path d="M14.5 11.5V20"/>',
   shoplink:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   flip:'<path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><path d="M12 2v2"/><path d="M12 8v2"/><path d="M12 14v2"/><path d="M12 20v2"/>',
   house:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>',
@@ -823,10 +824,46 @@ const PLAN = {
     {d:'v', pos:3.5,  from:9.0,  to:13.4}                                  // maid + empty space | living
   ]
 };
-const PB = {x1:-0.3, z1:-0.3, x2:14.9, z2:13.6};                 // plan bounds incl. walls
-const PC = {x:(PB.x1+PB.x2)/2, z:(PB.z1+PB.z2)/2};
-const PW = PB.x2-PB.x1, PL = PB.z2-PB.z1;
-const RECTS = PLAN.rooms.flatMap(r => r.rects.map(rc => ({room:r, x1:rc[0], z1:rc[1], x2:rc[2], z2:rc[3]})));
+// The apartment can be REDRAWN in the wall editor: planOverride (synced in the layout) replaces
+// PLAN's rooms+walls, and everything derived from them is recomputed. null = the original home.
+const ORIG_PLAN = { rooms: PLAN.rooms, walls: PLAN.walls };
+let planOverride = null;
+let PB, PC, PW, PL, RECTS;
+function recomputePlanDerived(){
+  let x1 = 1e9, z1 = 1e9, x2 = -1e9, z2 = -1e9;
+  for (const w of PLAN.walls){
+    if (w.d === 'h'){ x1 = Math.min(x1, w.from); x2 = Math.max(x2, w.to); z1 = Math.min(z1, w.pos); z2 = Math.max(z2, w.pos); }
+    else { x1 = Math.min(x1, w.pos); x2 = Math.max(x2, w.pos); z1 = Math.min(z1, w.from); z2 = Math.max(z2, w.to); }
+  }
+  PB = { x1: x1 - 0.2, z1: z1 - 0.2, x2: x2 + 0.2, z2: z2 + 0.2 };
+  PC = { x: (PB.x1 + PB.x2) / 2, z: (PB.z1 + PB.z2) / 2 };
+  PW = PB.x2 - PB.x1; PL = PB.z2 - PB.z1;
+  RECTS = PLAN.rooms.flatMap(r => r.rects.map(rc => ({room:r, x1:rc[0], z1:rc[1], x2:rc[2], z2:rc[3]})));
+  DOOR_RECTS.length = 0;
+  for (const w of PLAN.walls) for (const op of (w.ops || [])){
+    if (op.t === 'door' || op.t === 'arch'){
+      const half = op.w/2, t = 0.35;
+      if (w.d === 'h') DOOR_RECTS.push({x1:op.at - half, z1:w.pos - t, x2:op.at + half, z2:w.pos + t});
+      else DOOR_RECTS.push({x1:w.pos - t, z1:op.at - half, x2:w.pos + t, z2:op.at + half});
+    }
+  }
+}
+// swap the live plan (ov = editor export {walls, rooms:[{name, rects}], lights:[{x,z,t}]} or null = original)
+function setPlanFromOverride(ov){
+  if (ov && Array.isArray(ov.walls) && Array.isArray(ov.rooms)){
+    PLAN.walls = ov.walls;
+    PLAN.rooms = ov.rooms.map((r, i) => {
+      const room = { id: 'ov' + i, name: r.name || ('Room ' + (i + 1)), rects: r.rects, furnishable: true };
+      const inside = (ov.lights || []).filter(L => r.rects.some(([a,b,c,d]) => L.x >= a && L.x <= c && L.z >= b && L.z <= d));
+      if (inside.length) room.lightPos = inside.map(L => [L.x, L.z, L.t || 'disc']);
+      return room;
+    });
+  } else {
+    PLAN.rooms = ORIG_PLAN.rooms;
+    PLAN.walls = ORIG_PLAN.walls;
+  }
+  recomputePlanDerived();
+}
 
 let sunAz       = 135;
 let roomNames   = {};                                            // id -> custom name (persisted in layout)
@@ -1088,10 +1125,12 @@ function buildWall(w, wi, glassMat, themeWall){
     m.userData.wi = wi;
     g.add(m); wallSegs.push(m);
   };
+  const H = w.h ?? WALL_H;                          // editor plans can set per-wall height (half-walls, parapets)
   if (w.rail){ seg(L, 1.0, 0, 0.5); return g; }                     // balcony rail
   if (w.ops && w.ops[0] && w.ops[0].t === 'glasswall'){             // floor-to-lintel glass across the whole wall
-    seg(L, 2.25, 0, 0.05 + 2.25/2, {glass:true});
-    seg(L, WALL_H - 2.3, 0, 2.3 + (WALL_H - 2.3)/2, {plan:true});
+    const gh = Math.min(2.25, H - 0.05);
+    seg(L, gh, 0, 0.05 + gh/2, {glass:true});
+    if (H > gh + 0.1) seg(L, H - gh - 0.05, 0, gh + 0.05 + (H - gh - 0.05)/2, {plan:true});
     return g;
   }
   const ops = [...(w.ops || [])].sort((a, b) => a.at - b.at);
@@ -1099,19 +1138,21 @@ function buildWall(w, wi, glassMat, themeWall){
   for (const op of ops){
     const u = op.at - cx, half = op.w/2;
     const sw = (u - half) - cur;
-    if (sw > 0.01) seg(sw, WALL_H, cur + sw/2, WALL_H/2);
+    if (sw > 0.01) seg(sw, H, cur + sw/2, H/2);
     if (op.t === 'win'){
-      seg(op.w, 0.9, u, 0.45, {plan:true});                          // sill wall
-      seg(op.w, WALL_H - 2.1, u, 2.1 + (WALL_H - 2.1)/2, {plan:true}); // lintel
-      seg(op.w, 1.2, u, 1.5, {glass:true});                          // glass pane
+      const sill = Math.min(op.sill ?? 0.9, H - 0.15);              // editor windows carry their own sill + height
+      const wh = Math.min(op.h ?? 1.2, H - sill);
+      if (sill > 0.02) seg(op.w, sill, u, sill/2, {plan:true});                            // sill wall
+      if (sill + wh < H - 0.02) seg(op.w, H - sill - wh, u, sill + wh + (H - sill - wh)/2, {plan:true}); // lintel
+      seg(op.w, wh, u, sill + wh/2, {glass:true});                  // glass pane
     } else {
-      const oh = op.t === 'arch' ? 2.3 : 2.05;                       // arch / door
-      seg(op.w, WALL_H - oh, u, oh + (WALL_H - oh)/2, {plan:true});
+      const oh = Math.min(op.h ?? (op.t === 'arch' ? 2.3 : 2.05), H);   // arch / door, free height
+      if (oh < H - 0.02) seg(op.w, H - oh, u, oh + (H - oh)/2, {plan:true});
     }
     cur = u + half;
   }
   const tail = L/2 - cur;
-  if (tail > 0.01) seg(tail, WALL_H, cur + tail/2, WALL_H/2);
+  if (tail > 0.01) seg(tail, H, cur + tail/2, H/2);
   return g;
 }
 
@@ -1181,10 +1222,15 @@ function buildPlan(){
     const on = !!lightsState[r.id];
     const spots = r.lightPos || [[(rc[0]+rc[2])/2, (rc[1]+rc[3])/2]];
     roomLights[r.id] = [];
-    for (const [cx, cz] of spots){
+    for (const [cx, cz, lt] of spots){
       const lm = new THREE.MeshStandardMaterial({color:0x8a9099, emissive:0xffd9a0, emissiveIntensity:on ? 1.6 : 0});
-      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.06, 16), lm);
-      disc.position.set(cx, 2.52, cz);
+      let disc, dy = 2.52;                          // fixture shape follows the editor's light type
+      if (lt === 'dome')        disc = new THREE.Mesh(new THREE.SphereGeometry(0.17, 18, 10, 0, Math.PI*2, Math.PI/2, Math.PI/2), lm);
+      else if (lt === 'ring')   disc = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.035, 10, 24), lm), disc.rotation.x = Math.PI/2;
+      else if (lt === 'bar')    disc = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.06, 0.12), lm);
+      else if (lt === 'pendant'){ disc = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.16, 14), lm); dy = 2.2; }
+      else                      disc = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.06, 16), lm);
+      disc.position.set(cx, dy, cz);
       disc.userData.lightRoom = r.id;              // tap a fixture to flip its switch
       roomGroup.add(disc);
       lightDiscs.push(disc);
@@ -2238,15 +2284,9 @@ scene.add(charGroup);
 let charProto = null, charProtoScale = 1, charProtoYOff = 0;
 const chars = {};   // role -> {g, inner, bones, rest, tag, moving, walkT}
 
-/* walkable = room floors + bridges through every door/arch opening */
+/* walkable = room floors + bridges through every door/arch opening (kept fresh by recomputePlanDerived) */
 const DOOR_RECTS = [];
-for (const w of PLAN.walls) for (const op of (w.ops || [])){
-  if (op.t === 'door' || op.t === 'arch'){
-    const half = op.w/2, t = 0.35;
-    if (w.d === 'h') DOOR_RECTS.push({x1:op.at - half, z1:w.pos - t, x2:op.at + half, z2:w.pos + t});
-    else DOOR_RECTS.push({x1:w.pos - t, z1:op.at - half, x2:w.pos + t, z2:op.at + half});
-  }
-}
+recomputePlanDerived();
 const canWalk = (x, z) => !!rectAt(x, z) || DOOR_RECTS.some(r => x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2);
 
 /* light furniture collision: can't walk INTO a piece, but can always walk OUT of one */
@@ -3742,6 +3782,7 @@ function serialize(){
     lights:{...lightsState},
     players:{...players},
     genDefs,
+    ...(planOverride ? {planOv: planOverride} : {}),  // a redrawn apartment travels with the layout
     deleted:{...tombstones},                          // deletes travel with the layout so they win over the union on the other phone
     revived:{...revived},                             // …and undo-revivals travel too, so an undone delete stays back
     furniture:items.map(itemRecord)
@@ -3764,6 +3805,8 @@ function loadData(data){
   floorColor = data.floorColor || null;
   lightsState = {...(data.lights || {})};
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
+  planOverride = data.planOv || null;                // a saved layout may carry a redrawn apartment
+  setPlanFromOverride(planOverride);
   buildPlan();
   if (data.genDefs) for (const id in data.genDefs) registerGenModel(data.genDefs[id]);   // recipes embedded in the layout
   const hadTombs = tombstones;
@@ -5002,7 +5045,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.editor-live';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.editor-saves';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5107,7 +5150,12 @@ function applyRemoteLayout(data, adopt){
       (data.wallColor || null) !== wallColor ||
       (data.floorColor || null) !== floorColor ||
       JSON.stringify(data.wallColors || {}) !== JSON.stringify(wallColors) ||
-      JSON.stringify(data.roomNames || {}) !== JSON.stringify(roomNames);
+      JSON.stringify(data.roomNames || {}) !== JSON.stringify(roomNames) ||
+      JSON.stringify(data.planOv || null) !== JSON.stringify(planOverride);
+    if (JSON.stringify(data.planOv || null) !== JSON.stringify(planOverride)){
+      planOverride = data.planOv || null;            // the partner redrew the apartment
+      setPlanFromOverride(planOverride);
+    }
     if (data.profile){
       const myGuest = (isGuest() && profile.guest) ? profile.guest.name : null;   // a guest's name is presence, not shared state:
       profile = data.profile;
@@ -5898,7 +5946,66 @@ $('loadBtn').onclick = () => {
 };
 $('exportBtn').onclick = exportLayout;
 $('importBtn').onclick = () => $('importFile').click();
-$('wallEdBtn').onclick = () => { location.href = 'wall-editor.html'; };   // the editor works on a DRAFT — it never touches the live home
+
+/* ---- Wall editor: opens INSIDE the app (session kept), Save rebuilds the real apartment ---- */
+let edFrame = null;
+function openWallEditor(){
+  // hand the editor the CURRENT live plan as its base (with room names + lights)
+  const names = {};
+  for (const r of (planOverride ? planOverride.rooms : PLAN.rooms.map(rm => ({name:getName(rm), rects:rm.rects})))){
+    let cx = 0, cz = 0, A = 0;
+    for (const [a, b, c, d] of r.rects){ const ar = (c - a) * (d - b); cx += ar * (a + c) / 2; cz += ar * (b + d) / 2; A += ar; }
+    if (A > 0) names[Math.round(cx / A * 2) / 2 + '|' + Math.round(cz / A * 2) / 2] = r.name;
+  }
+  const base = {
+    ts: Date.now(),
+    walls: JSON.parse(JSON.stringify(planOverride ? planOverride.walls : PLAN.walls)),
+    zones: JSON.parse(JSON.stringify((planOverride && planOverride.zones) || [])),
+    lights: planOverride ? JSON.parse(JSON.stringify(planOverride.lights || [])) :
+      PLAN.rooms.flatMap(r => (r.lightPos || [[(r.rects[0][0] + r.rects[0][2]) / 2, (r.rects[0][1] + r.rects[0][3]) / 2]]).map(p => ({ x: p[0], z: p[1], t: p[2] || 'disc' }))),
+    names
+  };
+  try { localStorage.setItem('walleditor.baseplan', JSON.stringify(base)); } catch(e){}
+  const wrap = document.createElement('div');
+  wrap.id = 'edWrap';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:70;background:#12161d';
+  edFrame = document.createElement('iframe');
+  edFrame.src = 'wall-editor.html?embed=1';
+  edFrame.style.cssText = 'width:100%;height:100%;border:0';
+  wrap.appendChild(edFrame);
+  document.body.appendChild(wrap);
+}
+function closeWallEditor(){ const w = document.getElementById('edWrap'); if (w) w.remove(); edFrame = null; }
+function adoptEditorPlan(p){
+  if (!canEdit()){ toast('Editing is off for guests'); return; }
+  showConfirm(`<h2>Rebuild the apartment? 🧱</h2>
+    <p class="wsub">The new walls replace the current layout for BOTH of you. Furniture stays but may need rearranging — and you can Undo.</p>
+    <button class="btn primary" id="planYes">Apply new layout</button>
+    <button class="btn" id="planNo">Keep editing</button>`, [
+    ['planYes', () => {
+      hideConfirm();
+      pushUndo();
+      planOverride = p;
+      setPlanFromOverride(p);
+      wallColors = {};                               // the wall numbering changed with the plan
+      buildPlan();
+      items.forEach(g => clampToRoom(g));            // pull furniture out of any new wall
+      closeWallEditor();
+      saveLocal(); scheduleSave();
+      renderRooms(); syncSettingsUI(); refreshTags();
+      logActivity('edit', 'rebuilt the apartment walls 🧱');
+      toast('New layout applied 🧱 — synced to both of you');
+    }],
+    ['planNo', hideConfirm]
+  ]);
+}
+addEventListener('message', e => {
+  if (!edFrame || e.source !== edFrame.contentWindow) return;
+  const d = e.data || {};
+  if (d.type === 'wallEditorExit') closeWallEditor();
+  else if (d.type === 'wallEditorSave' && d.plan) adoptEditorPlan(d.plan);
+});
+$('wallEdBtn').onclick = openWallEditor;
 
 $('importFile').addEventListener('change', e => {
   const f = e.target.files[0];
