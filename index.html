@@ -4167,7 +4167,7 @@ function adoptGenSpec(spec, fallbackName, i){
 async function generateFromUrl(url){
   const proxy = proxyUrl();
   if (!proxy){ promptForProxy(); return; }
-  showConfirm(`<h2>Reading that page ✨</h2><p class="wsub">Fetching the furniture and its real sizes… about 15&nbsp;seconds.</p><div class="rspin"></div>`, []);
+  showConfirm(`<h2>Reading that page ✨</h2><p class="wsub">Studying the product photos and real sizes… about 25&nbsp;seconds.</p><div class="rspin"></div>`, []);
   const bad = m => showConfirm(`<h2>Hmm 😕</h2><p class="wsub">${esc(m)}</p><button class="btn primary" id="gOk">OK</button><button class="btn" id="gRetry">Try again</button>`,
     [['gOk', () => { hideConfirm(); setAddOpen(true); }], ['gRetry', () => { hideConfirm(); promptCreate(); }]]);
   try{
@@ -4713,7 +4713,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.curtains-chip';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.url-v2';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.

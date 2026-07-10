@@ -58,53 +58,97 @@ export default {
     try { body = await request.json(); } catch { return json({ error: 'Bad request body.' }, 400, origin); }
 
     // ── link mode: a furniture product URL → one JSON recipe PER piece, at the page's real sizes ──
+    // Reads STRUCTURED product data when available (Shopify product .js, then JSON-LD), with up to
+    // THREE product photos — far more reliable than scraping raw page text with one staged photo.
     if (body && body.fetchUrl){
       let target;
       try { target = new URL(String(body.fetchUrl)); } catch { return json({ error: 'Bad URL.' }, 400, origin); }
       if (!/^https?:$/.test(target.protocol)) return json({ error: 'Bad URL.' }, 400, origin);
-      let page;
+      const UA = { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+                   'Accept-Language': 'en, ar;q=0.8' };
+      const strip = s => String(s || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+      let title = '', desc = '', imgUrls = [], pageText = '';
+
+      // 1) Shopify's product JSON (most furniture shops): clean title, description, product photos
       try {
-        const pr = await fetch(target.href, { redirect: 'follow', headers: {
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-          'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'en',
-        }});
-        if (!pr.ok) return json({ error: 'Page said ' + pr.status }, 422, origin);
-        page = await pr.text();
-      } catch { return json({ error: 'Could not reach that page.' }, 422, origin); }
-      // main product photo (og:image, twitter:image fallback) — the PRIMARY reference for the shape
-      const og = (page.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i) || page.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
-        || page.match(/name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i) || page.match(/content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i) || [])[1];
-      let imgPart = null;
-      if (og){
-        try {
-          const ir = await fetch(new URL(og, target.href).href, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          const mime = (ir.headers.get('Content-Type') || '').split(';')[0];
-          if (ir.ok && /^image\/(jpeg|png|webp)$/.test(mime)){
-            const buf = await ir.arrayBuffer();
-            if (buf.byteLength < 1_800_000){
-              let bin = ''; const bytes = new Uint8Array(buf);
-              for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-              imgPart = { inline_data: { mime_type: mime, data: btoa(bin) } };
-            }
+        const pj = await fetch(target.origin + target.pathname.replace(/\/+$/, '') + '.js', { headers: UA });
+        if (pj.ok && (pj.headers.get('Content-Type') || '').includes('json')){
+          const p = await pj.json();
+          if (p && p.title && Array.isArray(p.images)){
+            title = p.title;
+            desc = strip(p.description).slice(0, 9000);
+            imgUrls = p.images.slice(0, 3).map(u => {
+              u = String(u); if (u.startsWith('//')) u = 'https:' + u;
+              return u + (u.includes('?') ? '&' : '?') + 'width=900';        // Shopify CDN resizes — keeps uploads small
+            });
           }
+        }
+      } catch {}
+
+      // 2) the page itself: JSON-LD Product (any modern shop) and og/twitter image + text fallback
+      if (!title || !imgUrls.length){
+        let page = '';
+        try {
+          const pr = await fetch(target.href, { redirect: 'follow', headers: { ...UA, 'Accept': 'text/html,application/xhtml+xml' } });
+          if (!pr.ok) return json({ error: 'Page said ' + pr.status }, 422, origin);
+          page = await pr.text();
+        } catch { return json({ error: 'Could not reach that page.' }, 422, origin); }
+        for (const m of page.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)){
+          try {
+            const d = JSON.parse(m[1]);
+            const nodes = Array.isArray(d) ? d : (d['@graph'] || [d]);
+            for (const n of nodes){
+              const ty = n && n['@type'];
+              if (ty === 'Product' || (Array.isArray(ty) && ty.includes('Product'))){
+                title = title || n.name || '';
+                desc = desc || strip(n.description).slice(0, 9000);
+                if (!imgUrls.length){
+                  const im = n.image;
+                  imgUrls = (Array.isArray(im) ? im : [im]).filter(x => typeof x === 'string').slice(0, 3);
+                }
+              }
+            }
+          } catch {}
+        }
+        if (!imgUrls.length){
+          const og = (page.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i) || page.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
+            || page.match(/name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i) || page.match(/content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i) || [])[1];
+          if (og) imgUrls = [og];
+        }
+        pageText = page.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ');
+        pageText = strip(pageText).slice(0, 8000);                           // dims sometimes live outside the description
+      }
+
+      // fetch up to 3 photos (photo 1 is often the staged set; the rest are individual pieces)
+      const parts = [];
+      for (const iu of imgUrls){
+        if (parts.length >= 3) break;
+        try {
+          const ir = await fetch(new URL(iu, target.href).href, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          const mime = (ir.headers.get('Content-Type') || '').split(';')[0];
+          if (!ir.ok || !/^image\/(jpeg|png|webp)$/.test(mime)) continue;
+          const buf = await ir.arrayBuffer();
+          if (buf.byteLength >= 1_500_000) continue;
+          let bin = ''; const bytes = new Uint8Array(buf);
+          for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+          parts.push({ inline_data: { mime_type: mime, data: btoa(bin) } });
         } catch {}
       }
-      // page text only (tags/scripts stripped, capped) — the dimensions almost always live in the text
-      const text = page
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').slice(0, 14000);
-      const sys = 'You are modelling the furniture in the attached product PHOTO (when present) sold on a webpage. Output ONLY minified JSON (no prose, no markdown): ' +
-        '{"models":[MODEL,...]} with one MODEL per distinct furniture piece sold on the page (max 4; if the page sells a set of pieces, e.g. three different sofas, output each separately). ' +
+
+      const sys = 'You are modelling the furniture sold on a product page, using the attached product PHOTOS as ground truth (the first photo may show the whole staged set; later photos usually show individual pieces). The page text may be in any language. ' +
+        'Output ONLY minified JSON (no prose, no markdown): {"models":[MODEL,...]} — one MODEL per DISTINCT piece type on the page (a set = e.g. table + chair + buffet; never duplicates; max 4). ' +
         'MODEL schema: {"name":string<=16,"w":metres,"d":metres,"h":metres,"color":"#hex","parts":[{"shape":"box"|"cylinder"|"sphere"|"cone","w":m,"h":m,"d":m,"r":m,"x":m,"y":m,"z":m,"rx":deg,"ry":deg,"rz":deg,"color":"#hex"}]}. ' +
-        'THE PHOTO IS THE REFERENCE: study it and reproduce what you SEE as faithfully as primitives allow — the silhouette, the proportions, arm/back/leg style, cushion count, base type, and the EXACT colours of each material in the photo. Use up to 14 parts per model when the shape needs them; a person who owns the product should recognise it. ' +
-        'DIMENSIONS: w/d/h MUST be the REAL dimensions stated in the page text (convert cm/mm/inches to metres; width=w, depth=d, height=h). The photo drives the SHAPE, the text drives the SIZE. If a piece has no stated dimensions, estimate from the photo. ' +
-        'Rules: origin at the CENTRE of the floor footprint, y is UP, each part y is its centre height so the object rests on the floor (nothing below y=0). ' +
-        'PAGE TEXT: "' + text.replace(/"/g, "'") + '"';
-      const parts = imgPart ? [imgPart, { text: sys }] : [{ text: sys }];   // photo first — it is the reference
-      const gg = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+        'MATCH THE PHOTOS: silhouette, proportions, leg/arm/back style, and the EXACT material colours you see (two-tone finishes get two colours — e.g. a white-washed base with a wood top must not come out one flat colour). Use up to 16 parts when the shape needs them; someone who owns the product should recognise it. ' +
+        'GEOMETRY RULES (strict): origin at the CENTRE of the floor footprint, y UP, nothing below y=0; EVERY part must fit inside the model box — |x| + partWidth/2 <= w/2, |z| + partDepth/2 <= d/2, partY + partHeight/2 <= h. Legs go UNDER the top and INSET >= 0.03 m from its edges — never outside it. Tabletops sit at 0.73-0.78 m, chair seats at ~0.45 m. ' +
+        'DIMENSIONS: w/d/h MUST be the real dimensions stated in the text (convert cm/mm/inches to metres; width=w, depth=d, height=h). Each piece of a set uses ITS OWN stated dimensions; a piece with none gets a typical real size consistent with the photos. ' +
+        'PRODUCT TITLE: "' + String(title).slice(0, 200).replace(/"/g, "'") + '". ' +
+        'PRODUCT DESCRIPTION: "' + desc.replace(/"/g, "'") + '". ' +
+        (pageText ? 'PAGE TEXT: "' + pageText.replace(/"/g, "'") + '".' : '');
+      parts.push({ text: sys });
+      const gg = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
-        body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.3 } }),
+        body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.25 } }),
       });
       const t = await gg.text();
       return new Response(t, { status: gg.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
