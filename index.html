@@ -1402,7 +1402,7 @@ let thumbKit = null;
 const thumbMem = {};
 async function getThumb(def){
   if (thumbMem[def.id]) return thumbMem[def.id];
-  const key = 'roomplanner.thumb2.' + def.id;        // v2: bounding-sphere framing (old cropped thumbs regenerate)
+  const key = 'roomplanner.thumb3.' + def.id;        // v3: true colours (v2 shot parametric pieces unpainted)
   try { const c = localStorage.getItem(key); if (c){ thumbMem[def.id] = c; return c; } } catch(e){}
   let inst = null, builtHere = false;
   if (def.model || def.custom){
@@ -1413,6 +1413,7 @@ async function getThumb(def){
     inst = buildFurniture(def.id);                   // parametric + AI pieces photograph themselves
     builtHere = true;
     if (!inst) return null;
+    if (!def.gen) applyTint(inst, def.color);        // paint it — colours are normally applied at placement, not at build
   }
   if (!thumbKit){
     const r = new THREE.WebGLRenderer({antialias:true, alpha:true});
@@ -1445,9 +1446,9 @@ async function getThumb(def){
   try { localStorage.setItem(key, url); } catch(e){}
   return url;
 }
-try {                                                // clear the old cropped-thumb cache (collect first — removing while iterating skips keys)
+try {                                                // clear superseded thumb caches (collect first — removing while iterating skips keys)
   const olds = [];
-  for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.startsWith('roomplanner.thumb.')) olds.push(k); }
+  for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.startsWith('roomplanner.thumb') && !k.startsWith('roomplanner.thumb3.')) olds.push(k); }
   olds.forEach(k => localStorage.removeItem(k));
 } catch(e){}
 
@@ -1679,10 +1680,9 @@ function buildFurniture(type){
     case 'tlamp': {
       const base = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.03, 12), dark); base.position.y = 0.015; g.add(base);
       const pole = block(0.02, h - 0.2, 0.02, dark); pole.position.y = (h - 0.2)/2; g.add(pole);
-      const shadeMat = new THREE.MeshStandardMaterial({color:0xf5e6c4, emissive:0xffd9a0, emissiveIntensity:0.9, roughness:0.6});
-      const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.14, 12, 1, true), shadeMat); shade.position.y = h - 0.12; g.add(shade);
-      const glow = new THREE.PointLight(0xffd9a6, 1.2, 2.5, 1.8); glow.position.y = h - 0.15; g.add(glow);
-      break;
+      const shadeMat = new THREE.MeshStandardMaterial({color:0xf5e6c4, emissive:0xffd9a0, emissiveIntensity:0, roughness:0.6});
+      const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.14, 12, 1, true), shadeMat); shade.position.y = h - 0.12; shade.userData.glow = true; g.add(shade);
+      break;                                         // the light itself comes from the lamp switch (setLampLit)
     }
     case 'chair': {
       const seat = block(w, 0.08, d, main); seat.position.y = 0.45; g.add(seat);
@@ -1876,12 +1876,12 @@ function buildFurniture(type){
       break;
     }
     case 'lamp1': case 'lamp2': case 'lamp3': {
-      const shadeMat = new THREE.MeshStandardMaterial({color:0xf5e6c4, emissive:0xffd9a0, emissiveIntensity:0.9, roughness:0.6});
-      let shadeY = h - 0.18, shadeX = 0;
+      const shadeMat = new THREE.MeshStandardMaterial({color:0xf5e6c4, emissive:0xffd9a0, emissiveIntensity:0, roughness:0.6});
+      let shadeY = h - 0.18;
       if (type === 'lamp1'){                     // classic: straight pole + cone shade
         const base = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.04, 14), dark); base.position.y = 0.02; base.castShadow = true; g.add(base);
         const pole = block(0.035, h - 0.3, 0.035, dark); pole.position.y = (h - 0.3)/2; g.add(pole);
-        const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.17, 0.28, 14, 1, true), shadeMat); shade.position.y = shadeY; g.add(shade);
+        const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.17, 0.28, 14, 1, true), shadeMat); shade.position.y = shadeY; shade.userData.glow = true; g.add(shade);
       } else if (type === 'lamp2'){              // tripod legs + drum shade
         for (let i = 0; i < 3; i++){
           const a = i * Math.PI*2/3;
@@ -1890,19 +1890,15 @@ function buildFurniture(type){
           leg.rotation.z = Math.sin(a)*0.18; leg.rotation.x = -Math.cos(a)*0.18;
           g.add(leg);
         }
-        const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.24, 16, 1, true), shadeMat); shade.position.y = shadeY; g.add(shade);
+        const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.24, 16, 1, true), shadeMat); shade.position.y = shadeY; shade.userData.glow = true; g.add(shade);
       } else {                                   // arc: curved reach + dome shade
         const base = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.05, 14), dark); base.position.set(-w/2 + 0.16, 0.025, 0); base.castShadow = true; g.add(base);
         const pole = block(0.035, h - 0.25, 0.035, main); pole.position.set(-w/2 + 0.16, (h - 0.25)/2, 0); g.add(pole);
         const arm = block(w - 0.34, 0.035, 0.035, main); arm.position.set(0, h - 0.2, 0); g.add(arm);
         const shade = new THREE.Mesh(new THREE.SphereGeometry(0.14, 14, 10, 0, Math.PI*2, 0, Math.PI/2), shadeMat);
-        shade.rotation.x = Math.PI; shade.position.set(w/2 - 0.16, h - 0.26, 0); g.add(shade);
-        shadeY = h - 0.3; shadeX = w/2 - 0.16;
+        shade.rotation.x = Math.PI; shade.position.set(w/2 - 0.16, h - 0.26, 0); shade.userData.glow = true; g.add(shade);
       }
-      const glow = new THREE.PointLight(0xffd9a6, 2.6, 4.5, 1.6);
-      glow.position.set(shadeX, shadeY - 0.08, 0);
-      g.add(glow);
-      break;
+      break;                                     // the light itself comes from the lamp switch (setLampLit)
     }
     case 'plant': {
       const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.3, 16), dark);
@@ -4441,7 +4437,7 @@ function removeGenLocal(id, tomb){                       // pull a created model
   pendingFurniture = pendingFurniture.filter(f => f.type !== id);
   delete CATALOG[id];
   delete thumbMem[id];                                   // its little product shot goes too
-  try { localStorage.removeItem('roomplanner.thumb.' + id); } catch(e){}
+  try { localStorage.removeItem('roomplanner.thumb3.' + id); } catch(e){}
   jset(GEN_LS, jget(GEN_LS, []).filter(s => s.id !== id));
   return removed;
 }
@@ -4911,7 +4907,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.thumbs-all';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.thumbs-true-color';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
