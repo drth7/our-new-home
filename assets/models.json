@@ -599,9 +599,9 @@
         "h":  1.65
     },
     {
-        "id":  "x_decorsoftboxglb",
-        "file":  "Decor/Softbox.glb",
-        "name":  "Softbox",
+        "id":  "x_decorsoftboxfbx",
+        "file":  "Decor/Soft Box.fbx",
+        "name":  "Soft Box",
         "cat":  "Decor",
         "w":  0.35,
         "d":  0.35,
