@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Wall Editor — prototype</title>
+<style>
+:root{--bg:#141a22;--panel:#1d2530;--panel2:#232c39;--line:#2e3947;--text:#e8edf3;--muted:#8b97a5;--accent:#4c86d6;--warn:#e0a33e;--danger:#e0555f}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
+#top{position:fixed;left:0;right:0;top:0;z-index:10;display:flex;gap:6px;align-items:center;padding:8px;background:var(--panel);box-shadow:0 2px 14px rgba(0,0,0,.35);flex-wrap:wrap}
+#top b{font-size:14px;margin-right:6px}
+.tb{border:none;border-radius:9px;background:var(--panel2);color:var(--text);padding:8px 11px;font-size:13px;font-weight:600;cursor:pointer;display:flex;gap:6px;align-items:center}
+.tb.on{background:var(--accent);color:#fff}
+.tb.danger.on{background:var(--danger)}
+.sep{width:1px;height:22px;background:var(--line);margin:0 3px}
+#cv{position:fixed;inset:0;top:0;cursor:crosshair;touch-action:none}
+#insp{position:fixed;right:10px;top:56px;z-index:9;width:230px;background:var(--panel);border-radius:14px;padding:12px;box-shadow:0 8px 28px rgba(0,0,0,.4);display:none}
+#insp h3{font-size:13px;margin-bottom:8px;color:var(--accent)}
+#insp label{display:block;font-size:11.5px;color:var(--muted);margin:7px 0 3px}
+#insp input,#insp select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 8px;font-size:13px}
+#insp .row{display:flex;gap:6px}
+#insp button{margin-top:9px;width:100%;border:none;border-radius:9px;padding:8px;background:var(--danger);color:#fff;font-weight:700;cursor:pointer}
+#rooms{position:fixed;left:10px;bottom:10px;z-index:9;background:rgba(29,37,48,.92);border-radius:12px;padding:10px 12px;max-width:260px;max-height:40vh;overflow:auto;font-size:12.5px}
+#rooms h3{font-size:12px;color:var(--muted);margin-bottom:6px}
+#rooms div{padding:2px 0}
+#hint{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:8;background:rgba(20,26,34,.85);border-radius:10px;padding:7px 13px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+#p3d{position:fixed;inset:0;z-index:20;background:#0d1117;display:none}
+#p3d canvas{position:absolute;inset:0}
+#close3d{position:absolute;top:12px;right:12px;z-index:21}
+#file{display:none}
+@media (max-width:720px){ #insp{width:200px} .tb{padding:8px 9px;font-size:12px} }
+</style>
+</head>
+<body>
+<div id="top">
+  <b>Wall editor</b>
+  <button class="tb on" data-tool="select">Select</button>
+  <button class="tb" data-tool="wall">+ Wall</button>
+  <button class="tb" data-tool="door">+ Door</button>
+  <button class="tb" data-tool="win">+ Window</button>
+  <button class="tb" data-tool="arch">+ Arch</button>
+  <button class="tb" data-tool="light">+ Light</button>
+  <select id="lightType" class="tb" title="Ceiling light type">
+    <option value="disc">Disc</option><option value="dome">Dome</option><option value="ring">Ring</option>
+    <option value="bar">Bar</option><option value="pendant">Pendant</option>
+  </select>
+  <button class="tb danger" data-tool="del">Delete</button>
+  <span class="sep"></span>
+  <button class="tb" id="undoB">Undo</button>
+  <button class="tb" id="view3d">3D preview</button>
+  <button class="tb" id="exportB">Export</button>
+  <button class="tb" id="importB">Import</button>
+  <button class="tb" id="resetB">Reset to apartment</button>
+</div>
+<canvas id="cv"></canvas>
+<div id="insp"></div>
+<div id="rooms"></div>
+<div id="hint">Drag empty space to pan · wheel to zoom · pick a tool above</div>
+<div id="p3d"><button class="tb on" id="close3d">Back to editor</button></div>
+<input type="file" id="file" accept=".json">
+<script type="module">
+/* ============ the current apartment (same PLAN format as the app) ============ */
+const APARTMENT = {
+  walls: [
+    {d:'h', pos:-0.1, from:3.6, to:10.0, ops:[{t:'win', at:5.95, w:2.2}]},
+    {d:'h', pos:1.2,  from:-0.2, to:0.35},
+    {d:'h', pos:1.2,  from:0.35, to:3.15, ops:[{t:'glasswall'}]},
+    {d:'h', pos:1.2,  from:3.15, to:3.6},
+    {d:'v', pos:0.25, from:0.0,  to:1.2, rail:true},
+    {d:'h', pos:0.0,  from:0.25, to:3.25, rail:true},
+    {d:'v', pos:3.25, from:0.0,  to:1.2, rail:true},
+    {d:'v', pos:10.0, from:-0.1, to:0.5},
+    {d:'h', pos:-0.1, from:10.0, to:13.7},
+    {d:'v', pos:13.6, from:-0.1, to:8.45, ops:[{t:'win', at:1.95, w:1.6},{t:'win', at:5.85, w:1.6}]},
+    {d:'h', pos:7.7,  from:9.9,  to:13.7},
+    {d:'h', pos:9.0,  from:1.2,  to:3.6,  ops:[{t:'door', at:2.4, w:0.9}]},
+    {d:'h', pos:8.35, from:13.6, to:14.8},
+    {d:'v', pos:-0.1, from:-0.2, to:13.4, ops:[{t:'win', at:6.7, w:0.6},{t:'door', at:12.7, w:1.0}]},
+    {d:'h', pos:13.3, from:-0.2, to:3.5},
+    {d:'h', pos:12.1, from:3.5,  to:13.7},
+    {d:'v', pos:13.6, from:8.45, to:11.45, ops:[{t:'glasswall'}]},
+    {d:'v', pos:13.6, from:11.45, to:12.1},
+    {d:'v', pos:14.7, from:8.35, to:11.55, rail:true},
+    {d:'h', pos:11.55, from:13.6, to:14.8, rail:true},
+    {d:'v', pos:3.6,  from:-0.1, to:3.7},
+    {d:'v', pos:3.6,  from:3.7,  to:4.4},
+    {d:'h', pos:5.8,  from:-0.2, to:1.5},
+    {d:'v', pos:1.5,  from:5.8,  to:7.8,  ops:[{t:'door', at:6.8, w:0.75}]},
+    {d:'h', pos:7.7,  from:-0.2, to:3.6,  ops:[{t:'door', at:2.9, w:1.0}]},
+    {d:'h', pos:3.7,  from:3.6,  to:8.4,  ops:[{t:'door', at:7.45, w:0.75}]},
+    {d:'v', pos:8.3,  from:-0.1, to:7.7,  ops:[{t:'door', at:2.9, w:0.9}]},
+    {d:'h', pos:2.2,  from:8.2,  to:10.0, ops:[{t:'door', at:9.1, w:0.8}]},
+    {d:'v', pos:10.0, from:0.5,  to:7.8,  ops:[{t:'door', at:3.4, w:0.9},{t:'door', at:5.2, w:0.9}]},
+    {d:'h', pos:3.9,  from:10.0, to:13.7},
+    {d:'v', pos:3.6,  from:4.4,  to:7.8,  ops:[{t:'arch', at:6.0, w:1.5}]},
+    {d:'h', pos:7.7,  from:3.6,  to:8.4,  ops:[{t:'arch', at:5.2, w:1.6}]},
+    {d:'v', pos:6.6,  from:3.7,  to:7.7},
+    {d:'h', pos:6.1,  from:6.6,  to:8.4},
+    {d:'v', pos:1.2,  from:9.0,  to:13.4},
+    {d:'h', pos:11.1, from:1.2,  to:3.5},
+    {d:'v', pos:3.5,  from:9.0,  to:13.4}
+  ],
+  lights: [
+    {x:5.0,  z:11.0, t:'disc'}, {x:10.6, z:11.0, t:'disc'}, {x:5.1, z:5.7, t:'disc'},
+    {x:5.95, z:1.8,  t:'disc'}, {x:11.8, z:1.9,  t:'disc'}, {x:11.8, z:5.8, t:'disc'},
+    {x:1.75, z:2.8,  t:'disc'}, {x:2.35, z:10.05,t:'disc'}, {x:1.8, z:8.3, t:'disc'},
+    {x:9.15, z:4.9,  t:'disc'}, {x:0.55, z:11.0, t:'disc'}
+  ]
+};
+const OP_DEFAULTS = { door:{w:0.9, h:2.05}, win:{w:1.2, h:1.2, sill:0.9}, arch:{w:1.5, h:2.3} };
+const WALL_T = 0.2, WALL_H = 2.6, SNAP = 0.05;
+const LS_KEY = 'walleditor.draft';
+
+/* ============ state ============ */
+let plan = load() || fresh();
+let roomsD = [];                                     // detected rooms [{name, rects, cx, cz, area}]
+let names = plan.names || {};                        // room name memory keyed by rounded centroid
+let tool = 'select', selW = -1, selOp = -1, selLight = -1;
+let cam = {x:6.8, z:6.5, s:64};                      // world centre + px per metre
+const undoStack = [];
+function fresh(){ return JSON.parse(JSON.stringify(APARTMENT)); }
+function load(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)); }catch(e){ return null; } }
+function save(){ plan.names = names; try{ localStorage.setItem(LS_KEY, JSON.stringify(plan)); }catch(e){} }
+function snap(v){ return Math.round(v / SNAP) * SNAP; }
+function pushUndo(){ undoStack.push(JSON.stringify(plan)); if (undoStack.length > 60) undoStack.shift(); }
+function undo(){ if (!undoStack.length) return; plan = JSON.parse(undoStack.pop()); selW = selOp = selLight = -1; detect(); save(); draw(); inspect(); }
+
+/* ============ canvas & camera ============ */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+function resize(){ cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px'; draw(); }
+addEventListener('resize', resize);
+const sx = wx => (wx - cam.x) * cam.s + innerWidth / 2;
+const sz = wz => (wz - cam.z) * cam.s + innerHeight / 2;
+const wx = px => (px - innerWidth / 2) / cam.s + cam.x;
+const wz = py => (py - innerHeight / 2) / cam.s + cam.z;
+
+/* ============ room detection: flood fill + rect merge ============ */
+function detect(){
+  const W = plan.walls;
+  if (!W.length){ roomsD = []; renderRooms(); return; }
+  let x1 = 1e9, z1 = 1e9, x2 = -1e9, z2 = -1e9;
+  for (const w of W){
+    if (w.d === 'h'){ x1 = Math.min(x1, w.from); x2 = Math.max(x2, w.to); z1 = Math.min(z1, w.pos); z2 = Math.max(z2, w.pos); }
+    else { z1 = Math.min(z1, w.from); z2 = Math.max(z2, w.to); x1 = Math.min(x1, w.pos); x2 = Math.max(x2, w.pos); }
+  }
+  x1 -= 0.5; z1 -= 0.5; x2 += 0.5; z2 += 0.5;
+  const res = 0.05, gw = Math.ceil((x2 - x1) / res), gh = Math.ceil((z2 - z1) / res);
+  if (gw * gh > 4e6){ roomsD = []; renderRooms(); return; }
+  const blocked = new Uint8Array(gw * gh);
+  for (const w of W){
+    const t = WALL_T / 2;
+    const a = w.d === 'h' ? {x1:w.from, x2:w.to, z1:w.pos - t, z2:w.pos + t} : {x1:w.pos - t, x2:w.pos + t, z1:w.from, z2:w.to};
+    const ix1 = Math.max(0, Math.floor((a.x1 - x1) / res)), ix2 = Math.min(gw - 1, Math.ceil((a.x2 - x1) / res));
+    const iz1 = Math.max(0, Math.floor((a.z1 - z1) / res)), iz2 = Math.min(gh - 1, Math.ceil((a.z2 - z1) / res));
+    for (let iz = iz1; iz <= iz2; iz++) for (let ix = ix1; ix <= ix2; ix++) blocked[iz * gw + ix] = 1;
+  }
+  const seen = new Uint8Array(gw * gh);
+  const bfs = (start, mark) => {                     // iterative flood
+    const q = [start]; seen[start] = mark;
+    const cells = [];
+    while (q.length){
+      const i = q.pop(); cells.push(i);
+      const ix = i % gw, iz = (i / gw) | 0;
+      for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx = ix + dx, nz = iz + dz;
+        if (nx < 0 || nz < 0 || nx >= gw || nz >= gh) continue;
+        const j = nz * gw + nx;
+        if (!seen[j] && !blocked[j]){ seen[j] = mark; q.push(j); }
+      }
+    }
+    return cells;
+  };
+  for (let ix = 0; ix < gw; ix++){ if (!blocked[ix] && !seen[ix]) bfs(ix, 1); const b = (gh - 1) * gw + ix; if (!blocked[b] && !seen[b]) bfs(b, 1); }
+  for (let iz = 0; iz < gh; iz++){ const l = iz * gw; if (!blocked[l] && !seen[l]) bfs(l, 1); const r = iz * gw + gw - 1; if (!blocked[r] && !seen[r]) bfs(r, 1); }
+  const pockets = [];
+  for (let i = 0; i < gw * gh; i++){
+    if (!blocked[i] && !seen[i]){
+      const cells = bfs(i, 2);
+      if (cells.length * res * res >= 0.8) pockets.push(cells);
+    }
+  }
+  const prev = roomsD;
+  roomsD = pockets.map(cells => {
+    const mask = new Set(cells);
+    let cx = 0, cz = 0;
+    for (const i of cells){ cx += (i % gw); cz += ((i / gw) | 0); }
+    cx = x1 + (cx / cells.length) * res; cz = z1 + (cz / cells.length) * res;
+    // row-run merge into rects
+    const runsByRow = new Map();
+    for (const i of cells){
+      const iz = (i / gw) | 0, ix = i % gw;
+      if (!runsByRow.has(iz)) runsByRow.set(iz, []);
+      runsByRow.get(iz).push(ix);
+    }
+    const rowRuns = new Map();
+    for (const [iz, list] of runsByRow){
+      list.sort((a, b) => a - b);
+      const runs = [];
+      let s = list[0], p = list[0];
+      for (let k = 1; k <= list.length; k++){
+        if (k === list.length || list[k] !== p + 1){ runs.push([s, p]); s = list[k]; }
+        p = list[k];
+      }
+      rowRuns.set(iz, runs);
+    }
+    const rects = [];
+    const rows = [...rowRuns.keys()].sort((a, b) => a - b);
+    const open = new Map();                          // "x1,x2" -> {startRow}
+    for (let r = 0; r <= rows.length; r++){
+      const iz = rows[r], runs = r < rows.length && rows[r] === (r === 0 ? rows[0] : rows[r - 1] + 1) || r === 0 ? rowRuns.get(iz) : null;
+      const cur = new Set();
+      if (runs && (r === 0 || rows[r] === rows[r - 1] + 1)){
+        for (const [a, b] of runs){
+          const key = a + ',' + b;
+          cur.add(key);
+          if (!open.has(key)) open.set(key, rows[r]);
+        }
+      }
+      for (const [key, startRow] of [...open]){
+        if (!cur.has(key)){
+          const [a, b] = key.split(',').map(Number);
+          const endRow = r < rows.length && rows[r] === (r === 0 ? rows[0] : rows[r-1] + 1) ? rows[r] - 1 : rows[r - 1];
+          rects.push([x1 + a * res, z1 + startRow * res, x1 + (b + 1) * res, z1 + (endRow + 1) * res]);
+          open.delete(key);
+        }
+      }
+    }
+    const area = cells.length * res * res;
+    return { rects, cx, cz, area, key: Math.round(cx * 2) / 2 + '|' + Math.round(cz * 2) / 2 };
+  });
+  // keep names; new rooms get one + an automatic centre light
+  for (const r of roomsD){
+    const old = prev.find(p => Math.hypot(p.cx - r.cx, p.cz - r.cz) < 1.2);
+    r.name = names[r.key] || (old && old.name) || null;
+    if (!r.name){
+      r.name = 'Room ' + (Object.keys(names).length + 1);
+      names[r.key] = r.name;
+      if (!plan.lights.some(L => Math.hypot(L.x - r.cx, L.z - r.cz) < 2.2 && inRoom(r, L.x, L.z))){
+        plan.lights.push({ x: snap(r.cx), z: snap(r.cz), t: document.getElementById('lightType').value });
+      }
+    } else names[r.key] = r.name;
+  }
+  renderRooms();
+}
+function inRoom(r, x, z){ return r.rects.some(([a, b, c, d]) => x >= a && x <= c && z >= b && z <= d); }
+function renderRooms(){
+  const el = document.getElementById('rooms');
+  el.innerHTML = '<h3>Detected rooms (double-tap a name on the plan to rename)</h3>' +
+    roomsD.map(r => `<div>• ${r.name} — ${r.area.toFixed(1)} m²</div>`).join('') +
+    (roomsD.length ? '' : '<div style="color:var(--muted)">none yet — close a shape with walls</div>');
+}
+
+/* ============ drawing ============ */
+const ROOM_TINTS = ['#4c86d622','#e8709a22','#5bd6a022','#e0a33e22','#a06aff22','#6ad0e022','#d6cf4c22','#e0653e22'];
+function draw(){
+  const dpr = devicePixelRatio;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, innerWidth, innerHeight);
+  // grid
+  const step = cam.s > 90 ? 0.1 : 0.5;
+  ctx.strokeStyle = '#1b2330'; ctx.lineWidth = 1;
+  const gx1 = Math.floor(wx(0) / step) * step, gx2 = wx(innerWidth), gz1 = Math.floor(wz(0) / step) * step, gz2 = wz(innerHeight);
+  ctx.beginPath();
+  for (let x = gx1; x < gx2; x += step){ ctx.moveTo(sx(x), 0); ctx.lineTo(sx(x), innerHeight); }
+  for (let z = gz1; z < gz2; z += step){ ctx.moveTo(0, sz(z)); ctx.lineTo(innerWidth, sz(z)); }
+  ctx.stroke();
+  // rooms
+  roomsD.forEach((r, i) => {
+    ctx.fillStyle = ROOM_TINTS[i % ROOM_TINTS.length];
+    for (const [a, b, c, d] of r.rects) ctx.fillRect(sx(a), sz(b), (c - a) * cam.s, (d - b) * cam.s);
+    ctx.fillStyle = '#e8edf3'; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(r.name, sx(r.cx), sz(r.cz) - 4);
+    ctx.fillStyle = '#8b97a5'; ctx.font = '11px system-ui';
+    ctx.fillText(r.area.toFixed(1) + ' m²', sx(r.cx), sz(r.cz) + 11);
+  });
+  // walls
+  plan.walls.forEach((w, i) => {
+    const seld = i === selW;
+    const t = (WALL_T / 2) * cam.s;
+    const col = w.rail ? '#5b8ba6' : w.ops && w.ops[0] && w.ops[0].t === 'glasswall' ? '#69b7e0' : seld ? '#ffd23e' : '#9db1c5';
+    ctx.fillStyle = col;
+    const segs = solidSegs(w);
+    for (const [a, b] of segs){
+      if (w.d === 'h') ctx.fillRect(sx(a), sz(w.pos) - t, (b - a) * cam.s, t * 2);
+      else ctx.fillRect(sx(w.pos) - t, sz(a), t * 2, (b - a) * cam.s);
+    }
+    // ops glyphs
+    (w.ops || []).forEach((o, oi) => {
+      if (o.t === 'glasswall') return;
+      const osel = seld && oi === selOp;
+      ctx.strokeStyle = osel ? '#ffd23e' : o.t === 'door' ? '#7fd08f' : o.t === 'win' ? '#69b7e0' : '#c9a86a';
+      ctx.lineWidth = osel ? 3 : 2;
+      const a = o.at - o.w / 2, b = o.at + o.w / 2;
+      ctx.beginPath();
+      if (w.d === 'h'){
+        ctx.moveTo(sx(a), sz(w.pos)); ctx.lineTo(sx(b), sz(w.pos));
+        if (o.t === 'win'){ ctx.moveTo(sx(a), sz(w.pos) - 3); ctx.lineTo(sx(b), sz(w.pos) - 3); }
+        if (o.t === 'door'){ ctx.moveTo(sx(a), sz(w.pos)); ctx.arc(sx(a), sz(w.pos), o.w * cam.s, 0, -Math.PI / 2, true); }
+      } else {
+        ctx.moveTo(sx(w.pos), sz(a)); ctx.lineTo(sx(w.pos), sz(b));
+        if (o.t === 'win'){ ctx.moveTo(sx(w.pos) - 3, sz(a)); ctx.lineTo(sx(w.pos) - 3, sz(b)); }
+        if (o.t === 'door'){ ctx.moveTo(sx(w.pos), sz(a)); ctx.arc(sx(w.pos), sz(a), o.w * cam.s, Math.PI / 2, 0, true); }
+      }
+      ctx.stroke();
+      if (osel){
+        ctx.fillStyle = '#ffd23e'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+        const mx = w.d === 'h' ? sx(o.at) : sx(w.pos), mz = w.d === 'h' ? sz(w.pos) : sz(o.at);
+        ctx.fillText(o.w.toFixed(2) + ' m', mx, mz - 10);
+      }
+    });
+    // measurement label
+    const len = w.to - w.from;
+    ctx.fillStyle = seld ? '#ffd23e' : '#67788c';
+    ctx.font = (seld ? '600 ' : '') + '11px system-ui'; ctx.textAlign = 'center';
+    if (w.d === 'h') ctx.fillText(len.toFixed(2) + ' m', sx((w.from + w.to) / 2), sz(w.pos) - t - 4);
+    else { ctx.save(); ctx.translate(sx(w.pos) - t - 5, sz((w.from + w.to) / 2)); ctx.rotate(-Math.PI / 2); ctx.fillText(len.toFixed(2) + ' m', 0, 0); ctx.restore(); }
+    // endpoint handles
+    if (seld){
+      ctx.fillStyle = '#ffd23e';
+      for (const e of [w.from, w.to]){
+        const px = w.d === 'h' ? sx(e) : sx(w.pos), pz = w.d === 'h' ? sz(w.pos) : sz(e);
+        ctx.beginPath(); ctx.arc(px, pz, 6, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  });
+  // lights
+  plan.lights.forEach((L, i) => {
+    const p = { x: sx(L.x), z: sz(L.z) }, on = i === selLight;
+    ctx.strokeStyle = on ? '#ffd23e' : '#e5c687'; ctx.fillStyle = on ? '#ffd23e' : '#e5c68766'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (L.t === 'ring'){ ctx.arc(p.x, p.z, 8, 0, Math.PI * 2); ctx.stroke(); }
+    else if (L.t === 'bar'){ ctx.fillRect(p.x - 11, p.z - 3.5, 22, 7); ctx.strokeRect(p.x - 11, p.z - 3.5, 22, 7); }
+    else if (L.t === 'pendant'){ ctx.arc(p.x, p.z, 5, 0, Math.PI * 2); ctx.fill(); ctx.moveTo(p.x, p.z - 5); ctx.lineTo(p.x, p.z - 12); ctx.stroke(); }
+    else if (L.t === 'dome'){ ctx.arc(p.x, p.z, 8, Math.PI, 0); ctx.fill(); ctx.stroke(); }
+    else { ctx.arc(p.x, p.z, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+  });
+  // live wall preview while drawing
+  if (drawing){
+    ctx.strokeStyle = '#ffd23e'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.moveTo(sx(drawing.x1), sz(drawing.z1)); ctx.lineTo(sx(drawing.x2), sz(drawing.z2)); ctx.stroke();
+    ctx.setLineDash([]);
+    const len = Math.max(Math.abs(drawing.x2 - drawing.x1), Math.abs(drawing.z2 - drawing.z1));
+    ctx.fillStyle = '#ffd23e'; ctx.font = '600 13px system-ui';
+    ctx.fillText(len.toFixed(2) + ' m', sx((drawing.x1 + drawing.x2) / 2) + 10, sz((drawing.z1 + drawing.z2) / 2) - 10);
+  }
+}
+function solidSegs(w){                               // wall spans minus its openings (the 2D version of the mesh cut)
+  const ops = (w.ops || []).filter(o => o.t !== 'glasswall').slice().sort((a, b) => a.at - b.at);
+  const segs = []; let cur = w.from;
+  for (const o of ops){
+    const a = o.at - o.w / 2, b = o.at + o.w / 2;
+    if (a > cur + 0.01) segs.push([cur, a]);
+    cur = Math.max(cur, b);
+  }
+  if (cur < w.to - 0.01) segs.push([cur, w.to]);
+  return segs.length ? segs : [[w.from, w.to]];
+}
+
+/* ============ hit testing ============ */
+function hitWall(x, z){
+  let best = -1, bd = 0.18;
+  plan.walls.forEach((w, i) => {
+    const d = w.d === 'h'
+      ? (x >= w.from - 0.1 && x <= w.to + 0.1 ? Math.abs(z - w.pos) : 1e9)
+      : (z >= w.from - 0.1 && z <= w.to + 0.1 ? Math.abs(x - w.pos) : 1e9);
+    if (d < bd){ bd = d; best = i; }
+  });
+  return best;
+}
+function hitOp(x, z){
+  if (selW < 0) return -1;
+  const w = plan.walls[selW];
+  const along = w.d === 'h' ? x : z, perp = w.d === 'h' ? Math.abs(z - w.pos) : Math.abs(x - w.pos);
+  if (perp > 0.25) return -1;
+  let best = -1;
+  (w.ops || []).forEach((o, i) => { if (o.t !== 'glasswall' && Math.abs(along - o.at) <= o.w / 2 + 0.1) best = i; });
+  return best;
+}
+function hitLight(x, z){
+  let best = -1, bd = 0.3;
+  plan.lights.forEach((L, i) => { const d = Math.hypot(L.x - x, L.z - z); if (d < bd){ bd = d; best = i; } });
+  return best;
+}
+function hitEndpoint(x, z){
+  if (selW < 0) return 0;
+  const w = plan.walls[selW];
+  for (const [which, e] of [[-1, w.from], [1, w.to]]){
+    const px = w.d === 'h' ? e : w.pos, pz = w.d === 'h' ? w.pos : e;
+    if (Math.hypot(x - px, z - pz) < 10 / cam.s) return which;
+  }
+  return 0;
+}
+
+/* ============ pointer interaction ============ */
+let drawing = null, dragMode = null, panLast = null, detectT = null;
+function scheduleDetect(){ clearTimeout(detectT); detectT = setTimeout(() => { detect(); save(); draw(); }, 300); }
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  const x = wx(e.clientX), z = wz(e.clientY);
+  if (tool === 'wall'){ pushUndo(); drawing = { x1: snap(x), z1: snap(z), x2: snap(x), z2: snap(z) }; return; }
+  if (tool === 'door' || tool === 'win' || tool === 'arch'){
+    const wi = hitWall(x, z);
+    if (wi >= 0){
+      pushUndo();
+      const w = plan.walls[wi];
+      if (w.rail || (w.ops || []).some(o => o.t === 'glasswall')) return;
+      const d = OP_DEFAULTS[tool];
+      const at = snap(Math.min(w.to - d.w / 2, Math.max(w.from + d.w / 2, w.d === 'h' ? x : z)));
+      w.ops = w.ops || [];
+      w.ops.push({ t: tool, at, ...JSON.parse(JSON.stringify(d)) });
+      selW = wi; selOp = w.ops.length - 1; selLight = -1;
+      inspect(); scheduleDetect(); draw();
+    }
+    return;
+  }
+  if (tool === 'light'){
+    pushUndo();
+    plan.lights.push({ x: snap(x), z: snap(z), t: document.getElementById('lightType').value });
+    selLight = plan.lights.length - 1; selW = selOp = -1;
+    inspect(); save(); draw();
+    return;
+  }
+  if (tool === 'del'){
+    const li = hitLight(x, z);
+    if (li >= 0){ pushUndo(); plan.lights.splice(li, 1); selLight = -1; save(); draw(); return; }
+    const wi = hitWall(x, z);
+    if (wi >= 0){
+      pushUndo();
+      const w = plan.walls[wi];
+      const oi = (() => { const along = w.d === 'h' ? x : z; let b = -1; (w.ops || []).forEach((o, i) => { if (o.t !== 'glasswall' && Math.abs(along - o.at) <= o.w / 2 + 0.08) b = i; }); return b; })();
+      if (oi >= 0) w.ops.splice(oi, 1);              // an opening under the finger dies first
+      else plan.walls.splice(wi, 1);                 // otherwise the wall itself
+      selW = selOp = -1;
+      inspect(); scheduleDetect(); draw();
+    }
+    return;
+  }
+  // select tool
+  const ep = hitEndpoint(x, z);
+  if (ep){ pushUndo(); dragMode = { kind: 'end', which: ep }; return; }
+  const oi = hitOp(x, z);
+  if (oi >= 0){ pushUndo(); selOp = oi; selLight = -1; dragMode = { kind: 'op' }; inspect(); draw(); return; }
+  const li = hitLight(x, z);
+  if (li >= 0){ pushUndo(); selLight = li; selW = selOp = -1; dragMode = { kind: 'light' }; inspect(); draw(); return; }
+  const wi = hitWall(x, z);
+  if (wi >= 0){ pushUndo(); selW = wi; selOp = -1; selLight = -1; dragMode = { kind: 'wall' }; inspect(); draw(); return; }
+  selW = selOp = selLight = -1; dragMode = null; panLast = { x: e.clientX, y: e.clientY };
+  inspect(); draw();
+});
+cv.addEventListener('pointermove', e => {
+  const x = wx(e.clientX), z = wz(e.clientY);
+  if (drawing){
+    const dx = Math.abs(x - drawing.x1), dz = Math.abs(z - drawing.z1);
+    if (dx >= dz){ drawing.x2 = snap(x); drawing.z2 = drawing.z1; } else { drawing.z2 = snap(z); drawing.x2 = drawing.x1; }
+    draw(); return;
+  }
+  if (panLast){ cam.x -= (e.clientX - panLast.x) / cam.s; cam.z -= (e.clientY - panLast.y) / cam.s; panLast = { x: e.clientX, y: e.clientY }; draw(); return; }
+  if (!dragMode) return;
+  if (dragMode.kind === 'wall' && selW >= 0){
+    const w = plan.walls[selW];
+    if (w.d === 'h') w.pos = snap(z); else w.pos = snap(x);
+    scheduleDetect(); draw(); inspect();
+  } else if (dragMode.kind === 'end' && selW >= 0){
+    const w = plan.walls[selW];
+    const v = snap(w.d === 'h' ? x : z);
+    if (dragMode.which < 0) w.from = Math.min(v, w.to - 0.3); else w.to = Math.max(v, w.from + 0.3);
+    (w.ops || []).forEach(o => { o.at = Math.min(w.to - o.w / 2, Math.max(w.from + o.w / 2, o.at)); });
+    scheduleDetect(); draw(); inspect();
+  } else if (dragMode.kind === 'op' && selW >= 0 && selOp >= 0){
+    const w = plan.walls[selW], o = w.ops[selOp];
+    o.at = snap(Math.min(w.to - o.w / 2, Math.max(w.from + o.w / 2, w.d === 'h' ? x : z)));
+    draw(); inspect();
+  } else if (dragMode.kind === 'light' && selLight >= 0){
+    const L = plan.lights[selLight];
+    L.x = snap(x); L.z = snap(z);
+    draw();
+  }
+});
+cv.addEventListener('pointerup', () => {
+  if (drawing){
+    const len = Math.max(Math.abs(drawing.x2 - drawing.x1), Math.abs(drawing.z2 - drawing.z1));
+    if (len >= 0.3){
+      const w = drawing.x2 !== drawing.x1
+        ? { d: 'h', pos: drawing.z1, from: Math.min(drawing.x1, drawing.x2), to: Math.max(drawing.x1, drawing.x2) }
+        : { d: 'v', pos: drawing.x1, from: Math.min(drawing.z1, drawing.z2), to: Math.max(drawing.z1, drawing.z2) };
+      plan.walls.push(w);
+      selW = plan.walls.length - 1; selOp = -1;
+      scheduleDetect();
+    }
+    drawing = null; inspect(); draw(); return;
+  }
+  if (dragMode){ save(); }
+  dragMode = null; panLast = null;
+});
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const px = wx(e.clientX), pz = wz(e.clientY);
+  cam.s = Math.min(220, Math.max(18, cam.s * (e.deltaY > 0 ? 0.88 : 1.14)));
+  cam.x = px - (e.clientX - innerWidth / 2) / cam.s;
+  cam.z = pz - (e.clientY - innerHeight / 2) / cam.s;
+  draw();
+}, { passive: false });
+cv.addEventListener('dblclick', e => {
+  const x = wx(e.clientX), z = wz(e.clientY);
+  const r = roomsD.find(r => inRoom(r, x, z));
+  if (r){ const n = prompt('Room name', r.name); if (n){ names[r.key] = r.name = n.trim().slice(0, 24); save(); renderRooms(); draw(); } }
+});
+addEventListener('keydown', e => {
+  if (e.key === 'Delete' || e.key === 'Backspace'){
+    if (selW >= 0 && selOp >= 0){ pushUndo(); plan.walls[selW].ops.splice(selOp, 1); selOp = -1; }
+    else if (selLight >= 0){ pushUndo(); plan.lights.splice(selLight, 1); selLight = -1; }
+    else if (selW >= 0){ pushUndo(); plan.walls.splice(selW, 1); selW = -1; }
+    else return;
+    inspect(); scheduleDetect(); draw();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ undo(); }
+});
+
+/* ============ inspector ============ */
+function inspect(){
+  const el = document.getElementById('insp');
+  if (selW >= 0 && selOp >= 0){
+    const w = plan.walls[selW], o = w.ops[selOp];
+    const isWin = o.t === 'win';
+    el.style.display = 'block';
+    el.innerHTML = `<h3>${o.t === 'door' ? 'Door' : isWin ? 'Window' : 'Arch'}</h3>
+      <label>Width (m)</label><input id="opW" type="number" step="0.05" min="0.3" max="4" value="${o.w}">
+      <label>${o.t === 'door' ? 'Door height (m)' : isWin ? 'Window height (m)' : 'Opening height (m)'}</label>
+      <input id="opH" type="number" step="0.05" min="0.4" max="${WALL_H}" value="${o.h ?? (o.t === 'door' ? 2.05 : isWin ? 1.2 : 2.3)}">
+      ${isWin ? `<label>Sill height from floor (m)</label><input id="opS" type="number" step="0.05" min="0" max="2" value="${o.sill ?? 0.9}">` : ''}
+      <label>Position along wall (m)</label><input id="opAt" type="number" step="0.05" value="${o.at}">
+      <button id="opDel">Delete ${o.t}</button>`;
+    const upd = () => {
+      o.w = Math.max(0.3, +el.querySelector('#opW').value || o.w);
+      o.h = Math.min(WALL_H, Math.max(0.4, +el.querySelector('#opH').value || o.h || 2));
+      if (isWin) o.sill = Math.max(0, Math.min(2, +el.querySelector('#opS').value ?? 0.9));
+      o.at = Math.min(w.to - o.w / 2, Math.max(w.from + o.w / 2, +el.querySelector('#opAt').value || o.at));
+      save(); draw();
+    };
+    el.querySelectorAll('input').forEach(i => i.addEventListener('change', () => { pushUndo(); upd(); }));
+    el.querySelector('#opDel').onclick = () => { pushUndo(); w.ops.splice(selOp, 1); selOp = -1; inspect(); scheduleDetect(); draw(); };
+  } else if (selW >= 0){
+    const w = plan.walls[selW];
+    el.style.display = 'block';
+    el.innerHTML = `<h3>${w.rail ? 'Rail' : 'Wall'} — ${(w.to - w.from).toFixed(2)} m</h3>
+      <label>${w.d === 'h' ? 'Z position' : 'X position'} (m)</label><input id="wPos" type="number" step="0.05" value="${w.pos}">
+      <div class="row"><div style="flex:1"><label>From (m)</label><input id="wFrom" type="number" step="0.05" value="${w.from}"></div>
+      <div style="flex:1"><label>To (m)</label><input id="wTo" type="number" step="0.05" value="${w.to}"></div></div>
+      <label style="margin-top:8px;color:var(--muted)">Tip: with this wall selected, use the +Door / +Window / +Arch tools to punch openings into it. Multiple openings per wall are fine.</label>
+      <button id="wDel">Delete wall</button>`;
+    const upd = () => {
+      w.pos = +el.querySelector('#wPos').value || w.pos;
+      const f = +el.querySelector('#wFrom').value, t = +el.querySelector('#wTo').value;
+      if (isFinite(f)) w.from = f;
+      if (isFinite(t)) w.to = Math.max(t, w.from + 0.3);
+      save(); scheduleDetect(); draw(); inspect();
+    };
+    el.querySelectorAll('input').forEach(i => i.addEventListener('change', () => { pushUndo(); upd(); }));
+    el.querySelector('#wDel').onclick = () => { pushUndo(); plan.walls.splice(selW, 1); selW = -1; selOp = -1; inspect(); scheduleDetect(); draw(); };
+  } else if (selLight >= 0){
+    const L = plan.lights[selLight];
+    el.style.display = 'block';
+    el.innerHTML = `<h3>Ceiling light</h3>
+      <label>Type</label><select id="lT">${['disc','dome','ring','bar','pendant'].map(t => `<option ${t === L.t ? 'selected' : ''}>${t}</option>`).join('')}</select>
+      <button id="lDel">Delete light</button>`;
+    el.querySelector('#lT').onchange = ev => { pushUndo(); L.t = ev.target.value; save(); draw(); };
+    el.querySelector('#lDel').onclick = () => { pushUndo(); plan.lights.splice(selLight, 1); selLight = -1; inspect(); save(); draw(); };
+  } else el.style.display = 'none';
+}
+
+/* ============ toolbar ============ */
+document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
+  tool = b.dataset.tool;
+  document.querySelectorAll('[data-tool]').forEach(x => x.classList.toggle('on', x === b));
+  document.getElementById('hint').textContent = {
+    select: 'Tap a wall / opening / light to select · drag to move · drag yellow ends to resize · Del to delete',
+    wall: 'Drag on empty space to draw a wall (locks to the longer axis) — length shows live',
+    door: 'Tap a wall where the door goes — then drag it or edit its size on the right',
+    win: 'Tap a wall where the window goes — width, height and sill are all editable',
+    arch: 'Tap a wall to cut an open archway',
+    light: 'Tap anywhere to place the selected light type',
+    del: 'Tap an opening to remove it, tap a wall to demolish it, tap a light to remove it'
+  }[tool];
+});
+document.getElementById('undoB').onclick = undo;
+document.getElementById('exportB').onclick = () => {
+  const out = { v: 1, walls: plan.walls, lights: plan.lights, rooms: roomsD.map(r => ({ name: r.name, rects: r.rects.map(rc => rc.map(n => +n.toFixed(2))), area: +r.area.toFixed(2) })) };
+  const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'home-plan.json'; a.click();
+  navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(out)).catch(() => {});
+};
+document.getElementById('importB').onclick = () => document.getElementById('file').click();
+document.getElementById('file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => {
+    try { const d = JSON.parse(t); if (Array.isArray(d.walls)){ pushUndo(); plan = { walls: d.walls, lights: d.lights || [], names: {} }; names = {}; selW = selOp = selLight = -1; detect(); save(); draw(); } } catch(err){ alert('Could not read that file'); }
+  });
+  e.target.value = '';
+});
+document.getElementById('resetB').onclick = () => { if (confirm('Reset to the real apartment plan?')){ pushUndo(); plan = fresh(); names = {}; selW = selOp = selLight = -1; detect(); save(); draw(); } };
+
+/* ============ 3D preview (openings are REAL cuts: segments + lintels/sills) ============ */
+let three = null;
+document.getElementById('view3d').onclick = async () => {
+  document.getElementById('p3d').style.display = 'block';
+  if (!three){
+    const THREE = await import('https://unpkg.com/three@0.160.0/build/three.module.js');
+    const r = new THREE.WebGLRenderer({ antialias: true });
+    r.setSize(innerWidth, innerHeight); r.setPixelRatio(Math.min(devicePixelRatio, 2));
+    document.getElementById('p3d').appendChild(r.domElement);
+    three = { THREE, r, scene: null, cam: new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 200), az: 0.8, el: 0.9, dist: 16, ctr: new THREE.Vector3(6.8, 0, 6.5) };
+    const c = r.domElement;
+    let last = null;
+    c.addEventListener('pointerdown', e => last = { x: e.clientX, y: e.clientY });
+    c.addEventListener('pointermove', e => {
+      if (!last) return;
+      three.az -= (e.clientX - last.x) * 0.005;
+      three.el = Math.min(1.45, Math.max(0.15, three.el + (e.clientY - last.y) * 0.004));
+      last = { x: e.clientX, y: e.clientY };
+    });
+    addEventListener('pointerup', () => last = null);
+    c.addEventListener('wheel', e => { e.preventDefault(); three.dist = Math.min(40, Math.max(5, three.dist * (e.deltaY > 0 ? 1.1 : 0.9))); }, { passive: false });
+    const loop = () => {
+      requestAnimationFrame(loop);
+      if (document.getElementById('p3d').style.display === 'none' || !three.scene) return;
+      const { cam, az, el, dist, ctr } = three;
+      cam.position.set(ctr.x + Math.sin(az) * Math.cos(el) * dist, Math.sin(el) * dist, ctr.z + Math.cos(az) * Math.cos(el) * dist);
+      cam.lookAt(ctr);
+      three.r.render(three.scene, cam);
+    };
+    loop();
+  }
+  build3d();
+};
+document.getElementById('close3d').onclick = () => document.getElementById('p3d').style.display = 'none';
+function build3d(){
+  const { THREE } = three;
+  const sc = new THREE.Scene();
+  sc.background = new THREE.Color('#10151c');
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x39434f, 0.85));
+  const sun = new THREE.DirectionalLight(0xfff2dd, 0.9); sun.position.set(10, 14, 6); sc.add(sun);
+  const wallMat = new THREE.MeshStandardMaterial({ color: '#aab5c2', roughness: 0.9 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: '#9fc9e8', transparent: true, opacity: 0.3, roughness: 0.15 });
+  const floorMat = new THREE.MeshStandardMaterial({ color: '#cfc4ae', roughness: 0.95 });
+  const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  for (const r of roomsD) for (const [a, b, c2, d2] of r.rects){
+    const f = box(c2 - a, 0.05, d2 - b, floorMat);
+    f.position.set((a + c2) / 2, -0.025, (b + d2) / 2); sc.add(f);
+  }
+  for (const w of plan.walls){
+    const grp = new THREE.Group();
+    const L = w.to - w.from, cx0 = (w.from + w.to) / 2;
+    if (w.d === 'h') grp.position.set(cx0, 0, w.pos); else { grp.position.set(w.pos, 0, cx0); grp.rotation.y = -Math.PI / 2; }
+    const seg = (sw, sh, x, y, glass) => { const m = box(sw, sh, glass ? 0.04 : WALL_T, glass ? glassMat : wallMat); m.position.set(x, y, 0); grp.add(m); };
+    if (w.rail){ seg(L, 1.0, 0, 0.5); sc.add(grp); continue; }
+    if ((w.ops || [])[0] && w.ops[0].t === 'glasswall'){ seg(L, 2.25, 0, 0.05 + 2.25 / 2, true); seg(L, WALL_H - 2.3, 0, 2.3 + (WALL_H - 2.3) / 2); sc.add(grp); continue; }
+    const ops = (w.ops || []).slice().sort((a, b) => a.at - b.at);
+    let cur = -L / 2;
+    for (const o of ops){
+      const u = o.at - cx0, half = o.w / 2;
+      if (u - half - cur > 0.01) seg(u - half - cur, WALL_H, cur + (u - half - cur) / 2, WALL_H / 2);
+      if (o.t === 'win'){
+        const sill = o.sill ?? 0.9, wh = o.h ?? 1.2;
+        if (sill > 0.02) seg(o.w, sill, u, sill / 2);
+        if (sill + wh < WALL_H - 0.02) seg(o.w, WALL_H - sill - wh, u, sill + wh + (WALL_H - sill - wh) / 2);
+        seg(o.w, wh, u, sill + wh / 2, true);
+      } else {
+        const oh = o.h ?? (o.t === 'arch' ? 2.3 : 2.05);
+        if (oh < WALL_H - 0.02) seg(o.w, WALL_H - oh, u, oh + (WALL_H - oh) / 2);
+      }
+      cur = u + half;
+    }
+    if (L / 2 - cur > 0.01) seg(L / 2 - cur, WALL_H, cur + (L / 2 - cur) / 2, WALL_H / 2);
+    sc.add(grp);
+  }
+  const liteGeo = { disc: [0.19, 0.06], dome: [0.16, 0.12], ring: [0.24, 0.05], bar: [0.5, 0.07], pendant: [0.12, 0.3] };
+  for (const Lg of plan.lights){
+    const [rad, h] = liteGeo[Lg.t] || liteGeo.disc;
+    const m = Lg.t === 'bar'
+      ? box(rad, h, 0.12, new THREE.MeshStandardMaterial({ color: '#8a9099', emissive: 0xffd9a0, emissiveIntensity: 1.4 }))
+      : new THREE.Mesh(new THREE.CylinderGeometry(rad, rad * (Lg.t === 'dome' ? 0.4 : 1), h, 18), new THREE.MeshStandardMaterial({ color: '#8a9099', emissive: 0xffd9a0, emissiveIntensity: 1.4 }));
+    m.position.set(Lg.x, WALL_H - 0.1 - (Lg.t === 'pendant' ? 0.25 : 0), Lg.z);
+    sc.add(m);
+  }
+  plan.lights.slice(0, 10).forEach(Lg => { const p = new THREE.PointLight(0xffd9a6, 2.2, 7, 1.8); p.position.set(Lg.x, WALL_H - 0.35, Lg.z); sc.add(p); });
+  // centre the orbit on the plan
+  let x1 = 1e9, z1 = 1e9, x2 = -1e9, z2 = -1e9;
+  for (const w of plan.walls){
+    if (w.d === 'h'){ x1 = Math.min(x1, w.from); x2 = Math.max(x2, w.to); z1 = Math.min(z1, w.pos); z2 = Math.max(z2, w.pos); }
+    else { x1 = Math.min(x1, w.pos); x2 = Math.max(x2, w.pos); z1 = Math.min(z1, w.from); z2 = Math.max(z2, w.to); }
+  }
+  three.ctr.set((x1 + x2) / 2, 0, (z1 + z2) / 2);
+  three.dist = Math.max(x2 - x1, z2 - z1) * 1.1;
+  three.scene = sc;
+}
+
+/* ============ test hooks + boot ============ */
+window.ED = {
+  plan: () => plan, rooms: () => roomsD.map(r => ({ name: r.name, area: +r.area.toFixed(2), rects: r.rects.length })),
+  addWall: w => { plan.walls.push(w); detect(); save(); draw(); return plan.walls.length - 1; },
+  addOp: (wi, op) => { const w = plan.walls[wi]; w.ops = w.ops || []; w.ops.push(op); detect(); save(); draw(); return w.ops.length - 1; },
+  lights: () => plan.lights, export: () => ({ walls: plan.walls, lights: plan.lights, rooms: roomsD.map(r => ({ name: r.name, rects: r.rects })) }),
+  reset: () => { plan = fresh(); names = {}; detect(); save(); draw(); }
+};
+resize();
+detect();
+draw();
+</script>
+</body>
+</html>
