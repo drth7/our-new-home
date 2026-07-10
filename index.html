@@ -6148,6 +6148,7 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
     migrate: o => migrateWallColors(o),
     validate: s => validateGenSpec(s),
     repair: s => repairSpec(s, proxyUrl()),
+    rot: id => { const g = items.find(i => i.userData.id === id); return g ? {y:+g.rotation.y.toFixed(3), z:+g.rotation.z.toFixed(3), order:g.rotation.order, onWall:!!g.userData.onWall} : null; },
   };
 }
 
