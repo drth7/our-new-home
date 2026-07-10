@@ -4178,6 +4178,62 @@ function promptCreate(){
   setTimeout(() => { const el = $('genInput'); if (el){ el.focus(); el.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); go(); } }); } }, 120);
 }
 
+/* The AI's recipe gets a once-over BEFORE we accept it: measure every part against the model's
+   own box and the shape rules; if something's off, send the exact violations back for ONE
+   repair pass. Catches "legs outside the tabletop" / "floating peanut seat" before you see them. */
+function validateGenSpec(spec){
+  const probs = [];
+  if (!spec || !Array.isArray(spec.parts) || !spec.parts.length) return probs;
+  const W = +spec.w || 0.4, D = +spec.d || 0.4, H = +spec.h || 0.4;
+  let shells = 0;
+  spec.parts.slice(0, 16).forEach((p, i) => {
+    const r = +p.r || 0.1, sx = +p.sx || 1, sy = +p.sy || 1, sz = +p.sz || 1;
+    let ex, ey, ez;                                  // half extents per axis, before rotation
+    if (p.shape === 'sphere'){ ex = ez = r; ey = r; }
+    else if (p.shape === 'capsule'){
+      if (Math.max(+p.w || 0, +p.d || 0) > 4 * r){ probs.push(`part ${i+1}: a capsule is a thin pill (only r and h count) — this one has slab-like w/d, use a box for a seat/slab`); ex = (+p.w || 0.3)/2; ey = (+p.h || 0.2)/2; ez = (+p.d || 0.3)/2; }
+      else { ex = ez = r; ey = (+p.h || 0.3)/2; }
+    }
+    else if (p.shape === 'cylinder' || p.shape === 'cone'){
+      ex = ez = r; ey = (+p.h || 0.2)/2;
+      if (p.shape === 'cylinder' && +p.arc && +p.arc < 360){
+        shells++;
+        if (Math.min(sx, sz) < 0.65) probs.push(`part ${i+1}: never squash an arc shell (sx/sz ${Math.min(sx,sz)}) — keep its curve, use a smaller r instead`);
+      }
+    }
+    else { ex = (+p.w || 0.2)/2; ey = (+p.h || 0.2)/2; ez = (+p.d || 0.2)/2; }
+    ex *= sx; ey *= sy; ez *= sz;
+    const rot = Math.max(Math.abs(+p.rx || 0), Math.abs(+p.rz || 0));
+    if (rot > 25){ ex = ey = ez = Math.max(ex, ey, ez); }        // heavily tilted: use a loose sphere bound
+    else if (rot > 0){ ex *= 1.15; ey *= 1.15; ez *= 1.15; }
+    const x = +p.x || 0, y = +p.y || 0, z = +p.z || 0;
+    if (Math.abs(x) + ex > W/2 + 0.06) probs.push(`part ${i+1} (${p.shape}) sticks out of the model's width (|x| ${Math.abs(x).toFixed(2)} + ${ex.toFixed(2)} > ${(W/2).toFixed(2)}) — move it inward`);
+    if (Math.abs(z) + ez > D/2 + 0.06) probs.push(`part ${i+1} (${p.shape}) sticks out of the model's depth — move it inward`);
+    if (y + ey > H + 0.08) probs.push(`part ${i+1} (${p.shape}) pokes above the model's height ${H} — lower it`);
+    if (y - ey < -0.05) probs.push(`part ${i+1} (${p.shape}) sinks below the floor — raise it (y is the part's centre)`);
+  });
+  if (shells > 1) probs.push(`${shells} arc shells — use exactly ONE curved shell (delete the extras, make the one shell the right size)`);
+  const k = String(spec.kind || '').toLowerCase();
+  if ((k === 'chair' || k === 'sofa' || k === 'stool' || k === 'bench') && spec.seatH != null){
+    const s = +spec.seatH;
+    if (!(s > 0.15 && s < H * 0.9)) probs.push(`seatH ${s} is not a sane seat height for a ${k} of height ${H}`);
+  }
+  return probs.slice(0, 8);
+}
+async function repairSpec(spec, proxy){
+  const problems = validateGenSpec(spec);
+  if (!problems.length) return spec;
+  try{
+    const res = await fetch(proxy, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ repair: { spec, problems } }) });
+    if (!res.ok) return spec;                        // older worker (no repair branch) or upstream error — keep the original
+    const data = await res.json();
+    const txt = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').replace(/```json|```/g, '').trim();
+    const out = JSON.parse(txt);
+    const m = Array.isArray(out?.models) ? out.models[0] : out;
+    return (m && Array.isArray(m.parts) && m.parts.length) ? m : spec;
+  }catch(e){ return spec; }
+}
+
 /* register one AI spec as a catalog model; returns the def (or null if unusable) */
 function adoptGenSpec(spec, fallbackName, i, srcUrl){
   const parts = Array.isArray(spec && spec.parts) ? spec.parts.slice(0, 16) : [];
@@ -4233,9 +4289,13 @@ async function generateFromUrl(url){
     const data = await res.json();
     let txt = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').replace(/```json|```/g, '').trim();
     let out; try { out = JSON.parse(txt); } catch(e){ return bad("The AI's reply wasn't usable — try again."); }
-    const specs = Array.isArray(out) ? out : (Array.isArray(out.models) ? out.models : [out]);
+    let specs = (Array.isArray(out) ? out : (Array.isArray(out.models) ? out.models : [out])).slice(0, 4);
+    if (specs.some(s => validateGenSpec(s).length)){ // measure every piece; anything off gets one repair pass (in parallel)
+      showConfirm(`<h2>Polishing the shapes ✨</h2><p class="wsub">The first draft had a few rough edges — fixing them…</p><div class="rspin"></div>`, []);
+      specs = await Promise.all(specs.map(s => repairSpec(s, proxy)));
+    }
     const made = [];
-    specs.slice(0, 4).forEach((s, i) => { const d = adoptGenSpec(s, 'Piece ' + (i + 1), i, url); if (d) made.push(d); });
+    specs.forEach((s, i) => { const d = adoptGenSpec(s, 'Piece ' + (i + 1), i, url); if (d) made.push(d); });
     if (!made.length) return bad("Couldn't find furniture with sizes on that page — try the item's own product page.");
     hideConfirm();
     curCat = 'Created';
@@ -4264,6 +4324,10 @@ async function generateModel(text){
     const data = await res.json();
     let txt = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').replace(/```json|```/g, '').trim();
     let spec; try { spec = JSON.parse(txt); } catch(e){ return bad("The AI's reply wasn't usable — try again."); }
+    if (validateGenSpec(spec).length){               // rough edges? one focused repair pass before you ever see it
+      showConfirm(`<h2>Polishing the shape ✨</h2><p class="wsub">The first draft had a few rough edges — fixing them…</p><div class="rspin"></div>`, []);
+      spec = await repairSpec(spec, proxy);
+    }
     const def = adoptGenSpec(spec, thing, 0);
     if (!def) return bad("The AI didn't return a shape — try a simpler word.");
     hideConfirm();
@@ -4765,7 +4829,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.ai-knows-kinds';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.ai-self-check';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5997,6 +6061,8 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
     wallState: wi => ({ stored: wallColors[wi] ?? null, mats: (wallMats[wi] || []).map(m => '#' + m.color.getHexString()), opacity: wallMats[wi] ? wallMats[wi][0].opacity : null }),
     walls: () => WALLS,
     migrate: o => migrateWallColors(o),
+    validate: s => validateGenSpec(s),
+    repair: s => repairSpec(s, proxyUrl()),
   };
 }
 

@@ -57,6 +57,21 @@ export default {
     let body;
     try { body = await request.json(); } catch { return json({ error: 'Bad request body.' }, 400, origin); }
 
+    // ── repair mode: the app measured geometry problems in a recipe → one focused fix pass ──
+    if (body && body.repair && body.repair.spec){
+      const specJson = JSON.stringify(body.repair.spec).slice(0, 20000);
+      const problems = (Array.isArray(body.repair.problems) ? body.repair.problems : []).slice(0, 10).map(String).join('; ').slice(0, 1500);
+      const sys = 'You wrote this low-poly furniture recipe JSON: ' + specJson + ' — the app measured these geometry problems: "' + problems.replace(/"/g, "'") + '". ' +
+        'Return ONLY the corrected minified JSON for the SAME single model — identical schema, keep the name/kind/dimensions/colours and the overall design, fix ONLY the listed problems (move or resize the offending parts, delete redundant shells, turn a slab-capsule into a box). No prose, no markdown.';
+      const gg = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
+        body: JSON.stringify({ contents: [{ parts: [{ text: sys }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.2 } }),
+      });
+      const t = await gg.text();
+      return new Response(t, { status: gg.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+    }
+
     // ── link mode: a furniture product URL → one JSON recipe PER piece, at the page's real sizes ──
     // Reads STRUCTURED product data when available (Shopify product .js, then JSON-LD), with up to
     // THREE product photos — far more reliable than scraping raw page text with one staged photo.
