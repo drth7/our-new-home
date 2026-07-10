@@ -92,7 +92,7 @@ export default {
           if (p && p.title && Array.isArray(p.images)){
             title = p.title;
             desc = strip(p.description).slice(0, 9000);
-            imgUrls = p.images.slice(0, 3).map(u => {
+            imgUrls = p.images.slice(0, 6).map(u => {
               u = String(u); if (u.startsWith('//')) u = 'https:' + u;
               return u + (u.includes('?') ? '&' : '?') + 'width=900';        // Shopify CDN resizes — keeps uploads small
             });
@@ -119,7 +119,7 @@ export default {
                 desc = desc || strip(n.description).slice(0, 9000);
                 if (!imgUrls.length){
                   const im = n.image;
-                  imgUrls = (Array.isArray(im) ? im : [im]).filter(x => typeof x === 'string').slice(0, 3);
+                  imgUrls = (Array.isArray(im) ? im : [im]).filter(x => typeof x === 'string').slice(0, 6);
                 }
               }
             }
@@ -134,10 +134,10 @@ export default {
         pageText = strip(pageText).slice(0, 8000);                           // dims sometimes live outside the description
       }
 
-      // fetch up to 3 photos (photo 1 is often the staged set; the rest are individual pieces)
+      // fetch ALL the product photos (up to 6) — different angles show the base, the back, the details
       const parts = [];
       for (const iu of imgUrls){
-        if (parts.length >= 3) break;
+        if (parts.length >= 6) break;
         try {
           const ir = await fetch(new URL(iu, target.href).href, { headers: { 'User-Agent': 'Mozilla/5.0' } });
           const mime = (ir.headers.get('Content-Type') || '').split(';')[0];
@@ -150,10 +150,12 @@ export default {
         } catch {}
       }
 
-      const sys = 'You are modelling the furniture sold on a product page, using the attached product PHOTOS as ground truth (the first photo may show the whole staged set; later photos usually show individual pieces). The page text may be in any language. ' +
+      const sys = 'You are modelling the furniture sold on a product page, using ALL the attached product PHOTOS as ground truth — study every photo and cross-reference them: different angles reveal the base, the legs, the back and the details (the first photo may be a staged set; later ones usually show the piece alone). The page text may be in any language. ' +
         'Output ONLY minified JSON (no prose, no markdown): {"models":[MODEL,...]} — one MODEL per DISTINCT piece type on the page (a set = e.g. table + chair + buffet; never duplicates; max 4). ' +
-        'MODEL schema: {"name":string<=16,"kind":"chair"|"sofa"|"stool"|"bench"|"bed"|"table"|"desk"|"rug"|"storage"|"appliance"|"lamp"|"decor","seatH":m,"w":metres,"d":metres,"h":metres,"color":"#hex","parts":[{"shape":"box"|"cylinder"|"sphere"|"cone"|"capsule","w":m,"h":m,"d":m,"r":m,"x":m,"y":m,"z":m,"rx":deg,"ry":deg,"rz":deg,"arc":deg,"sx":n,"sy":n,"sz":n,"color":"#hex"}]}. ' +
-        'ALWAYS set "kind" (what the piece IS — the app makes chairs/sofas sittable, beds sleepable, tables stackable, rugs flat) and, for anything sittable, "seatH" = the seat surface height in metres. ' +
+        'MODEL schema: {"name":string<=16,"kind":"chair"|"sofa"|"stool"|"bench"|"bed"|"table"|"desk"|"rug"|"storage"|"appliance"|"lamp"|"decor","seatH":m,"w":metres,"d":metres,"h":metres,"color":"#hex","parts":[{"shape":"box"|"cylinder"|"sphere"|"cone"|"capsule","w":m,"h":m,"d":m,"r":m,"x":m,"y":m,"z":m,"rx":deg,"ry":deg,"rz":deg,"arc":deg,"sx":n,"sy":n,"sz":n,"glass":true,"glow":true,"color":"#hex"}]}. ' +
+        'ALWAYS set "kind" (what the piece IS — the app makes chairs/sofas sittable, beds sleepable, tables stackable, rugs flat, lamps light up) and, for anything sittable, "seatH" = the seat surface height in metres. ' +
+        'THE BASE MATTERS: count the legs in the photos and match their exact angle, thickness and material; a footrest ring or stretcher must SPAN between the legs (start and end AT a leg), never float. ' +
+        'MATERIALS: mark transparent parts (glass/acrylic tabletops, cabinet doors, vases) with "glass":true; on a lamp, mark the part that emits light (shade/bulb) with "glow":true. ' +
         'CURVED SHAPES — use them (most furniture is not boxy), but use each CORRECTLY: ' +
         '"capsule" is a thin PILL defined ONLY by r (thickness) and h (TOTAL length); w/d are IGNORED — capsules are for legs, piping and thin rounded arms, NEVER for seats/cushions/slabs (make those a box or a short fat cylinder). ' +
         'cylinder+"arc" (120-270) = ONE open curved shell centred on +z, aimed with ry (a chair back behind the seat needs ry 180); give it a radius close to the seat radius, start it AT seat height so it touches the seat, use exactly ONE shell (never two stacked), and never squash a shell (sx/sz stay >= 0.7). ' +
@@ -185,8 +187,8 @@ export default {
     if (body && body.generate){
       const thing = String(body.generate).slice(0, 600);
       const sys = 'You output ONLY minified JSON (no prose, no markdown) describing a simple low-poly 3D furniture/prop model made of primitive parts. ' +
-        'Schema: {"name":string<=16,"kind":"chair"|"sofa"|"stool"|"bench"|"bed"|"table"|"desk"|"rug"|"storage"|"appliance"|"lamp"|"decor","seatH":m,"w":metres,"d":metres,"h":metres,"color":"#hex","parts":[{"shape":"box"|"cylinder"|"sphere"|"cone"|"capsule","w":m,"h":m,"d":m,"r":m,"x":m,"y":m,"z":m,"rx":deg,"ry":deg,"rz":deg,"arc":deg,"sx":n,"sy":n,"sz":n,"color":"#hex"}]}. ' +
-        'ALWAYS set "kind" (the app makes chairs/sofas sittable, beds sleepable, tables stackable, rugs flat) and, for anything sittable, "seatH" = the seat surface height in metres. ' +
+        'Schema: {"name":string<=16,"kind":"chair"|"sofa"|"stool"|"bench"|"bed"|"table"|"desk"|"rug"|"storage"|"appliance"|"lamp"|"decor","seatH":m,"w":metres,"d":metres,"h":metres,"color":"#hex","parts":[{"shape":"box"|"cylinder"|"sphere"|"cone"|"capsule","w":m,"h":m,"d":m,"r":m,"x":m,"y":m,"z":m,"rx":deg,"ry":deg,"rz":deg,"arc":deg,"sx":n,"sy":n,"sz":n,"glass":true,"glow":true,"color":"#hex"}]}. ' +
+        'ALWAYS set "kind" (the app makes chairs/sofas sittable, beds sleepable, tables stackable, rugs flat, lamps light up) and, for anything sittable, "seatH" = the seat surface height in metres. Mark transparent parts "glass":true; on a lamp, mark the light-emitting part (shade/bulb) "glow":true. ' +
         'CURVED SHAPES: "capsule" is a thin PILL defined ONLY by r + h (total length; w/d ignored) — legs, piping, thin arms, NEVER seats/slabs; cylinder+"arc" (120-270) = ONE open curved shell centred on +z (aim with ry, e.g. 180 for a chair back), radius near the seat radius, starting at seat height, never squashed below sx/sz 0.7 and never doubled; "sx"/"sy"/"sz" scale a part — oval tops (cylinder, sz 0.7), dome cushions (sphere, sy 0.35). ' +
         'Rules: real-world sizes in metres; origin at the CENTRE of the floor footprint, y is UP, each part y is its centre height so the whole object rests on the floor (nothing below y=0); w/d/h are the overall bounding size; box uses w/h/d, cylinder/cone use r+h, sphere uses r; at most 12 parts; keep it recognizable but simple. ' +
         'COLOURS: give EVERY part its own realistic "color", and use 2-4 DIFFERENT colours across the object to show its separate materials/sections — never make the whole thing one flat colour. Examples: floor lamp = dark metal base + slim pole + warm cream shade; dining chair = wooden legs + fabric seat + cushion; plant = terracotta pot + green foliage; toaster = steel body + dark slots + red lever. Pick tasteful, true-to-life hues. ' +

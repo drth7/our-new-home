@@ -381,6 +381,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
     <button class="pbtn" id="sizeBtn" title="Resize" data-icon="resize"></button>
     <button class="pbtn" id="wallBtn" title="Hang on the wall / put back on the floor" data-icon="wallmount"></button>
     <button class="pbtn" id="useBtn" title="Use" style="display:none"></button>
+    <button class="pbtn" id="lampBtn" title="Light on / off" style="display:none">💡</button>
     <button class="pbtn" id="shopBtn" title="Open the product page" data-icon="shoplink" style="display:none"></button>
     <button class="pbtn" id="delBtn" title="Delete" data-icon="trash"></button>
   </div>
@@ -617,10 +618,10 @@ const CATALOG = {
   rugrun2:   {name:'Long runner',  cat:'Decor',    w:1.00, d:6.50, h:0.02, color:'#5a6a8a', soft:true},
   rugpersian:{name:'Patterned rug',cat:'Decor',    w:2.20, d:1.50, h:0.02, color:'#8a3a3a'},
   plant:     {name:'Plant',        cat:'Decor',    w:0.45, d:0.45, h:1.20, color:'#5f9d68', stack:true},
-  lamp1:     {name:'Floor lamp',   cat:'Decor',    w:0.35, d:0.35, h:1.55, color:'#8a7a5e'},
-  lamp2:     {name:'Tripod lamp',  cat:'Decor',    w:0.48, d:0.48, h:1.45, color:'#c9a86a'},
-  lamp3:     {name:'Arc lamp',     cat:'Decor',    w:0.90, d:0.35, h:1.80, color:'#9aa5b0'},
-  tlamp:     {name:'Table lamp',   cat:'Decor',    w:0.24, d:0.24, h:0.45, color:'#c9b06a', stack:true}
+  lamp1:     {name:'Floor lamp',   cat:'Decor',    w:0.35, d:0.35, h:1.55, color:'#8a7a5e', lamp:true},
+  lamp2:     {name:'Tripod lamp',  cat:'Decor',    w:0.48, d:0.48, h:1.45, color:'#c9a86a', lamp:true},
+  lamp3:     {name:'Arc lamp',     cat:'Decor',    w:0.90, d:0.35, h:1.80, color:'#9aa5b0', lamp:true},
+  tlamp:     {name:'Table lamp',   cat:'Decor',    w:0.24, d:0.24, h:0.45, color:'#c9b06a', stack:true, lamp:true}
 };
 
 /* ---------- external model library (assets/Extra Furniture) ----------
@@ -701,6 +702,7 @@ function registerModelDef(m){
     def.anchorSize = 1;                                      // catalog dimensions since its authoring scale can't be trusted
   }
   def.color = def.plain ? '#f2f2f2' : '#9aa8b5';
+  if (/lamp|مصباح/i.test(def.name || '')) def.lamp = true;   // imported lamps light up too
   applyStackRule(def);
   CATALOG[def.id] = def;
   return true;
@@ -1402,8 +1404,15 @@ async function getThumb(def){
   if (thumbMem[def.id]) return thumbMem[def.id];
   const key = 'roomplanner.thumb.' + def.id;
   try { const c = localStorage.getItem(key); if (c){ thumbMem[def.id] = c; return c; } } catch(e){}
-  const proto = await loadModel(def);
-  if (!proto) return null;
+  let inst = null;
+  if (def.gen){
+    inst = buildFurniture(def.id);                 // AI pieces photograph themselves — no file to load
+    if (!inst) return null;
+  } else {
+    const proto = await loadModel(def);
+    if (!proto) return null;
+    inst = instantiateModel(proto, def);
+  }
   if (!thumbKit){
     const r = new THREE.WebGLRenderer({antialias:true, alpha:true});
     r.setSize(96, 96);
@@ -1415,14 +1424,19 @@ async function getThumb(def){
     const cam = new THREE.PerspectiveCamera(32, 1, 0.01, 30);
     thumbKit = {r, sc, cam};
   }
-  const inst = instantiateModel(proto, def);
   const size = Math.max(def.w, def.d, def.h);
-  thumbKit.cam.position.set(size*1.15, size*0.95, size*1.5);
+  if (def.gen){
+    const a = Math.PI / 4;                          // the classic 45° three-quarter product shot
+    thumbKit.cam.position.set(Math.sin(a) * size * 1.5, size * 0.85, Math.cos(a) * size * 1.5);
+  } else {
+    thumbKit.cam.position.set(size*1.15, size*0.95, size*1.5);
+  }
   thumbKit.cam.lookAt(0, def.h*0.42, 0);
   thumbKit.sc.add(inst);
   thumbKit.r.render(thumbKit.sc, thumbKit.cam);
   const url = thumbKit.r.domElement.toDataURL('image/png');
   thumbKit.sc.remove(inst);
+  if (def.gen) disposeGroup(inst);                  // built just for the photo
   thumbMem[def.id] = url;
   try { localStorage.setItem(key, url); } catch(e){}
   return url;
@@ -1488,9 +1502,15 @@ function buildFurniture(type){
       }
       else if (p.shape === 'cone') geo = new THREE.ConeGeometry(p.r ?? 0.15, p.h ?? 0.3, 18);
       else geo = new THREE.BoxGeometry(p.w ?? 0.2, p.h ?? 0.2, p.d ?? 0.2);
-      const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || def.color || '#9aa8b5'), roughness:0.85});
-      mat.userData.role = 'main';                    // so the recolour button works on it
+      let mat;
+      if (p.glass){                                  // transparent part — same look as the apartment's window glass
+        mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || '#bcd6e4'), transparent:true, opacity:0.28, roughness:0.12, metalness:0.1});
+      } else {
+        mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || def.color || '#9aa8b5'), roughness:0.85});
+        mat.userData.role = 'main';                  // so the recolour button works on it (glass stays glass)
+      }
       const m = new THREE.Mesh(geo, mat);
+      if (p.glow) m.userData.glow = true;            // the lamp's shade/bulb — lights up with the toggle
       m.position.set(p.x || 0, p.y || 0, p.z || 0);
       if (p.rx) m.rotation.x = p.rx * Math.PI / 180;
       if (p.ry) m.rotation.y = p.ry * Math.PI / 180;
@@ -2829,6 +2849,18 @@ function animateChars(dt){
   }
 }
 
+// lamps really light up: a warm point light at the shade + a soft glow on the shade itself
+function setLampLit(g, on){
+  g.userData.lit = !!on;
+  if (g.userData.lampLight) g.userData.lampLight.intensity = on ? 2.4 : 0;
+  g.traverse(o => {
+    if (o.isMesh && o.material && o.material.emissive && (o.userData.glow || o.material.userData?.role === 'light')){
+      o.material.emissive.set(0xffd9a0);
+      o.material.emissiveIntensity = on ? 1.1 : 0;
+    }
+  });
+}
+
 function addFurniture(type, opts = {}){
   const def = CATALOG[type];
   if (!def) return null;
@@ -2847,6 +2879,15 @@ function addFurniture(type, opts = {}){
     applyHangY(g);
   }
   if (opts.tint || !def.gen) applyTint(g, opts.tint || def.color);   // AI models keep their own per-part colours unless you deliberately recolour
+  if (def.lamp){                                     // give the lamp its actual light, anchored to the shade
+    let glowMesh = null;
+    g.traverse(o => { if (o.isMesh && (o.userData.glow || o.material?.userData?.role === 'light') && (!glowMesh || o.position.y > glowMesh.position.y)) glowMesh = o; });
+    const pt = new THREE.PointLight(0xffd9a6, 0, Math.max(2.5, def.h * 2.2), 1.7);
+    if (glowMesh) pt.position.copy(glowMesh.position); else pt.position.set(0, def.h * 0.72, 0);
+    g.add(pt);
+    g.userData.lampLight = pt;
+    setLampLit(g, opts.lit != null ? !!opts.lit : true);   // new lamps arrive switched on
+  }
   clampToRoom(g);
   if (opts.y != null && !isWall(g) && (def.h > 0.1 || def.gen) && !def.rug){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (rugs always stay flat)
   furnGroup.add(g);
@@ -2907,6 +2948,20 @@ function select(g){
     shopBtn.onclick = () => window.open(def.url, '_blank', 'noopener');
   } else {
     shopBtn.style.display = 'none';
+  }
+  const lampBtn = $('lampBtn');                     // lamps get their own switch
+  if (def.lamp){
+    lampBtn.style.display = 'flex';
+    lampBtn.classList.toggle('on', !!g.userData.lit);
+    lampBtn.onclick = () => {
+      setLampLit(g, !g.userData.lit);
+      lampBtn.classList.toggle('on', !!g.userData.lit);
+      playSound('pop');
+      logActivity('light', g.userData.lit ? 'switched a lamp on' : 'switched a lamp off');
+      scheduleSave();
+    };
+  } else {
+    lampBtn.style.display = 'none';
   }
   updateMeasure();
 }
@@ -3565,7 +3620,7 @@ function serialize(){
     const d = CATALOG[g.userData.type];
     if (!d || !d.gen || genDefs[d.id]) return;
     const rec = {id:d.id, name:d.name, cat:'Created', w:d.w, d:d.d, h:d.h, color:d.color, parts:d.parts};
-    for (const k of ['url','seat','slots','bed','surface','rug']) if (d[k] != null) rec[k] = d[k];   // behaviours travel with the recipe
+    for (const k of ['url','seat','slots','bed','surface','rug','lamp']) if (d[k] != null) rec[k] = d[k];   // behaviours travel with the recipe
     genDefs[d.id] = rec;
   });
   return {
@@ -3636,6 +3691,7 @@ function itemRecord(g){                               // one furniture record, t
   // which was the real reason a placed created piece never reached the other phone.
   if (g.userData.tint != null) rec.tint = g.userData.tint;
   if (g.userData.onWall) rec.ow = 1;
+  if (CATALOG[g.userData.type]?.lamp) rec.lit = g.userData.lit ? 1 : 0;   // lamp switch state syncs
   return rec;
 }
 // Two people edit at once, so furniture syncs as a UNION (a piece one of us adds is never
@@ -4258,6 +4314,7 @@ function adoptGenSpec(spec, fallbackName, i, srcUrl){
     else if (/\bbed\b|mattress|سرير/.test(nm)) kind = 'bed';
     else if (/table|desk|طاول|مكتب/.test(nm)) kind = 'table';
     else if (/rug|carpet|mat\b|سجاد/.test(nm)) kind = 'rug';
+    else if (/lamp|light|chandelier|مصباح|إضاءة/.test(nm)) kind = 'lamp';
   }
   const seatH = cl(spec.seatH, 0.15, Math.max(0.16, def.h * 0.9), Math.min(0.45, def.h * 0.6));
   if (kind === 'chair' || kind === 'stool' || kind === 'bench'){ def.seat = seatH; }
@@ -4265,6 +4322,7 @@ function adoptGenSpec(spec, fallbackName, i, srcUrl){
   else if (kind === 'bed'){ def.bed = true; def.slots = 2; }
   else if (kind === 'table' || kind === 'desk'){ def.surface = true; }
   else if (kind === 'rug'){ def.rug = true; }
+  else if (kind === 'lamp'){ def.lamp = true; }
   if (!registerGenModel(def)) return null;
   const saved = jget(GEN_LS, []); saved.push(def); jset(GEN_LS, saved);
   if (fb && fb.D) fb.D.set(fb.D.ref(fb.db, ROOM + '/genModels/' + def.id), JSON.parse(JSON.stringify(def))).catch(() => {});   // share with the other phone
@@ -4360,6 +4418,8 @@ function removeGenLocal(id, tomb){                       // pull a created model
   }
   pendingFurniture = pendingFurniture.filter(f => f.type !== id);
   delete CATALOG[id];
+  delete thumbMem[id];                                   // its little product shot goes too
+  try { localStorage.removeItem('roomplanner.thumb.' + id); } catch(e){}
   jset(GEN_LS, jget(GEN_LS, []).filter(s => s.id !== id));
   return removed;
 }
@@ -4829,7 +4889,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.ai-self-check';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.lamps-thumbs-glass';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5262,7 +5322,7 @@ function buildAddSheet(){
       el.addEventListener('touchmove', tmove, {passive:false});
     });
     modelGrid.appendChild(el);
-    if (d.model || d.custom){                      // real 3D thumbnail, rendered once then cached
+    if (d.model || d.custom || d.gen){             // real 3D thumbnail, rendered once then cached (AI pieces too)
       getThumb(d).then(url => {
         if (!url) return;
         const sw = el.querySelector('.sw');
