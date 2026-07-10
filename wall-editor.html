@@ -55,6 +55,7 @@ select.tb{background:var(--panel2);border-color:var(--line)}
   <button class="tb" data-tool="door">+ Door</button>
   <button class="tb" data-tool="win">+ Window</button>
   <button class="tb" data-tool="arch">+ Arch</button>
+  <button class="tb" data-tool="zone">Split room</button>
   <button class="tb" data-tool="light">+ Light</button>
   <select id="lightType" class="tb" title="Ceiling light type">
     <option value="disc">Disc</option><option value="dome">Dome</option><option value="ring">Ring</option>
@@ -164,7 +165,7 @@ function detect(){
   if (gw * gh > 4e6){ roomsD = []; renderRooms(); return; }
   const blocked = new Uint8Array(gw * gh);
   for (const w of W){
-    const t = WALL_T / 2;
+    const t = w.zone ? 0.03 : WALL_T / 2;            // a divider splits the label with the thinnest possible line
     const a = w.d === 'h' ? {x1:w.from, x2:w.to, z1:w.pos - t, z2:w.pos + t} : {x1:w.pos - t, x2:w.pos + t, z1:w.from, z2:w.to};
     const ix1 = Math.max(0, Math.floor((a.x1 - x1) / res)), ix2 = Math.min(gw - 1, Math.ceil((a.x2 - x1) / res));
     const iz1 = Math.max(0, Math.floor((a.z1 - z1) / res)), iz2 = Math.min(gh - 1, Math.ceil((a.z2 - z1) / res));
@@ -242,19 +243,26 @@ function detect(){
       }
     }
     const area = cells.length * res * res;
-    // does anything open INTO this space? no door/arch/glass door = a sealed void, not a room
+    // does anything open INTO this space? doors/arches/glass doors count — and so does a room
+    // DIVIDER (an open-plan zone is walked into freely). No way in at all = a sealed void.
     let access = false;
+    const probe = (w2, at) => {
+      for (const off of [0.25, -0.25, 0.4, -0.4]){
+        const px = w2.d === 'h' ? at : w2.pos + off;
+        const pz = w2.d === 'h' ? w2.pos + off : at;
+        const ix = Math.floor((px - x1) / res), izq = Math.floor((pz - z1) / res);
+        if (ix >= 0 && izq >= 0 && ix < gw && izq < gh && mask.has(izq * gw + ix)) return true;
+      }
+      return false;
+    };
     for (const w2 of W){
-      for (const o of (w2.ops || [])){
-        if (o.t === 'win') continue;
-        const at = o.t === 'glasswall' ? (w2.from + w2.to) / 2 : o.at;
-        for (const off of [0.25, -0.25, 0.4, -0.4]){   // clear of the wall's rasterised thickness on either side
-          const px = w2.d === 'h' ? at : w2.pos + off;
-          const pz = w2.d === 'h' ? w2.pos + off : at;
-          const ix = Math.floor((px - x1) / res), izq = Math.floor((pz - z1) / res);
-          if (ix >= 0 && izq >= 0 && ix < gw && izq < gh && mask.has(izq * gw + ix)){ access = true; break; }
+      if (w2.zone){
+        for (const f of [0.25, 0.5, 0.75]){ if (probe(w2, w2.from + (w2.to - w2.from) * f)){ access = true; break; } }
+      } else {
+        for (const o of (w2.ops || [])){
+          if (o.t === 'win') continue;
+          if (probe(w2, o.t === 'glasswall' ? (w2.from + w2.to) / 2 : o.at)){ access = true; break; }
         }
-        if (access) break;
       }
       if (access) break;
     }
@@ -341,6 +349,14 @@ function draw(){
   plan.walls.forEach((w, i) => {
     const seld = i === selW;
     const t = (WALL_T / 2) * cam.s;
+    if (w.zone){                                     // room divider: dashed, thin, clearly not a wall
+      ctx.strokeStyle = seld ? '#ffd23e' : '#7fa8d8';
+      ctx.lineWidth = 2; ctx.setLineDash([9, 7]);
+      ctx.beginPath();
+      if (w.d === 'h'){ ctx.moveTo(sx(w.from), sz(w.pos)); ctx.lineTo(sx(w.to), sz(w.pos)); }
+      else { ctx.moveTo(sx(w.pos), sz(w.from)); ctx.lineTo(sx(w.pos), sz(w.to)); }
+      ctx.stroke(); ctx.setLineDash([]);
+    } else {
     const col = w.rail ? '#5b8ba6' : w.ops && w.ops[0] && w.ops[0].t === 'glasswall' ? '#69b7e0' : seld ? '#ffd23e' : '#9db1c5';
     ctx.globalAlpha = (w.h && w.h < 2.2) ? 0.6 : 1;   // half-walls read lighter on the plan
     ctx.fillStyle = col;
@@ -350,6 +366,7 @@ function draw(){
       else ctx.fillRect(sx(w.pos) - t, sz(a), t * 2, (b - a) * cam.s);
     }
     ctx.globalAlpha = 1;
+    }
     // ops glyphs
     (w.ops || []).forEach((o, oi) => {
       if (o.t === 'glasswall') return;
@@ -361,11 +378,19 @@ function draw(){
       if (w.d === 'h'){
         ctx.moveTo(sx(a), sz(w.pos)); ctx.lineTo(sx(b), sz(w.pos));
         if (o.t === 'win'){ ctx.moveTo(sx(a), sz(w.pos) - 3); ctx.lineTo(sx(b), sz(w.pos) - 3); }
-        if (o.t === 'door'){ ctx.moveTo(sx(a), sz(w.pos)); ctx.arc(sx(a), sz(w.pos), o.w * cam.s, 0, -Math.PI / 2, true); }
       } else {
         ctx.moveTo(sx(w.pos), sz(a)); ctx.lineTo(sx(w.pos), sz(b));
         if (o.t === 'win'){ ctx.moveTo(sx(w.pos) - 3, sz(a)); ctx.lineTo(sx(w.pos) - 3, sz(b)); }
-        if (o.t === 'door'){ ctx.moveTo(sx(w.pos), sz(a)); ctx.arc(sx(w.pos), sz(a), o.w * cam.s, Math.PI / 2, 0, true); }
+      }
+      if (o.t === 'door'){                           // swing arc honours hinge side + opening direction
+        const hg = o.hinge || 1, sw = o.swing || 1;
+        const hAt = o.at - hg * o.w / 2;             // hinge jamb
+        const hx = w.d === 'h' ? sx(hAt) : sx(w.pos);
+        const hz = w.d === 'h' ? sz(w.pos) : sz(hAt);
+        const alongAng = w.d === 'h' ? (hg > 0 ? 0 : Math.PI) : (hg > 0 ? Math.PI / 2 : -Math.PI / 2);
+        ctx.moveTo(hx, hz);
+        ctx.arc(hx, hz, o.w * cam.s, alongAng, alongAng + sw * Math.PI / 2, sw < 0);
+        ctx.lineTo(hx, hz);                          // the door leaf, standing open
       }
       ctx.stroke();
       if (osel){
@@ -463,13 +488,13 @@ function scheduleDetect(){ clearTimeout(detectT); detectT = setTimeout(() => { d
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId);
   const x = wx(e.clientX), z = wz(e.clientY);
-  if (tool === 'wall'){ pushUndo(); drawing = { x1: snap(x), z1: snap(z), x2: snap(x), z2: snap(z) }; return; }
+  if (tool === 'wall' || tool === 'zone'){ pushUndo(); drawing = { x1: snap(x), z1: snap(z), x2: snap(x), z2: snap(z), zone: tool === 'zone' }; return; }
   if (tool === 'door' || tool === 'win' || tool === 'arch'){
     const wi = hitWall(x, z);
     if (wi >= 0){
       pushUndo();
       const w = plan.walls[wi];
-      if (w.rail || (w.ops || []).some(o => o.t === 'glasswall')) return;
+      if (w.rail || w.zone || (w.ops || []).some(o => o.t === 'glasswall')) return;   // dividers hold no openings — they're already open
       const d = OP_DEFAULTS[tool];
       const at = snap(Math.min(w.to - d.w / 2, Math.max(w.from + d.w / 2, w.d === 'h' ? x : z)));
       w.ops = w.ops || [];
@@ -561,6 +586,7 @@ cv.addEventListener('pointerup', () => {
       const w = drawing.x2 !== drawing.x1
         ? { d: 'h', pos: drawing.z1, from: Math.min(drawing.x1, drawing.x2), to: Math.max(drawing.x1, drawing.x2) }
         : { d: 'v', pos: drawing.x1, from: Math.min(drawing.z1, drawing.z2), to: Math.max(drawing.z1, drawing.z2) };
+      if (drawing.zone) w.zone = true;               // a room divider: splits the label, builds no wall
       plan.walls.push(w);
       selW = plan.walls.length - 1; selOp = -1;
       scheduleDetect();
@@ -603,7 +629,13 @@ function inspect(){
       <input id="opH" type="number" step="0.05" min="0.4" max="${WALL_H}" value="${o.h ?? (o.t === 'door' ? 2.05 : isWin ? 1.2 : 2.3)}">
       ${isWin ? `<label>Sill height from floor (m)</label><input id="opS" type="number" step="0.05" min="0" max="2" value="${o.sill ?? 0.9}">` : ''}
       <label>Slide along the wall (m)</label><input id="opAt" type="number" step="0.05" value="${o.at}">
+      ${o.t === 'door' ? `<div class="row" style="margin-top:9px"><button type="button" id="opHinge" style="margin-top:0;background:var(--panel2);color:var(--text)">⇋ Flip hinge</button>
+      <button type="button" id="opSwing" style="margin-top:0;background:var(--panel2);color:var(--text)">⇵ Flip swing</button></div>` : ''}
       <button id="opDel">Remove ${o.t === 'win' ? 'window' : o.t}</button>`;
+    if (o.t === 'door'){
+      el.querySelector('#opHinge').onclick = () => { pushUndo(); o.hinge = (o.hinge || 1) * -1; save(); draw(); };
+      el.querySelector('#opSwing').onclick = () => { pushUndo(); o.swing = (o.swing || 1) * -1; save(); draw(); };
+    }
     const upd = () => {
       o.w = Math.max(0.3, +el.querySelector('#opW').value || o.w);
       o.h = Math.min(WALL_H, Math.max(0.4, +el.querySelector('#opH').value || o.h || 2));
@@ -613,6 +645,14 @@ function inspect(){
     };
     el.querySelectorAll('input').forEach(i => i.addEventListener('change', () => { pushUndo(); upd(); }));
     el.querySelector('#opDel').onclick = () => { pushUndo(); w.ops.splice(selOp, 1); selOp = -1; inspect(); scheduleDetect(); draw(); };
+  } else if (selW >= 0 && plan.walls[selW].zone){
+    const w = plan.walls[selW];
+    el.style.display = 'block';
+    el.innerHTML = `<h3>Room divider</h3>
+      <div class="big">${(w.to - w.from).toFixed(2)} m</div>
+      <p class="tip">Splits the space into two named rooms (open kitchen, dining corner…) WITHOUT building a wall — furniture and people pass freely. Drag to slide it, drag the yellow ends to stretch.</p>
+      <button id="wDel">Remove divider</button>`;
+    el.querySelector('#wDel').onclick = () => { pushUndo(); plan.walls.splice(selW, 1); selW = -1; selOp = -1; inspect(); scheduleDetect(); draw(); };
   } else if (selW >= 0){
     const w = plan.walls[selW];
     el.style.display = 'block';
@@ -657,13 +697,15 @@ document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
     door: 'Tap a wall where the door goes — then drag it or edit its size on the right',
     win: 'Tap a wall where the window goes — width, height and sill are all editable',
     arch: 'Tap a wall to cut an open archway',
+    zone: 'Drag a dashed line across a space to name part of it (open kitchen!) — no wall is built, furniture passes freely',
     light: 'Tap anywhere to place the selected light type',
     del: 'Tap an opening to remove it, tap a wall to demolish it, tap a light to remove it'
   }[tool];
 });
 document.getElementById('undoB').onclick = undo;
 document.getElementById('exportB').onclick = () => {
-  const out = { v: 1, walls: plan.walls, lights: plan.lights, rooms: roomsD.map(r => ({ name: r.name, rects: r.rects.map(rc => rc.map(n => +n.toFixed(2))), area: +r.area.toFixed(2) })) };
+  const out = { v: 1, walls: plan.walls.filter(w => !w.zone), zones: plan.walls.filter(w => w.zone), lights: plan.lights,
+    rooms: roomsD.filter(r => !r.hidden).map(r => ({ name: r.name, rects: r.rects.map(rc => rc.map(n => +n.toFixed(2))), area: +r.area.toFixed(2) })) };
   const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'home-plan.json'; a.click();
   navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(out)).catch(() => {});
@@ -672,7 +714,7 @@ document.getElementById('importB').onclick = () => document.getElementById('file
 document.getElementById('file').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
   f.text().then(t => {
-    try { const d = JSON.parse(t); if (Array.isArray(d.walls)){ pushUndo(); plan = { walls: d.walls, lights: d.lights || [], names: {} }; names = {}; selW = selOp = selLight = -1; detect(); save(); draw(); } } catch(err){ alert('Could not read that file'); }
+    try { const d = JSON.parse(t); if (Array.isArray(d.walls)){ pushUndo(); plan = { walls: d.walls.concat((d.zones || []).map(z => ({...z, zone:true}))), lights: d.lights || [], names: {} }; names = {}; selW = selOp = selLight = -1; detect(); save(); draw(); } } catch(err){ alert('Could not read that file'); }
   });
   e.target.value = '';
 });
@@ -727,6 +769,7 @@ function build3d(){
     f.position.set((a + c2) / 2, -0.025, (b + d2) / 2); sc.add(f);
   }
   for (const w of plan.walls){
+    if (w.zone) continue;                            // dividers are labels, not geometry
     const grp = new THREE.Group();
     const H = w.h ?? WALL_H;                         // per-wall height (half-walls, counters, parapets)
     const L = w.to - w.from, cx0 = (w.from + w.to) / 2;
