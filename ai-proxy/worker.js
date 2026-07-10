@@ -178,7 +178,7 @@ export default {
           body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.25 } }),
         });
         t = await gg.text();
-        if (gg.status !== 404) break;                 // 404 = this key doesn't have that model — try the next one
+        if (gg.status !== 404 && gg.status !== 503 && gg.status !== 429) break;   // missing (404) or overloaded/limited (503/429) — try the next model
       }
       return new Response(t, { status: gg.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
     }

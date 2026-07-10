@@ -4358,6 +4358,7 @@ async function generateFromUrl(url){
     const res = await fetch(proxy, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fetchUrl: url }) });
     if (!res.ok){
       if (res.status === 429) return bad('The Gemini key hit its quota — try later.');
+      if (res.status === 503) return bad('The AI is a bit overloaded right now — give it a minute and try again.');
       if (res.status === 400) return bad('The AI helper needs its one-time update for links — re-paste worker.js in Cloudflare, then try again.');
       if (res.status === 422) return bad("Couldn't open that page (some shops block robots). Try the item's own product page, or just describe it.");
       return bad('Could not read that link (' + res.status + ').');
@@ -4395,6 +4396,7 @@ async function generateModel(text){
     const res = await fetch(proxy, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ generate: thing }) });
     if (!res.ok){
       if (res.status === 429) return bad('The Gemini key hit its quota — top up billing, or try later.');
+      if (res.status === 503) return bad('The AI is a bit overloaded right now — give it a minute and try again.');
       return bad('Could not create that (' + res.status + '). Try a simpler word.');
     }
     const data = await res.json();
@@ -4907,7 +4909,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.thumbs-true-color';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-10.busy-fallback';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
