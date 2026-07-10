@@ -145,12 +145,18 @@ export default {
         'PRODUCT DESCRIPTION: "' + desc.replace(/"/g, "'") + '". ' +
         (pageText ? 'PAGE TEXT: "' + pageText.replace(/"/g, "'") + '".' : '');
       parts.push({ text: sys });
-      const gg = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
-        body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.25 } }),
-      });
-      const t = await gg.text();
+      // model availability depends on the key's age — try the best current model, fall back on 404
+      const MODEL_TRY = ['gemini-3-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'];
+      let gg = null, t = '';
+      for (const model of MODEL_TRY){
+        gg = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
+          body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.25 } }),
+        });
+        t = await gg.text();
+        if (gg.status !== 404) break;                 // 404 = this key doesn't have that model — try the next one
+      }
       return new Response(t, { status: gg.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
     }
 
