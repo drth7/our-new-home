@@ -4436,10 +4436,9 @@ async function realisticShot(){
   const scale = Math.min(1, 1536 / src.width);       // keep detail so the AI has plenty to work with
   const cw = Math.round(src.width * scale), ch = Math.round(src.height * scale);
   const cnv = document.createElement('canvas'); cnv.width = cw; cnv.height = ch;
-  const c2 = cnv.getContext('2d');
-  c2.drawImage(src, 0, 0, cw, ch);
-  // number the REAL products in view (AI-from-URL pieces carry def.url) so the AI can match each to its
-  // actual shop photos — the Worker fetches those photos from the URL and attaches them as references.
+  cnv.getContext('2d').drawImage(src, 0, 0, cw, ch);
+  // list the REAL products in view (AI-from-URL pieces carry def.url) with a rough on-screen position, so the
+  // AI can match each to its shop photos. NO markers are drawn on the image — they made the AI redraw the room.
   const refs = [];
   { const cam = activeCam(), pv = new THREE.Vector3();
     for (const it of items){
@@ -4447,16 +4446,9 @@ async function realisticShot(){
       if (!def || !def.url || refs.length >= 6) continue;
       _box.setFromObject(it);
       pv.set((_box.min.x + _box.max.x) / 2, (_box.min.y + _box.max.y) / 2, (_box.min.z + _box.max.z) / 2).project(cam);
-      if (pv.z > 1) continue;                                          // behind the camera
-      const lx = (pv.x * 0.5 + 0.5) * cw, ly = (-pv.y * 0.5 + 0.5) * ch;
-      if (lx < 8 || ly < 8 || lx > cw - 8 || ly > ch - 8) continue;    // off-screen
-      const n = refs.length + 1;
-      refs.push({ label: n, name: def.name, url: def.url });
-      c2.beginPath(); c2.arc(lx, ly, 17, 0, Math.PI * 2);
-      c2.fillStyle = 'rgba(233,42,42,.92)'; c2.fill();
-      c2.lineWidth = 3; c2.strokeStyle = '#fff'; c2.stroke();
-      c2.fillStyle = '#fff'; c2.font = 'bold 21px system-ui'; c2.textAlign = 'center'; c2.textBaseline = 'middle';
-      c2.fillText(String(n), lx, ly + 1);
+      if (pv.z > 1 || Math.abs(pv.x) > 1.05 || Math.abs(pv.y) > 1.05) continue;   // behind the camera / off-screen
+      const pos = pv.x < -0.33 ? 'on the left' : pv.x > 0.33 ? 'on the right' : 'in the centre';
+      refs.push({ label: refs.length + 1, name: def.name, url: def.url, pos });
     }
   }
   const inB64 = cnv.toDataURL('image/png').split(',')[1];
@@ -4469,8 +4461,8 @@ async function realisticShot(){
 
   // photorealism-forward (the earlier "keep everything exactly" wording made it barely change the render)
   let prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo. It must look like a real photograph, NOT a 3D model, render or cartoon.";
-  if (refs.length){                                          // real products are numbered; their reference photos are attached after the render
-    prompt += " Numbered red circles mark REAL products; reference photos for each number are attached after this image. Render each numbered item to match its reference photos exactly — real materials, colour, silhouette and brand look — while keeping it in the same position and size. Then REMOVE the numbered red markers from the final photo (do not draw them). Products: " + refs.map(r => '#' + r.label + ' = ' + (r.name || 'item')).join('; ') + ".";
+  if (refs.length){                                          // reference photos of the real products are attached after the render
+    prompt += " CRITICAL — keep THIS exact room: do NOT change, move, add, remove or reshape any wall, window, door, floor, ceiling, or the furniture positions, and keep the camera identical; only make the surfaces look real. Reference photos of the real products are attached after this image — use each ONLY to give its matching item realistic materials, colour, texture and shape, and completely IGNORE the room, background, floor and décor shown in those reference photos (never copy their surroundings into this picture). Match: " + refs.map(r => '#' + r.label + ' = ' + (r.name || 'item') + ' (' + r.pos + ')').join('; ') + ".";
   }
   try{
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
@@ -5211,7 +5203,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.ref-render';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.ref-render-fix';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
