@@ -4431,12 +4431,17 @@ async function realisticShot(){
   if (cat) cat.g.visible = false;
   const savedOpacity = {};
   for (const wi in wallMats){ savedOpacity[wi] = wallMats[wi][0].opacity; for (const m of wallMats[wi]) m.opacity = 1; }
-  renderer.render(scene, activeCam());
-  const src = renderer.domElement;
-  const scale = Math.min(1, 1536 / src.width);       // keep detail so the AI has plenty to work with
-  const cw = Math.round(src.width * scale), ch = Math.round(src.height * scale);
+  // render a clean 1920×1080 (16:9) frame for the AI, then restore the live view afterwards
+  const shotCam = activeCam();
+  const prevSize = renderer.getSize(new THREE.Vector2()), prevPR = renderer.getPixelRatio();
+  const prevAspect = shotCam.isPerspectiveCamera ? shotCam.aspect : null;
+  const cw = 1920, ch = 1080;
+  renderer.setPixelRatio(1);
+  renderer.setSize(cw, ch, false);                   // false = leave the on-screen canvas' CSS size alone
+  if (shotCam.isPerspectiveCamera){ shotCam.aspect = cw / ch; shotCam.updateProjectionMatrix(); }
+  renderer.render(scene, shotCam);
   const cnv = document.createElement('canvas'); cnv.width = cw; cnv.height = ch;
-  cnv.getContext('2d').drawImage(src, 0, 0, cw, ch);
+  cnv.getContext('2d').drawImage(renderer.domElement, 0, 0, cw, ch);
   // list the REAL products in view (AI-from-URL pieces carry def.url) with a rough on-screen position, so the
   // AI can match each to its shop photos. NO markers are drawn on the image — they made the AI redraw the room.
   const refs = [];
@@ -4452,10 +4457,14 @@ async function realisticShot(){
     }
   }
   const inB64 = cnv.toDataURL('image/png').split(',')[1];
-  // restore the normal view right away (walls see-through again, people/cat back) for the ~10s wait
+  // restore the normal view right away (full-res canvas, walls see-through again, people/cat back) for the ~10s wait
+  if (shotCam.isPerspectiveCamera){ shotCam.aspect = prevAspect; shotCam.updateProjectionMatrix(); }
+  renderer.setPixelRatio(prevPR);
+  renderer.setSize(prevSize.x, prevSize.y, false);
   charGroup.visible = charVis;
   if (cat) cat.g.visible = catVis;
   for (const wi in savedOpacity) for (const m of wallMats[wi]) m.opacity = savedOpacity[wi];
+  renderer.render(scene, shotCam);                   // repaint the on-screen view at its normal size
 
   showConfirm(`<h2>Making it realistic ✨</h2><p class="wsub">Sending your room to the AI… about 10&nbsp;seconds.</p><div class="rspin"></div>`, []);
 
@@ -5203,7 +5212,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.wsofa-url';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.shot-1080';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
