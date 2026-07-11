@@ -5,12 +5,14 @@
 |---|---|
 | **Product** | Our New Home |
 | **Document** | Product Requirements Document |
-| **Version** | 1.0 |
-| **Date** | 2026-07-08 |
+| **Version** | 1.1 |
+| **Date** | 2026-07-11 |
 | **Author** | Abdulla (drth7) |
 | **Status** | Live |
 | **Live** | https://drth7.github.io/our-new-home/ |
 | **Repo** | https://github.com/drth7/our-new-home |
+
+> **What's new in v1.1 (2026‑07‑11):** the couple can now **redraw the apartment itself** in an in‑app **Layout / Wall Editor** (walls, doors, windows, arches, open‑plan room splits, ceiling lights) and Save it live to both phones; **Create with AI** turns a description or a furniture product link into a real‑size model; **lamps** cast switchable light; walls can be painted per‑room/per‑side and toggled **see‑through or solid**; and the app now runs an **adaptive frame rate** (with an on‑screen FPS meter) to spare iPhone battery.
 
 ---
 
@@ -87,6 +89,8 @@ Primary context: **two iPhones**, often in different rooms or places, sometimes 
 - **US‑7** *As a resident,* I clean up after our cat's little mess as a light, shared ritual.
 - **US‑8** *As a viewer,* I switch between 3D, top‑down 2D, and a walk‑through to understand the space.
 - **US‑9** *As an owner,* I export/save our layout so we don't lose it and can share a screenshot.
+- **US‑10** *As an owner,* I redraw a wall, add a door, or split the kitchen off the living hall in the editor and Save it, and my partner's home updates to match.
+- **US‑11** *As a planner,* I paste a link to a sofa we're considering (or just describe it) and get it modeled at real size to try in the room.
 
 ---
 
@@ -115,25 +119,39 @@ Primary context: **two iPhones**, often in different rooms or places, sometimes 
 | F‑14 | **Modern UI pass** | Inline SVG icon system, grouped Settings cards, layered shadows, spring/entrance animations |
 | F‑15 | **Data‑safety guard** | First‑sync adopts the cloud room and blocks saves until then, so a stale device can't overwrite the home |
 
+### P1 — New since v1.0 (shipped, 2026‑07)
+| # | Feature | What it does | Ties to |
+|---|---|---|---|
+| F‑16 | **Layout / Wall Editor** | An in‑app editor to **redraw the apartment**: draw/move/stretch/delete walls with live metre readouts; punch **doors, windows, archways** at any size with adjustable door swing; **split a room without a wall** (open‑plan zones — furniture and people pass freely); place ceiling lights; **automatic room detection** with rename; a 3D preview; and **Save that applies to the real home for both partners** (synced). Export/import/reset included. | G1, G2 |
+| F‑17 | **Create with AI** | Describe a piece — or **paste a furniture product link** — and it's modeled at its real size and added to the catalog for both partners; a store page with several pieces (e.g., a modular kitchen) yields several models. | G2, G4 |
+| F‑18 | **Lamps that light up** | Placeable lamps cast a warm light you can switch **on/off**; the state syncs to both devices. | G4 |
+| F‑19 | **Advanced wall paint** | Paint the **whole home, a single room, or one wall side**; walls split per room so painting one never bleeds into the neighbour. | G2, G4 |
+| F‑20 | **See‑through / solid walls** | Toggle wall transparency to peer into rooms from outside or view them solid. | G2 |
+| F‑21 | **Battery‑savvy rendering** | **Adaptive frame rate** (≈30 fps idle, ≈60 fps while interacting) to spare iPhone battery, with an on‑screen **FPS meter**. | G3, G5 |
+| F‑22 | **Warm welcome** | A calm animated entry that fades into the home with a gentle zoom‑in, plus the partner's greeting note. | G4 |
+
 ### P2 — Candidate backlog (not yet built)
 | # | Idea | Value |
 |---|---|---|
-| F‑16 | Purpose‑built kitchen wall cabinets/drawers (upper‑cabinet shapes) | Nicer than hanging a counter |
-| F‑17 | "Snap‑together" furniture presets (e.g., place a full sectional in one tap) | Faster layout |
-| F‑18 | Multi‑segment / area measurements and saved dimensions | Deeper planning |
-| F‑19 | Shopping links / price + source metadata per piece | Bridge plan → purchase |
-| F‑20 | Room‑by‑room camera tours / guided walkthrough | Presentation |
-| F‑21 | Layout versions / snapshots ("before we bought the sofa") | History & compare |
-| F‑22 | Scoped, authenticated database rules; per‑couple room isolation | Hardening/scale |
+| F‑23 | Purpose‑built kitchen wall cabinets/drawers (upper‑cabinet shapes) | Nicer than hanging a counter |
+| F‑24 | "Snap‑together" furniture presets (e.g., place a full sectional in one tap) | Faster layout |
+| F‑25 | Multi‑segment / area measurements and saved dimensions | Deeper planning |
+| F‑26 | Shopping links / price + source metadata per piece | Bridge plan → purchase (AI URL import already models from a store page) |
+| F‑27 | Room‑by‑room camera tours / guided walkthrough | Presentation |
+| F‑28 | Layout versions / snapshots ("before we bought the sofa") | History & compare |
+| F‑29 | Upload a floor plan (photo/PDF) → AI traces it into an editable layout | Onboard any home |
+| F‑30 | Dynamic members/family roster (beyond the fixed 3 roles) | Share with more people |
+| F‑31 | Scoped, authenticated database rules; per‑couple room isolation | Hardening/scale |
 
 ---
 
 ## 8. UX Notes
-- **Top bar:** Rooms · title/presence · view toggle · theme · Settings.
+- **Top bar:** Rooms · **Wall‑editor** (blueprint) · title/presence · **FPS meter** · view toggle · theme · Settings.
 - **Bottom bar:** Add · Undo · **Measure** · Screenshot · Achievements · Activity.
-- **Selection toolbar:** Rotate · Color · Resize · **Wall‑mount** · Use (contextual) · Delete + live size readout.
-- **Add sheet:** category tabs + thumbnail grid; tap or drag‑out.
-- **Settings:** grouped cards — You / Environment / Multiplayer / Layout.
+- **Selection toolbar:** Rotate · Color · Resize · **Wall‑mount** · **Flip** (wall pieces) · **Light** (lamps) · Use (contextual) · Delete + live size readout.
+- **Add sheet:** category tabs + thumbnail grid; tap or drag‑out; **✨ Create with AI** (describe or paste a product link).
+- **Settings:** grouped cards — You / Environment (lighting, walls & floor incl. see‑through toggle, view helpers) / Multiplayer / Layout.
+- **Layout / Wall Editor:** opens full‑screen in‑app; left rail of icon tools — **Tools** (Select · Split · Delete), **Add** (Wall · Door · Window · Arch · Light), **File** (Reset · Export · Import); Save · Back · Undo · 3D preview centred at top; **Rooms** toggles a room list; canvas with live measurements and a ✎ rename on each room.
 - **Tone:** first‑person, affectionate ("Welcome home", hearts), calm modern visuals, light/dark.
 
 ---
@@ -150,8 +168,11 @@ Because this is a private two‑person product, "success" is qualitative and usa
 ---
 
 ## 10. Technical Summary (for context)
-- **Client:** one self‑contained `index.html` — Three.js scene, all UI, embedded character/furniture models (base64).
-- **Sync:** Firebase Realtime Database as a shared live store (`/room/*`); ~8–10 Hz for presence/drag; whole‑room layout node with author + timestamp; **adopt‑before‑save** guard.
+- **Client:** one self‑contained `index.html` — Three.js scene, all UI, embedded character/furniture models (base64). A companion `wall-editor.html` provides the Layout Editor, opened as an in‑app same‑origin iframe (version cache‑busted).
+- **Editable plan:** the apartment is a hardcoded `PLAN` baseline plus an optional **`planOverride`** (walls, room dividers/zones, room rects, lights) authored in the editor and **synced in the layout**; everything derived (floors, wall meshes, walkable area) is recomputed on adoption. Reset restores the baseline.
+- **Create with AI:** a **Cloudflare Worker** (`ai-proxy/worker.js`) holds the Gemini key server‑side; the app posts a description or a product URL and gets back a shape recipe / real‑size dimensions. Generated recipes travel with the layout so both phones can build them.
+- **Sync:** Firebase Realtime Database as a shared live store (`/room/*`); ~8–10 Hz for presence/drag; whole‑room layout node (incl. `planOv` + AI recipes) with author + timestamp; **adopt‑before‑save** guard.
+- **Performance:** capped pixel ratio; **adaptive frame rate** (renders ~30 fps idle / ~60 fps while interacting) for battery; exact stack heights and wall/floor state serialized (never re‑guessed on the receiver).
 - **Hosting:** GitHub Pages (static); ship via `git push`; `.nojekyll` required.
 - **Auth:** fixed identities, cosmetic passwords, optional guest name — intended for a trusted private couple.
 - **Persistence:** cloud + `localStorage` (layout, identity, preferences, achievements).
@@ -179,4 +200,4 @@ Because this is a private two‑person product, "success" is qualitative and usa
 
 ---
 
-*End of PRD v1.0.*
+*End of PRD v1.1.*

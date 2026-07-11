@@ -5,12 +5,14 @@
 |---|---|
 | **Product** | Our New Home |
 | **Document** | Software Requirements Specification |
-| **Version** | 1.0 |
-| **Date** | 2026-07-08 |
+| **Version** | 1.1 |
+| **Date** | 2026-07-11 |
 | **Status** | Baseline (live in production) |
 | **Owner** | Abdulla (drth7) |
 | **Live** | https://drth7.github.io/our-new-home/ |
 | **Repository** | https://github.com/drth7/our-new-home |
+
+> **v1.1 changes (2026‑07‑11):** adds the **Layout / Wall Editor** (FR‑12) and **AI furniture creation** (FR‑13); the floor plan is now **user‑editable and synced** (a `planOv` override, §4.4); augments the catalog with AI/uploaded pieces (FR‑3), lamp on/off (FR‑4.11), and a see‑through/solid wall toggle (FR‑9.6); and specifies **adaptive‑frame‑rate** rendering (NFR‑P4).
 
 ---
 
@@ -20,9 +22,9 @@
 This document specifies the functional and non-functional requirements for **Our New Home**, a private, real‑time collaborative 3D application that lets a couple design and furnish the floor plan of their new apartment together from separate devices. It is intended for the maintainer(s) of the app and any future contributor.
 
 ### 1.2 Scope
-Our New Home is a single‑page, self‑contained web application (one `index.html`) that renders an interactive 3D/2D model of a specific real apartment. Two named users (and optional guests) can browse the home in 3D orbit, a 2D plan, or a walk‑through view; place and arrange furniture from a catalog; paint walls; adjust lighting and time of day; measure distances; and interact through avatars, gestures, and a pet cat. All edits synchronize live between users through a cloud database. The product runs entirely on free static hosting with no application server and no user‑account system.
+Our New Home is a self‑contained web application (`index.html`, with a companion `wall-editor.html` for layout editing) that renders an interactive 3D/2D model of a specific real apartment. Two named users (and optional guests) can browse the home in 3D orbit, a 2D plan, or a walk‑through view; place and arrange furniture from a catalog (including pieces **created with AI** or uploaded); **redraw the apartment's walls, doors, windows and room splits** in a Layout Editor; paint walls; adjust lighting and time of day; measure distances; and interact through avatars, gestures, and a pet cat. All edits — including the edited floor plan — synchronize live between users through a cloud database. The product runs entirely on free static hosting with no application server and no user‑account system (an optional external AI proxy backs the Create‑with‑AI feature).
 
-**In scope:** floor‑plan visualization; furniture catalog and manipulation; real‑time multi‑user sync; environment/lighting controls; avatars and social interactions; the cat and cleaning mini‑mechanic; measurement; persistence (save/load/export/import); achievements and activity feed.
+**In scope:** floor‑plan visualization **and in‑app editing (walls/openings/room splits/lights)**; furniture catalog, AI creation, and manipulation; real‑time multi‑user sync; environment/lighting controls; avatars and social interactions; the cat and cleaning mini‑mechanic; measurement; persistence (save/load/export/import); achievements and activity feed.
 
 **Out of scope:** general‑purpose CAD; arbitrary floor‑plan authoring by end users; e‑commerce/checkout; public accounts/social network; server‑side compute; native mobile apps.
 
@@ -35,14 +37,19 @@ Our New Home is a single‑page, self‑contained web application (one `index.ht
 | **Parametric piece** | Furniture built from primitives at runtime (scales cleanly) |
 | **Model piece** | Furniture loaded from an embedded FBX 3D model |
 | **PLAN** | The data structure describing rooms (rectangles) and walls (centerlines) |
+| **planOverride / `planOv`** | An edited plan (walls, zones, rooms, lights) authored in the Layout Editor that replaces the baseline PLAN and syncs to both devices |
+| **Zone / room split** | A divider that names two rooms without building a wall; carries no geometry and stays walkable |
+| **Layout / Wall Editor** | The in‑app tool (`wall-editor.html`) for redrawing the apartment |
+| **AI proxy** | The Cloudflare Worker that holds the model key server‑side and backs Create‑with‑AI |
 | **Wall‑mounted** | A piece hung on a wall at a hang height rather than on the floor |
 | **Host role** | The device authoritative for the cat/dirt timer |
 | **Guest** | A view‑only visitor identity |
 
 ### 1.4 References
 - Game Design Document: `Our-New-Home-GDD_2.md`
+- Product Requirements Document: `docs/PRD.md`
 - Three.js r0.160 (rendering) · Firebase JS SDK 10.12 (RTDB)
-- Source of record: the single `index.html` in the repository
+- Source of record: `index.html` (app) and `wall-editor.html` (Layout Editor); AI proxy in `ai-proxy/worker.js`
 
 ### 1.5 Overview
 Section 2 gives the overall product context, users, and constraints. Section 3 enumerates external interfaces, functional requirements (FR‑*), and non‑functional requirements (NFR‑*). Section 4 defines the data/persistence model.
@@ -69,19 +76,21 @@ The app is a standalone static web page. There is no backend service the team op
 ### 2.2 Product Functions (summary)
 - Visualize a specific apartment in **3D orbit, 2D plan, and walk‑around** views.
 - **Add, move, rotate, resize, recolor, stack, delete** furniture from a categorized catalog.
-- **Hang pieces on walls** (inherent wall items + a floor↔wall toggle for any piece).
+- **Create furniture with AI** from a text description or a furniture product URL (modeled at real size), and add **uploaded** 3D models.
+- **Hang pieces on walls** (inherent wall items + a floor↔wall toggle for any piece), and switch **lamps** on/off.
+- **Redraw the apartment** in the Layout / Wall Editor — walls, doors, windows, archways, open‑plan room splits, and ceiling lights — then Save it live to both partners.
 - **Real‑time collaboration:** both users see each other's edits, avatars, and cursors/drags live.
-- **Environment:** time of day (manual or live clock), sun direction, day/night theme, per‑wall paint color, 1 m floor grid.
+- **Environment:** time of day (manual or live clock), sun direction, day/night theme, per‑room/per‑wall paint color, **see‑through vs solid walls**, 1 m floor grid.
 - **Social/ambient:** avatars with sit/sleep, radial gesture menus (wave/kiss/hug), a wandering pet cat, and a cleaning mini‑mechanic (dirt).
-- **Utilities:** distance measure tool, screenshots, undo, achievements, activity feed, save/load/export/import.
-- **Persistence & sync** of the entire room to the cloud and to local storage.
+- **Utilities:** distance measure tool, screenshots, undo, achievements, activity feed, save/load/export/import, on‑screen **FPS meter**.
+- **Persistence & sync** of the entire room — including the plan override and AI recipes — to the cloud and to local storage.
 
 ### 2.3 User Classes and Characteristics
 | User class | Description | Rights |
 |---|---|---|
-| **Husband (Abdulla)** | Primary owner, blue avatar | Full edit; can send/receive greeting message; kiss/hug partner |
+| **Husband (Abdulla)** | Primary owner, blue avatar | Full edit — furniture, AI creation, wall paint, **redraw the layout**; send/receive greeting; kiss/hug partner |
 | **Wife (Miaad)** | Primary owner, pink avatar | Full edit; same as above |
-| **Guest** | Named visitor, grey avatar | View‑only; can look around and walk; cannot edit or clean |
+| **Guest** | Named visitor, grey avatar | View‑only; can look around and walk; cannot edit, redraw, or clean |
 
 Both primary users are non‑technical and use the app mainly on iPhones. The two owners are a couple; the app's tone and social features assume mutual trust.
 
@@ -91,17 +100,19 @@ Both primary users are non‑technical and use the app mainly on iPhones. The tw
 - **Backend:** Firebase RTDB (config baked into the page; connects automatically after sign‑in).
 
 ### 2.5 Design and Implementation Constraints
-- **C‑1** Single self‑contained `index.html`; character/furniture models embedded as base64 — no external asset requests for core content.
+- **C‑1** Self‑contained `index.html`; character/furniture models embedded as base64 — no external asset requests for core content. The Layout Editor lives in a second file, `wall-editor.html`, opened as an in‑app same‑origin iframe (its URL is cache‑busted by the app version).
 - **C‑2** No application server, no build step required to ship; deploy = `git push`.
 - **C‑3** No real authentication or private data store; identities are fixed and passwords are cosmetic/client‑side.
 - **C‑4** Free‑tier friendly: minimal, coarse‑grained RTDB traffic.
 - **C‑5** iPhone‑first, touch‑first interaction; must remain usable one‑handed.
-- **C‑6** The file must be edited with encoding‑safe tooling (UTF‑8 without BOM) to avoid corrupting embedded data/emoji.
+- **C‑6** The files must be edited with encoding‑safe tooling (UTF‑8 without BOM) to avoid corrupting embedded data/emoji.
+- **C‑7** The AI creation feature depends on an external **Cloudflare Worker** that holds the Gemini key server‑side; no key ever ships in the page or on the device. AI is an enhancement — the app is fully usable without it.
 
 ### 2.6 Assumptions and Dependencies
 - Availability of the Firebase RTDB endpoint and the Three.js / Firebase CDN modules at runtime.
 - Only a small number of concurrent users (the couple + occasional guest).
-- The apartment's floor plan is fixed in code and changes only via developer edits.
+- A hardcoded floor‑plan baseline ships in code; either owner may **redraw it in the Layout Editor**, and the edited plan syncs and persists as an override (with a one‑tap reset to the baseline).
+- Create‑with‑AI additionally depends on the external AI proxy; when it is unavailable, AI creation is disabled but the rest of the app is unaffected.
 
 ---
 
@@ -110,23 +121,26 @@ Both primary users are non‑technical and use the app mainly on iPhones. The tw
 ### 3.1 External Interface Requirements
 
 #### 3.1.1 User Interfaces
-- **UI‑1** A top bar with: Rooms, app title + presence dot, current‑view toggle, theme toggle, Settings.
+- **UI‑1** A top bar with: Rooms, **Wall‑editor (blueprint) button**, app title + presence dot, **FPS meter**, current‑view toggle, theme toggle, Settings. The bar stays on one row on a phone.
 - **UI‑2** A bottom action bar with: **Add**, **Undo**, **Measure**, **Screenshot**, **Achievements**, **Activity** (with unread badge).
-- **UI‑3** A floating selection toolbar ("pill") for the selected piece: Rotate, Color, Resize, **Wall‑mount toggle**, Use (sit/sleep, contextual), Delete, plus a live measurement readout.
+- **UI‑3** A floating selection toolbar ("pill") for the selected piece: Rotate, Color, Resize, **Wall‑mount toggle**, **Flip** (wall pieces), **Light** (lamps), Use (sit/sleep, contextual), Delete, plus a live measurement readout.
 - **UI‑4** A resize panel with typed Width/Depth/Height inputs, ±5 cm steppers, and a Raise control for wall‑mounted pieces.
-- **UI‑5** An "Add furniture" bottom sheet with category tabs and a thumbnail grid; items can be tapped or dragged into the scene.
-- **UI‑6** A Settings drawer grouped into cards: You, Environment, Multiplayer, Layout.
+- **UI‑5** An "Add furniture" bottom sheet with category tabs and a thumbnail grid; items can be tapped or dragged into the scene; a **Create with AI** entry accepts a description or a product URL.
+- **UI‑6** A Settings drawer grouped into cards: You, Environment (Lighting / Walls & floor incl. see‑through toggle / View helpers), Multiplayer, Layout.
 - **UI‑7** A radial context menu anchored to avatars/cat for gestures/actions.
 - **UI‑8** Icons are crisp inline SVG (device‑consistent); UI uses a modern glass/blur style with light and dark themes and reduced‑motion support.
+- **UI‑9** The **Layout / Wall Editor** is a full‑screen surface: a left rail of icon tools grouped Tools (Select · Split · Delete) / Add (Wall · Door · Window · Arch · Light) / File (Reset · Export · Import); a centred top bar (Save · Back · Undo · 3D preview) and a Rooms toggle; a pannable/zoomable plan canvas with live wall measurements, door‑swing arcs, and a ✎ rename beside each detected room; and a contextual inspector for the selected element.
 
 #### 3.1.2 Hardware Interfaces
 - **HW‑1** GPU via WebGL2 for real‑time rendering.
 - **HW‑2** Touch, mouse, and keyboard input (WASD/arrows + on‑screen joystick in walk mode).
 
 #### 3.1.3 Software Interfaces
-- **SW‑1** Three.js module (scene, cameras, OrbitControls, FBXLoader, SkeletonUtils).
+- **SW‑1** Three.js module (scene, cameras, OrbitControls, FBXLoader, GLTFLoader, SkeletonUtils).
 - **SW‑2** Firebase RTDB SDK (`onValue`, `set`, `remove`) over the project database URL.
 - **SW‑3** Browser `localStorage` for local persistence of layout, profile, achievements, preferences.
+- **SW‑4** The **AI proxy** (Cloudflare Worker) over HTTPS `POST` for Create‑with‑AI: text→recipe and product‑URL→real‑size models; the Gemini key stays server‑side. Optional — the app runs fully without it.
+- **SW‑5** The Layout Editor iframe communicates with the app via `postMessage` (`wallEditorSave` / `wallEditorExit`).
 
 #### 3.1.4 Communications Interfaces
 - **COM‑1** WebSocket to RTDB for live reads/writes of room state and presence.
@@ -152,7 +166,9 @@ Both primary users are non‑technical and use the app mainly on iPhones. The tw
 - **FR‑3.1** Offer a categorized catalog (Seating, Tables, Beds, Storage, Kitchen, Bathroom, Art, Decor, Fun) of parametric and model pieces, each with a name, dimensions, and thumbnail.
 - **FR‑3.2** Add a piece by tapping a catalog card (drops into the focused area) or dragging it out of the tray.
 - **FR‑3.3** A piece spawns near the current view focus and animates into place.
-- **FR‑3.4** Support custom plan‑view thumbnails per catalog entry (e.g., branded sofa modules).
+- **FR‑3.4** Support custom plan‑view thumbnails per catalog entry (e.g., branded sofa modules); thumbnails are rendered from the actual piece and cached.
+- **FR‑3.5** **Create with AI:** the user may describe a piece in words, or paste a furniture **product URL**; the app (via the AI proxy) returns a shape recipe / real‑size dimensions, builds the piece, and adds it to the catalog. A page containing several products (e.g., a modular kitchen) may yield several models. AI‑generated recipes are shared so the partner's device can build the same pieces.
+- **FR‑3.6** Support **uploaded** 3D models (`.glb/.gltf/.fbx`) that keep their own materials and real dimensions; a device lacking the file shows a labelled stand‑in box.
 
 #### FR‑4 Furniture Manipulation
 - **FR‑4.1** Select a piece by tapping it; show its toolbar and live size/clearance readout.
@@ -163,8 +179,10 @@ Both primary users are non‑technical and use the app mainly on iPhones. The tw
 - **FR‑4.6** **Delete:** remove the selected piece.
 - **FR‑4.7** **Stacking:** a piece dropped with its centre over another rides on top of it (e.g., stack washers, put items on a tabletop); the exact stack height is preserved.
 - **FR‑4.8** **Rugs/flat mats** always lie flat on the floor and never stack onto objects; other pieces placed over a rug rest on the floor above it.
-- **FR‑4.9** **Wall mounting:** inherent wall pieces (art, curtains, wall TV, wall shelves) stick to the nearest wall facing inward at a hang height; a **floor↔wall toggle** lets any eligible floor piece be hung on a wall and slid up/down via the Raise control, and returned to the floor.
+- **FR‑4.9** **Wall mounting:** inherent wall pieces (art, curtains, wall TV, wall shelves) stick to the nearest **real wall** facing inward at a hang height; a **floor↔wall toggle** lets any eligible floor piece be hung on a wall and slid up/down via the Raise control, and returned to the floor. A wall piece can be **flipped** to show its other face and **rotated in the wall plane**; curtains may hang on a wall of any width. These states persist and sync.
 - **FR‑4.10** **Undo:** revert the last edit (add/move/rotate/resize/recolor/delete/paint) via a button or Ctrl/Cmd+Z, with a bounded history.
+- **FR‑4.11** **Lamps:** lamp pieces cast a warm point light that can be switched **on/off** from the selection toolbar; the on/off state persists and syncs. Lamps default off and add no light while off (no runtime cost).
+- **FR‑4.12** After a layout change, furniture is pulled out of any newly‑created wall, but each piece's **stacked height is preserved** (a re‑clamp must not lift stacks off the floor).
 
 #### FR‑5 Real‑Time Collaboration
 - **FR‑5.1** Persist and synchronize the full room (furniture, wall colors, room names, lights, sun, environment) to the cloud so both users always see the same home.
@@ -195,8 +213,9 @@ Both primary users are non‑technical and use the app mainly on iPhones. The tw
 - **FR‑9.1** Set the time of day either by entering a specific time or by following the real clock (dynamic).
 - **FR‑9.2** Adjust sun direction via a compass slider; scene lighting/shadows update.
 - **FR‑9.3** Toggle a light/dark theme for the scene and UI; the choice persists across reloads.
-- **FR‑9.4** Paint walls: choose from preset colors, a custom color, or tap a single wall in the room to paint just that one; reset available.
-- **FR‑9.5** Toggle a 1 m × 1 m floor grid in the plan view; per‑room ceiling lights can be toggled.
+- **FR‑9.4** Paint walls: choose from preset colors, a custom color, or tap a single wall to paint just that side; walls are split per room so painting one room's wall does not change the neighbouring room's. Reset available. Paint keys stay stable when the plan is re‑segmented.
+- **FR‑9.5** Toggle a 1 m × 1 m floor grid in the plan view; per‑room ceiling lights (of several fixture types) can be toggled.
+- **FR‑9.6** Toggle walls between **solid and see‑through** (device‑local preference), so rooms can be viewed from outside or as a solid model.
 
 #### FR‑10 Measurement
 - **FR‑10.1** A Measure tool lets the user tap two points on the floor to draw a line and show the distance (metres, or centimetres for short spans) at the line's midpoint, in both 2D and 3D.
@@ -210,12 +229,31 @@ Both primary users are non‑technical and use the app mainly on iPhones. The tw
 - **FR‑11.4** Record an activity feed of notable changes with an unread badge.
 - **FR‑11.5** Provide unlockable achievements for milestones (first piece, made‑to‑measure, full house, etc.).
 
+#### FR‑12 Layout / Wall Editor
+- **FR‑12.1** Open a full‑screen editor (in‑app) seeded with the **current live plan** (walls, room dividers, ceiling lights, and room names).
+- **FR‑12.2** **Walls:** draw axis‑locked walls by dragging (snap grid, live length), select and move a wall, drag its ends to stretch it, delete it, and set its length and height numerically.
+- **FR‑12.3** **Openings:** punch **doors, windows, and archways** into a selected wall; each opening has an adjustable width, height (and window sill), can be slid along the wall, and doors expose a hinge side and swing direction. Openings render as true cuts in the 3D preview.
+- **FR‑12.4** **Room split (zones):** draw a divider that splits one space into two named rooms **without building a wall** — it carries no geometry and the seam remains fully walkable (furniture and people pass freely).
+- **FR‑12.5** **Room detection:** automatically detect enclosed rooms, show each room's name and area, allow rename (inline ✎) and manual hide/restore; a space with no way in is flagged as sealed (not a room). A newly detected room may receive a default ceiling light.
+- **FR‑12.6** **Lights:** place ceiling lights; the fixture type is editable per light.
+- **FR‑12.7** **3D preview** of the edited plan.
+- **FR‑12.8** **Save to home:** applies the edited plan to the real apartment for **both** partners (after a confirmation), replacing walls/rooms/lights; furniture is retained and pulled out of any new wall (see FR‑4.12), and the change is synced. The plan is stored as a **`planOv` override** in the layout; **Reset** returns to the hardcoded baseline.
+- **FR‑12.9** Export/import the plan as JSON; a local working draft is kept between visits and discarded if the live home changed underneath it.
+- **FR‑12.10** Exit returns to the app without a reload or re‑login; the editor keeps the user's session and place.
+
+#### FR‑13 AI Furniture Creation
+- **FR‑13.1** Accept a **text description** or a **furniture product URL** and produce a buildable piece at plausible real dimensions via the AI proxy (Cloudflare Worker holding the model key server‑side).
+- **FR‑13.2** A product page with multiple items may yield **multiple models** (e.g., separate kitchen modules), each at the page's real size.
+- **FR‑13.3** Generated recipes are stored with the layout and shared so the partner's device builds identical pieces; the partner is notified when new pieces are added.
+- **FR‑13.4** Degrade gracefully: on proxy/model errors show a clear message (e.g., overloaded, refused origin) and fall back across model versions where possible; the rest of the app remains fully usable.
+
 ### 3.3 Non‑Functional Requirements
 
 #### Performance
 - **NFR‑P1** Maintain interactive frame rates on a modern phone; render pixel ratio is capped (≤2) and a single continuous render loop drives the animated scene.
 - **NFR‑P2** Live position/drag updates are throttled (~8–10 Hz) to limit database traffic.
 - **NFR‑P3** Removed pieces dispose their GPU geometry/materials to avoid leaks over a long session.
+- **NFR‑P4** **Adaptive frame rate for battery:** the scene renders at full rate (~60 fps) while the user interacts and at a reduced rate (~30 fps) when idle, and the frame is skipped entirely while the welcome screen covers the scene or the tab is hidden. An on‑screen FPS meter reports the real rendered rate.
 
 #### Reliability & Data Integrity
 - **NFR‑R1** A device must never overwrite the shared room with stale local state (see FR‑5.5).
@@ -248,22 +286,25 @@ Both primary users are non‑technical and use the app mainly on iPhones. The tw
 ### 4.1 Cloud (RTDB) nodes under `/room`
 | Node | Purpose |
 |---|---|
-| `layout` | Authoritative room: furniture list, wall colors, room names, lights, sun, profile, messages, author, timestamp |
+| `layout` | Authoritative room: furniture list, wall colors, room names, lights, sun, profile, messages, **the plan override (`planOv`)**, **AI recipes (`genDefs`)**, author, timestamp |
 | `players` | Live presence/position per role (with heartbeat) |
 | `drag` | Transient live‑drag stream of a moving piece |
 | `cat` | Cat position/state |
 | `dirt` | Active mess spots |
 | `activity` | Recent change log |
+| `genModels` | Shared AI‑generated furniture recipes (also embedded in `layout.genDefs`) |
+| `catalog` | Ping that prompts the partner's device to refresh the catalog |
 | `kiss`, `gesture`, `catfeed` | Transient social/interaction events |
 
 ### 4.2 Furniture record (per piece)
-`id`, `type`, position `x/z/y`, rotation `rotY`, scale `sx/sy/sz`, `tint`, hang height `hy`, and `ow` (wall‑mounted flag). Positions are in metres; `+x` = east, `+z` = south.
+`id`, `type`, position `x/z/y` (`y` = exact stack height, serialized), rotation `rotY` (+ `rz` roll for wall pieces), scale `sx/sy/sz`, `tint`, hang height `hy`, `ow` (wall‑mounted flag), `fl` (flipped face), `lit` (lamp on/off), and upload stand‑in dims (`cw/cd/ch/cn`) for models a peer lacks. Positions are in metres; `+x` = east, `+z` = south. No value is ever written as `undefined` (that would void the whole write).
 
 ### 4.3 Local storage
-Theme, chosen identity, profile, entry messages, last layout, activity, achievements/progress, and preferences (grid, time‑of‑day).
+Theme, chosen identity, profile, entry messages, last layout, activity, achievements/progress, preferences (grid, time‑of‑day, wall opacity, quality), AI recipes, cached thumbnails, and the editor's working draft.
 
-### 4.4 Floor‑plan model (developer‑maintained)
-`PLAN.rooms` — named rectangles in metres; `PLAN.walls` — wall centerlines (0.2 m thick) with openings (door/window/arch/glass wall/rail). Used to render walls/floors, clamp furniture, and drive navigation.
+### 4.4 Floor‑plan model (baseline + editable override)
+`PLAN.rooms` — named rectangles in metres; `PLAN.walls` — wall centerlines (0.2 m thick) with openings (door/window/arch/glass wall/rail), each opening carrying size and (for doors) hinge/swing, and each wall an optional height; `PLAN.zones` — room‑split dividers (label only, no geometry). Used to render walls/floors, clamp furniture, and drive navigation.
+- The hardcoded `PLAN` is the **baseline / reset target**. The Layout Editor produces a **`planOverride`** ( `{walls, zones, rooms, lights}` ) that replaces it; `planOv` is **synced in the layout** so both devices share the same apartment. On adoption, all derived data is recomputed: room floor slabs, wall meshes, the walkable set, **door/arch thresholds get floor**, and **room‑divider seams are bridged so they stay walkable** and don't behave like hidden walls.
 
 ---
 
@@ -273,7 +314,13 @@ Theme, chosen identity, profile, entry messages, last layout, activity, achievem
 - Furniture can be added, moved, rotated, resized (typed cm), recolored, stacked, wall‑mounted, and deleted, with correct heights after reload.
 - The measure tool reports correct distances in 2D and 3D and supports draggable endpoints.
 - The app is fully operable one‑handed on an iPhone in both light and dark themes.
+- In the Layout Editor, a wall can be drawn/moved/deleted, a door/window/arch punched and resized, and a room split without a wall; **Save** applies the new plan to both partners and the split seam remains walkable (no invisible barrier, furniture crosses it).
+- Applying a new layout does **not** lift stacked furniture off the floor.
+- Doorways and archways show floor beneath them (no gap to the void).
+- Create with AI turns a description or a product URL into a real‑size piece added to both partners' catalogs; failures show a friendly message and don't break the app.
+- Lamps switch on/off and the state survives a reload and syncs.
+- The FPS meter reads ~30 fps when idle and ~60 fps while interacting.
 
 ---
 
-*End of SRS v1.0.*
+*End of SRS v1.1.*
