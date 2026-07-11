@@ -21,7 +21,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
 .prail{background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:7px;box-shadow:0 12px 36px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:3px}
 .ph{font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);text-align:center;font-weight:700;padding:1px 0 3px}
 .ib{width:60px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--text);padding:7px 3px;font-size:10.5px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:background .15s,transform .1s;font-family:inherit}
-.ib .ic{font-size:19px;line-height:1}
+.ib .ic{width:21px;height:21px;display:block}
+.tb .ic{width:17px;height:17px;flex:none}
 .ib:hover{background:var(--panel2)}
 .ib:active{transform:scale(.93)}
 .ib.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 3px 12px rgba(76,134,214,.35)}
@@ -44,7 +45,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
 .rr:hover{background:var(--panel2)}
 .rr .rn{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rr .ra{color:var(--muted);font-size:11px;flex:none}
-.rr .ric{border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;padding:3px 5px;border-radius:7px;flex:none}
+.rr .ric{border:none;background:transparent;color:var(--muted);cursor:pointer;padding:4px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center}
+.rr .ric svg{width:15px;height:15px;display:block}
 .rr .ric:hover{background:rgba(255,255,255,.09);color:var(--text)}
 .rr.off{opacity:.5}
 .rnedit{flex:1;background:var(--panel2);border:1px solid var(--accent);border-radius:7px;color:var(--text);padding:3px 7px;font-size:12.5px;outline:none;min-width:0}
@@ -59,10 +61,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
   #leftRail{top:56px;transform:none;gap:6px;max-height:calc(100vh - 66px)}
   .prail{padding:5px}
   .ib{width:50px;font-size:9.5px;padding:5px 2px}
-  .ib .ic{font-size:16px}
+  .ib .ic{width:18px;height:18px}
   .ph{font-size:8px}
   #insp{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:42vh;overflow:auto}
-  #rooms{top:56px;right:8px;left:auto;width:172px;max-height:38vh}
+  #rooms{top:56px;right:8px;left:auto;width:min(72vw,248px);max-height:44vh}
+  #roomsTgl .sub{display:none}                       /* the wordy subtitle wraps ugly on a narrow panel */
+  .rr .ra{font-size:10.5px}
   body.insp-open #rooms{display:none}
   #hint{display:none}
 }
@@ -71,33 +75,33 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
 <body>
 <!-- top-middle: save · back · undo · 3D preview -->
 <div id="top">
-  <button class="tb" id="saveB" title="Save to home" style="display:none;background:linear-gradient(135deg,#3fa26a,#5fc98b);color:#fff">💾 Save</button>
-  <button class="tb" id="exitB" title="Back to home">← Back</button>
+  <button class="tb" id="saveB" data-ic="save" title="Save to home" style="display:none;background:linear-gradient(135deg,#3fa26a,#5fc98b);color:#fff">Save</button>
+  <button class="tb" id="exitB" data-ic="back" title="Back to home">Back</button>
   <span class="sep"></span>
-  <button class="tb" id="undoB" title="Undo (Ctrl+Z)">↺ Undo</button>
-  <button class="tb" id="view3d" title="3D preview">🧊 3D</button>
+  <button class="tb" id="undoB" data-ic="undo" title="Undo (Ctrl+Z)">Undo</button>
+  <button class="tb" id="view3d" data-ic="cube" title="3D preview">3D</button>
 </div>
 <!-- left rail: Tools · Add · File -->
 <div id="leftRail">
   <div class="prail">
     <div class="ph">Tools</div>
-    <button class="ib on" data-tool="select" title="Select & move"><span class="ic">⬚</span>Select</button>
-    <button class="ib" data-tool="zone" title="Split a room (no wall)"><span class="ic">➗</span>Split</button>
-    <button class="ib danger" data-tool="del" title="Delete"><span class="ic">🗑</span>Delete</button>
+    <button class="ib on" data-tool="select" data-ic="cursor" title="Select & move">Select</button>
+    <button class="ib" data-tool="zone" data-ic="split" title="Split a room (no wall)">Split</button>
+    <button class="ib danger" data-tool="del" data-ic="trash" title="Delete">Delete</button>
   </div>
   <div class="prail">
     <div class="ph">Add</div>
-    <button class="ib" data-tool="wall" title="Draw a wall"><span class="ic">🧱</span>Wall</button>
-    <button class="ib" data-tool="door" title="Add a door"><span class="ic">🚪</span>Door</button>
-    <button class="ib" data-tool="win" title="Add a window"><span class="ic">🪟</span>Window</button>
-    <button class="ib" data-tool="arch" title="Cut an archway"><span class="ic">∩</span>Arch</button>
-    <button class="ib" data-tool="light" title="Place a ceiling light"><span class="ic">💡</span>Light</button>
+    <button class="ib" data-tool="wall" data-ic="wall" title="Draw a wall">Wall</button>
+    <button class="ib" data-tool="door" data-ic="door" title="Add a door">Door</button>
+    <button class="ib" data-tool="win" data-ic="window" title="Add a window">Window</button>
+    <button class="ib" data-tool="arch" data-ic="arch" title="Cut an archway">Arch</button>
+    <button class="ib" data-tool="light" data-ic="bulb" title="Place a ceiling light">Light</button>
   </div>
   <div class="prail">
     <div class="ph">File</div>
-    <button class="ib" id="resetB" title="Reset to apartment"><span class="ic">♻</span>Reset</button>
-    <button class="ib" id="exportB" title="Export plan (.json)"><span class="ic">⬇</span>Export</button>
-    <button class="ib" id="importB" title="Import plan (.json)"><span class="ic">⬆</span>Import</button>
+    <button class="ib" id="resetB" data-ic="reset" title="Reset to apartment">Reset</button>
+    <button class="ib" id="exportB" data-ic="download" title="Export plan (.json)">Export</button>
+    <button class="ib" id="importB" data-ic="upload" title="Import plan (.json)">Import</button>
   </div>
 </div>
 <canvas id="cv"></canvas>
@@ -158,6 +162,29 @@ const APARTMENT = {
 const OP_DEFAULTS = { door:{w:0.9, h:2.05}, win:{w:1.2, h:1.2, sill:0.9}, arch:{w:1.5, h:2.3} };
 const WALL_T = 0.2, WALL_H = 2.6, SNAP = 0.05;
 const LS_KEY = 'walleditor.draft';
+
+/* ============ line icons (same stroke style as the app) ============ */
+const ICONS = {
+  cursor:'<path d="M4 3l6.5 16 2.3-6.7L19.5 10 4 3Z"/>',
+  split:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M12 4.5v15" stroke-dasharray="2 2.4"/>',
+  trash:'<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/>',
+  wall:'<rect x="3" y="5" width="18" height="14" rx="1.3"/><path d="M3 9.7h18M3 14.3h18"/><path d="M12 5v4.7M8 9.7v4.6M16 9.7v4.6M12 14.3V19"/>',
+  door:'<path d="M5 21V4.5A1.5 1.5 0 0 1 6.5 3H15a1.5 1.5 0 0 1 1.5 1.5V21"/><path d="M3.5 21h15"/><path d="M13 12h.01"/>',
+  window:'<rect x="4" y="4" width="16" height="16" rx="1.3"/><path d="M4 12h16M12 4v16"/>',
+  arch:'<path d="M4 21V11a8 8 0 0 1 16 0v10"/><path d="M2.5 21h19"/>',
+  bulb:'<path d="M9 18h6"/><path d="M10 21h4"/><path d="M15.1 14.5A5.5 5.5 0 1 0 8.9 14.5c.7.7 1.1 1.4 1.1 2.3v.2h4v-.2c0-.9.4-1.6 1.1-2.3Z"/>',
+  back:'<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+  save:'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+  cube:'<path d="M21 8.5v7a2 2 0 0 1-1 1.7l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 15.5v-7a2 2 0 0 1 1-1.7l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8.5Z"/><path d="m3.3 7.5 8.7 5 8.7-5M12 22.5v-10"/>',
+  reset:'<path d="M3 12a9 9 0 1 0 2.6-6.3L3 8M3 3v5h5"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>'
+};
+const svgIcon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+document.querySelectorAll('[data-ic]').forEach(b => b.insertAdjacentHTML('afterbegin', svgIcon(b.dataset.ic)));
 
 /* ============ state ============ */
 let plan = load() || fresh();
@@ -382,12 +409,12 @@ function renderRooms(){
     (!roomsOpen ? '' :
     vis.map(r => `<div class="rr" data-k="${r.key}">
       <span class="rn">${r.name}</span><span class="ra">${r.area.toFixed(1)} m²</span>
-      <button class="ric" data-edit="${r.key}" title="Rename">✎</button>
-      <button class="ric" data-hide="${r.key}" title="This isn't a room">✕</button></div>`).join('') +
+      <button class="ric" data-edit="${r.key}" title="Rename">${svgIcon('edit')}</button>
+      <button class="ric" data-hide="${r.key}" title="This isn't a room">${svgIcon('x')}</button></div>`).join('') +
     (vis.length ? '' : '<div class="sub" style="padding:4px 0">no rooms yet — close a shape with walls</div>') +
     (sealed.length ? `<div class="sub" style="margin-top:7px">${sealed.length} sealed space${sealed.length > 1 ? 's' : ''} hidden (no door in) — add a door or arch to make one a room</div>` : '') +
     dismissed.map(r => `<div class="rr off"><span class="rn">${r.name}</span><span class="ra">${r.area.toFixed(1)} m²</span>
-      <button class="ric" data-restore="${r.key}" title="Restore">↺</button></div>`).join(''));
+      <button class="ric" data-restore="${r.key}" title="Restore">${svgIcon('reset')}</button></div>`).join(''));
   el.querySelector('#roomsTgl').onclick = () => { roomsOpen = !roomsOpen; renderRooms(); };
   el.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
     const rect = b.getBoundingClientRect();
@@ -406,6 +433,18 @@ function renderRooms(){
 
 /* ============ drawing ============ */
 const ROOM_TINTS = ['#4c86d622','#e8709a22','#5bd6a022','#e0a33e22','#a06aff22','#6ad0e022','#d6cf4c22','#e0653e22'];
+function drawPen(cx, cy, s){                          // a little stroked pencil, centred on (cx,cy)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(150,163,178,.95)';
+  ctx.lineWidth = Math.max(1.3, s * 0.34); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - s, cy + s);                         // nib (lower-left)
+  ctx.lineTo(cx + s, cy - s);                         // body up to the top-right
+  ctx.moveTo(cx + s * 0.32, cy - s * 1.32);           // the eraser band across the top
+  ctx.lineTo(cx + s * 1.32, cy - s * 0.32);
+  ctx.stroke();
+  ctx.restore();
+}
 function draw(){
   const dpr = devicePixelRatio;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -431,10 +470,9 @@ function draw(){
     ctx.fillText(r.area.toFixed(1) + ' m²', sx(r.cx), sz(r.cz) + fs * 0.85);
     ctx.font = `600 ${fs}px system-ui`;              // measure the NAME with its own font, not the area's
     const pw = ctx.measureText(r.name).width;        // little pen right after the name — tap it to rename
-    const px = sx(r.cx) + pw / 2 + fs * 0.9, py = sz(r.cz) - fs * 0.45;
-    ctx.fillStyle = 'rgba(139,151,165,.95)'; ctx.font = `${fs * 0.95}px system-ui`;
-    ctx.fillText('✎', px, py + fs * 0.35);
-    penHits.push({ x: px, y: py + fs * 0.1, key: r.key });
+    const px = sx(r.cx) + pw / 2 + fs * 0.9, py = sz(r.cz) - fs * 0.3;
+    drawPen(px, py, fs * 0.62);                       // stroked pencil (matches the SVG UI icons, no emoji)
+    penHits.push({ x: px, y: py, key: r.key });
   });
   // walls
   plan.walls.forEach((w, i) => {
