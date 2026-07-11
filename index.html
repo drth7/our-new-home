@@ -1053,7 +1053,7 @@ pan.enabled = false;
 // interacting (or something's actively animating), and drops to ~30fps when it's just idling
 // (the cat and avatars still breathe, at roughly half the GPU cost). Any input wakes full rate
 // instantly; the worst a missed wake can do is 30fps, never a frozen screen.
-let interactUntil = 0, idleParity = 0, __rc = 0;
+let interactUntil = 0, __rc = 0, renderAcc = 0, lastFrameTs = performance.now();
 let fpsFrames = 0, fpsStamp = performance.now();
 const fpsEl = document.getElementById('fps');
 const wakeRender = (ms = 700) => { interactUntil = performance.now() + ms; };
@@ -5212,7 +5212,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.clean-refpix';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.fps-cap-60';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6538,12 +6538,16 @@ function animate(){
   // nothing you can see. Skip the frame entirely while the welcome screen owns the view, UNLESS
   // the cinematic reveal is playing (then it needs to render). Also idle when the tab is hidden.
   const welcomeUp = welcome.classList.contains('on') && !welcome.classList.contains('glass') && !introPlaying;
-  if (welcomeUp || document.hidden){ clock.getDelta(); return; }   // keep the clock from banking a huge dt
-  // idle throttle: when nothing's actively happening, render every OTHER frame (~30fps) to save battery.
-  // 'active' = recent input, or any live motion; on a skipped frame we return WITHOUT touching the clock,
-  // so the next rendered frame still gets the full elapsed dt and animations play at the right speed.
-  idleParity ^= 1;
-  if (!frameActive() && idleParity) return;
+  const now = performance.now();
+  if (welcomeUp || document.hidden){ clock.getDelta(); lastFrameTs = now; renderAcc = 0; return; }   // keep the clock/pacer from banking a huge dt
+  // frame-rate cap: 60 fps while active, 30 fps idle — on ANY display. requestAnimationFrame runs at the
+  // monitor's refresh (144 Hz gaming PC, 120 Hz ProMotion phone…), so we pace with a time accumulator that
+  // AVERAGES to the target regardless of refresh rate. A skipped frame doesn't touch the clock, so the next
+  // rendered frame still gets the full elapsed dt and animations play at the right speed.
+  const interval = 1000 / (frameActive() ? 60 : 30);
+  renderAcc += now - lastFrameTs; lastFrameTs = now;
+  if (renderAcc < interval) return;                       // too soon for the next frame
+  renderAcc = Math.min(renderAcc - interval, interval);   // consume one frame; clamp so a stall can't burst-render
   const dt = Math.min(clock.getDelta(), 0.1);
   if (view === '3d' && !introActive) orbit.update();   // the intro drives the camera itself
   else if (view === '2d') pan.update();
