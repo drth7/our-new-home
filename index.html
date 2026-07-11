@@ -1025,6 +1025,20 @@ pan.enableDamping = true; pan.dampingFactor = 0.08;
 pan.minZoom = 0.4; pan.maxZoom = 8;
 pan.enabled = false;
 
+// Adaptive frame rate — the battery saver. The home renders at a full 60fps while you're
+// interacting (or something's actively animating), and drops to ~30fps when it's just idling
+// (the cat and avatars still breathe, at roughly half the GPU cost). Any input wakes full rate
+// instantly; the worst a missed wake can do is 30fps, never a frozen screen.
+let interactUntil = 0, idleParity = 0, __rc = 0;
+const wakeRender = (ms = 700) => { interactUntil = performance.now() + ms; };
+for (const ev of ['pointerdown','pointermove','pointerup','wheel','keydown','touchstart','touchmove'])
+  addEventListener(ev, () => wakeRender(), {capture:true, passive:true});
+// full 60fps whenever the user is interacting or anything is actively animating; idle otherwise
+function frameActive(){
+  return performance.now() < interactUntil || introActive || dragging || dragChar || looking
+    || remoteDrag || view === 'tp' || dropping.length || hearts.length || puffs.length || charFalls.length || dirtWaveActive;
+}
+
 let view = '3d';
 const activeCam = () => view === '2d' ? ortho : persp;   // fp/tp walk views render through the perspective camera
 
@@ -5095,7 +5109,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.welcome-perf';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.adaptive-fps';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6378,6 +6392,8 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
     place: t => { const g = addFurniture(t); return g && g.userData.id; },   // the REAL user path: canEdit, undo, scheduleSave
     delSel: id => { const g = items.find(i => i.userData.id === id); if (g){ sel = g; deleteSel(); return true; } return false; },
     tombs: () => Object.keys(tombstones).length,
+    fps: () => { const a = __rc; return new Promise(res => setTimeout(() => res(__rc - a), 1000)); },
+    throttle: () => ({ active: frameActive(), wakeMs: Math.round(interactUntil - performance.now()) }),
     plan: () => PLAN,
     wallOpacity: () => { const m = wallSegs.find(s => !s.userData.glass && !s.userData.grid1m && !s.userData.grid && !s.userData.ceiling); const mat = m && (Array.isArray(m.material) ? m.material[0] : m.material); return mat ? +mat.opacity.toFixed(2) : null; },
     move: (id, x, z) => { const g = items.find(i => i.userData.id === id); if (!g) return null; g.position.x = x; g.position.z = z; clampToRoom(g); scheduleSave(); return {x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3), rotY:+g.rotation.y.toFixed(3)}; },
@@ -6412,6 +6428,11 @@ function animate(){
   // the cinematic reveal is playing (then it needs to render). Also idle when the tab is hidden.
   const welcomeUp = welcome.classList.contains('on') && !welcome.classList.contains('glass') && !introPlaying;
   if (welcomeUp || document.hidden){ clock.getDelta(); return; }   // keep the clock from banking a huge dt
+  // idle throttle: when nothing's actively happening, render every OTHER frame (~30fps) to save battery.
+  // 'active' = recent input, or any live motion; on a skipped frame we return WITHOUT touching the clock,
+  // so the next rendered frame still gets the full elapsed dt and animations play at the right speed.
+  idleParity ^= 1;
+  if (!frameActive() && idleParity) return;
   const dt = Math.min(clock.getDelta(), 0.1);
   if (view === '3d' && !introActive) orbit.update();   // the intro drives the camera itself
   else if (view === '2d') pan.update();
@@ -6431,6 +6452,7 @@ function animate(){
   updateSelPos();
   updateRadialPos();                               // keep the radial pinned to its character/cat as they/the camera move
   updateMeasureLabelPos();                         // keep the distance label on the line's midpoint
+  __rc++;
   renderer.render(scene, activeCam());
 }
 animate();
