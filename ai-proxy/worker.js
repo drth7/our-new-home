@@ -284,11 +284,17 @@ export default {
       }
     }
 
-    const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    // ask for a 16:9 photo (default is 1:1 square 1024²); Nano Banana Pro can render it at 2K.
+    // If the model rejects the imageConfig (400), retry without it so we never break — just fall back to default.
+    const callImage = cfg => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
-      body: JSON.stringify({ contents: [{ parts }] }),
+      body: JSON.stringify(cfg ? { contents: [{ parts }], generationConfig: cfg } : { contents: [{ parts }] }),
     });
+    const imageConfig = { aspectRatio: '16:9' };
+    if (model.includes('pro')) imageConfig.imageSize = '2K';   // ~2048×1152, well above Full HD
+    let g = await callImage({ imageConfig });
+    if (g.status === 400) g = await callImage(null);           // config not supported by this key/model → default output
 
     // pass Google's response (image data or error) straight back, with CORS
     const text = await g.text();
