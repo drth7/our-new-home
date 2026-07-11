@@ -909,11 +909,21 @@ function recomputePlanDerived(){
       else DOOR_RECTS.push({x1:w.pos - t, z1:op.at - half, x2:w.pos + t, z2:op.at + half});
     }
   }
+  // room dividers build NO wall — but the flood-fill in the editor leaves a thin floorless seam
+  // between the two split rects. Bridge that seam so people walk across it and furniture straddles
+  // it freely (an open kitchen must feel like one continuous floor, not two walled-off rooms).
+  ZONE_RECTS.length = 0;
+  for (const z of (PLAN.zones || [])){
+    const m = 0.3;   // reach well into both split rects on either side of the divider line
+    if (z.d === 'h') ZONE_RECTS.push({x1:Math.min(z.from,z.to), z1:z.pos - m, x2:Math.max(z.from,z.to), z2:z.pos + m});
+    else ZONE_RECTS.push({x1:z.pos - m, z1:Math.min(z.from,z.to), x2:z.pos + m, z2:Math.max(z.from,z.to)});
+  }
 }
 // swap the live plan (ov = editor export {walls, rooms:[{name, rects}], lights:[{x,z,t}]} or null = original)
 function setPlanFromOverride(ov){
   if (ov && Array.isArray(ov.walls) && Array.isArray(ov.rooms)){
     PLAN.walls = ov.walls;
+    PLAN.zones = Array.isArray(ov.zones) ? ov.zones : [];   // room dividers: labels only, no wall — but the seam must stay walkable
     PLAN.rooms = ov.rooms.map((r, i) => {
       const room = { id: 'ov' + i, name: r.name || ('Room ' + (i + 1)), rects: r.rects, furnishable: true };
       const inside = (ov.lights || []).filter(L => r.rects.some(([a,b,c,d]) => L.x >= a && L.x <= c && L.z >= b && L.z <= d));
@@ -923,6 +933,7 @@ function setPlanFromOverride(ov){
   } else {
     PLAN.rooms = ORIG_PLAN.rooms;
     PLAN.walls = ORIG_PLAN.walls;
+    PLAN.zones = [];
   }
   recomputePlanDerived();
 }
@@ -1334,6 +1345,20 @@ function buildPlan(){
   }
   WALLS = computePaintWalls();
   WALLS.forEach((w, wi) => roomGroup.add(buildWall(w, wi, glassMat, t.wall)));
+  // solid floor UNDER each door / arch threshold — the wall is cut away there, so the two rooms'
+  // floor slabs leave a thin bare seam you'd otherwise see the void through. This bridges it.
+  for (const w of WALLS) for (const o of (w.ops || [])){
+    if (o.t !== 'door' && o.t !== 'arch') continue;
+    const along = o.w + 0.04, perp = WALL_T + 0.12;
+    const fw = w.d === 'h' ? along : perp, fl = w.d === 'h' ? perp : along;
+    const tex = getTileTex().clone(); tex.needsUpdate = true;
+    tex.repeat.set(fw / 1.2, fl / 2.4);
+    const f = new THREE.Mesh(new THREE.BoxGeometry(fw, 0.1, fl),
+      new THREE.MeshStandardMaterial({ color: base, map: tex, roughness: 0.6 }));
+    f.position.set(w.d === 'h' ? o.at : w.pos, -0.06, w.d === 'h' ? w.pos : o.at);   // just under the room slabs, no z-fight
+    f.receiveShadow = true; f.userData.floor = true;
+    roomGroup.add(f); floorMeshes.push(f);
+  }
   // door + arch floor marks — they show WITH the grid, so you can see where doors open while arranging
   for (const w of WALLS){
     for (const o of (w.ops || [])){
@@ -2363,10 +2388,12 @@ scene.add(charGroup);
 let charProto = null, charProtoScale = 1, charProtoYOff = 0;
 const chars = {};   // role -> {g, inner, bones, rest, tag, moving, walkT}
 
-/* walkable = room floors + bridges through every door/arch opening (kept fresh by recomputePlanDerived) */
+/* walkable = room floors + bridges through every door/arch opening + across room dividers (kept fresh by recomputePlanDerived) */
 const DOOR_RECTS = [];
+const ZONE_RECTS = [];
 recomputePlanDerived();
-const canWalk = (x, z) => !!rectAt(x, z) || DOOR_RECTS.some(r => x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2);
+const inAnyRect = (list, x, z) => list.some(r => x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2);
+const canWalk = (x, z) => !!rectAt(x, z) || inAnyRect(DOOR_RECTS, x, z) || inAnyRect(ZONE_RECTS, x, z);
 
 /* light furniture collision: can't walk INTO a piece, but can always walk OUT of one */
 function hitsFurniture(x, z){
@@ -5124,7 +5151,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.topbar-mobile';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.editor-panels';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.

@@ -8,17 +8,26 @@
 :root{--bg:#12161d;--panel:rgba(26,33,44,.88);--panel2:#242e3c;--line:rgba(255,255,255,.08);--text:#e9eef5;--muted:#8b97a5;--accent:#4c86d6;--accent2:#6aa4f2;--danger:#e0555f;--gold:#ffd23e}
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
-#top{position:fixed;left:50%;transform:translateX(-50%);top:10px;z-index:10;display:flex;gap:5px;align-items:center;padding:7px;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 34px rgba(0,0,0,.45);flex-wrap:wrap;max-width:96vw;justify-content:center}
-#top b{font-size:13.5px;margin:0 6px 0 4px;letter-spacing:.2px}
+/* top-middle bar: save / back / undo / 3d preview */
+#top{position:fixed;left:50%;transform:translateX(-50%);top:10px;z-index:10;display:flex;gap:5px;align-items:center;padding:7px;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 34px rgba(0,0,0,.45);max-width:96vw;justify-content:center}
 .tb{border:1px solid transparent;border-radius:11px;background:transparent;color:var(--text);padding:8px 11px;font-size:12.5px;font-weight:650;cursor:pointer;display:flex;gap:6px;align-items:center;transition:background .15s,border-color .15s,transform .1s}
 .tb:hover{background:var(--panel2)}
 .tb:active{transform:scale(.96)}
 .tb.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 3px 12px rgba(76,134,214,.35)}
-.tb.danger.on{background:linear-gradient(135deg,#d84b56,#f07680);box-shadow:0 3px 12px rgba(224,85,95,.35)}
-select.tb{background:var(--panel2);border-color:var(--line)}
 .sep{width:1px;height:20px;background:var(--line);margin:0 3px}
+/* left rail: three floating panels (Tools · Add · File), each a stack of icon buttons */
+#leftRail{position:fixed;left:12px;top:50%;transform:translateY(-50%);z-index:9;display:flex;flex-direction:column;gap:8px;max-height:96vh;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+#leftRail::-webkit-scrollbar{display:none}
+.prail{background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:7px;box-shadow:0 12px 36px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:3px}
+.ph{font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);text-align:center;font-weight:700;padding:1px 0 3px}
+.ib{width:60px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--text);padding:7px 3px;font-size:10.5px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:background .15s,transform .1s;font-family:inherit}
+.ib .ic{font-size:19px;line-height:1}
+.ib:hover{background:var(--panel2)}
+.ib:active{transform:scale(.93)}
+.ib.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 3px 12px rgba(76,134,214,.35)}
+.ib.danger.on{background:linear-gradient(135deg,#d84b56,#f07680);box-shadow:0 3px 12px rgba(224,85,95,.35)}
 #cv{position:fixed;inset:0;top:0;cursor:crosshair;touch-action:none}
-#insp{position:fixed;right:12px;top:74px;z-index:9;width:240px;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 12px 36px rgba(0,0,0,.45);display:none}
+#insp{position:fixed;right:12px;bottom:12px;z-index:9;width:240px;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 12px 36px rgba(0,0,0,.45);display:none}
 #insp h3{font-size:12px;margin-bottom:2px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 #insp .big{font-size:22px;font-weight:750;margin:2px 0 6px;color:var(--gold)}
 #insp label{display:block;font-size:11.5px;color:var(--muted);margin:9px 0 4px}
@@ -28,7 +37,7 @@ select.tb{background:var(--panel2);border-color:var(--line)}
 #insp .row{display:flex;gap:6px}
 #insp button{margin-top:11px;width:100%;border:none;border-radius:10px;padding:9px;background:rgba(224,85,95,.16);color:#f0949c;font-weight:700;cursor:pointer;transition:background .15s}
 #insp button:hover{background:rgba(224,85,95,.32);color:#fff}
-#rooms{position:fixed;left:12px;bottom:12px;z-index:9;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:11px 13px;width:272px;max-height:44vh;overflow:auto;font-size:12.5px;box-shadow:0 12px 36px rgba(0,0,0,.45)}
+#rooms{position:fixed;right:12px;top:12px;z-index:9;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:11px 13px;width:262px;max-height:52vh;overflow:auto;font-size:12.5px;box-shadow:0 12px 36px rgba(0,0,0,.45)}
 #rooms h3{font-size:12px;margin-bottom:7px}
 #rooms .sub{color:var(--muted);font-weight:400;font-size:11px}
 .rr{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:9px}
@@ -45,46 +54,56 @@ select.tb{background:var(--panel2);border-color:var(--line)}
 #close3d{position:absolute;top:12px;right:12px;z-index:21}
 #file{display:none}
 @media (max-width:720px){
-  #top{top:0;left:0;transform:none;max-width:100vw;width:100vw;border-radius:0 0 16px 16px;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;padding:8px 10px;scrollbar-width:none}
-  #top::-webkit-scrollbar{display:none}
-  #top b{display:none}
-  .tb{padding:9px 11px;font-size:12.5px;flex:none;white-space:nowrap}
+  #top{top:0;left:50%;transform:translateX(-50%);border-radius:0 0 16px 16px;padding:7px 9px}
+  .tb{padding:8px 9px;font-size:12px}
+  #leftRail{top:56px;transform:none;gap:6px;max-height:calc(100vh - 66px)}
+  .prail{padding:5px}
+  .ib{width:50px;font-size:9.5px;padding:5px 2px}
+  .ib .ic{font-size:16px}
+  .ph{font-size:8px}
   #insp{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:42vh;overflow:auto}
-  #rooms{left:8px;bottom:8px;width:auto;right:8px;max-height:34vh}
+  #rooms{top:56px;right:8px;left:auto;width:172px;max-height:38vh}
   body.insp-open #rooms{display:none}
   #hint{display:none}
 }
 </style>
 </head>
 <body>
+<!-- top-middle: save · back · undo · 3D preview -->
 <div id="top">
-  <b>Wall editor</b>
-  <button class="tb" id="saveB" style="display:none;background:linear-gradient(135deg,#3fa26a,#5fc98b);color:#fff">💾 Save to home</button>
-  <button class="tb on" data-tool="select">Select</button>
-  <button class="tb" data-tool="wall">+ Wall</button>
-  <button class="tb" data-tool="door">+ Door</button>
-  <button class="tb" data-tool="win">+ Window</button>
-  <button class="tb" data-tool="arch">+ Arch</button>
-  <button class="tb" data-tool="zone">Split room</button>
-  <button class="tb" data-tool="light">+ Light</button>
-  <select id="lightType" class="tb" title="Ceiling light type">
-    <option value="disc">Disc</option><option value="dome">Dome</option><option value="ring">Ring</option>
-    <option value="bar">Bar</option><option value="pendant">Pendant</option>
-  </select>
-  <button class="tb danger" data-tool="del">Delete</button>
+  <button class="tb" id="saveB" title="Save to home" style="display:none;background:linear-gradient(135deg,#3fa26a,#5fc98b);color:#fff">💾 Save</button>
+  <button class="tb" id="exitB" title="Back to home">← Back</button>
   <span class="sep"></span>
-  <button class="tb" id="undoB">Undo</button>
-  <button class="tb" id="view3d">3D preview</button>
-  <button class="tb" id="exportB">Export</button>
-  <button class="tb" id="importB">Import</button>
-  <button class="tb" id="resetB">Reset to apartment</button>
-  <span class="sep"></span>
-  <button class="tb" id="exitB">← Back to home</button>
+  <button class="tb" id="undoB" title="Undo (Ctrl+Z)">↺ Undo</button>
+  <button class="tb" id="view3d" title="3D preview">🧊 3D</button>
+</div>
+<!-- left rail: Tools · Add · File -->
+<div id="leftRail">
+  <div class="prail">
+    <div class="ph">Tools</div>
+    <button class="ib on" data-tool="select" title="Select & move"><span class="ic">⬚</span>Select</button>
+    <button class="ib" data-tool="zone" title="Split a room (no wall)"><span class="ic">➗</span>Split</button>
+    <button class="ib danger" data-tool="del" title="Delete"><span class="ic">🗑</span>Delete</button>
+  </div>
+  <div class="prail">
+    <div class="ph">Add</div>
+    <button class="ib" data-tool="wall" title="Draw a wall"><span class="ic">🧱</span>Wall</button>
+    <button class="ib" data-tool="door" title="Add a door"><span class="ic">🚪</span>Door</button>
+    <button class="ib" data-tool="win" title="Add a window"><span class="ic">🪟</span>Window</button>
+    <button class="ib" data-tool="arch" title="Cut an archway"><span class="ic">∩</span>Arch</button>
+    <button class="ib" data-tool="light" title="Place a ceiling light"><span class="ic">💡</span>Light</button>
+  </div>
+  <div class="prail">
+    <div class="ph">File</div>
+    <button class="ib" id="resetB" title="Reset to apartment"><span class="ic">♻</span>Reset</button>
+    <button class="ib" id="exportB" title="Export plan (.json)"><span class="ic">⬇</span>Export</button>
+    <button class="ib" id="importB" title="Import plan (.json)"><span class="ic">⬆</span>Import</button>
+  </div>
 </div>
 <canvas id="cv"></canvas>
 <div id="insp"></div>
 <div id="rooms"></div>
-<div id="hint">Drag empty space to pan · wheel to zoom · pick a tool above</div>
+<div id="hint">Drag empty space to pan · wheel to zoom · pick a tool on the left</div>
 <div id="p3d"><button class="tb on" id="close3d">Back to editor</button></div>
 <input type="file" id="file" accept=".json">
 <script type="module">
@@ -320,7 +339,7 @@ function detect(){
         r.name = 'Room ' + (Object.keys(names).length + 1);
         names[r.key] = r.name;
         if (!plan.lights.some(L => Math.hypot(L.x - r.cx, L.z - r.cz) < 2.2 && inRoom(r, L.x, L.z))){
-          plan.lights.push({ x: snap(r.cx), z: snap(r.cz), t: document.getElementById('lightType').value });
+          plan.lights.push({ x: snap(r.cx), z: snap(r.cz), t: 'disc' });   // sensible default; change type after placing via the inspector
         }
       }
     } else names[r.key] = r.name;
@@ -589,7 +608,7 @@ cv.addEventListener('pointerdown', e => {
   }
   if (tool === 'light'){
     pushUndo();
-    plan.lights.push({ x: snap(x), z: snap(z), t: document.getElementById('lightType').value });
+    plan.lights.push({ x: snap(x), z: snap(z), t: 'disc' });   // default type; the inspector lets you switch it after
     selLight = plan.lights.length - 1; selW = selOp = -1;
     inspect(); save(); draw();
     return;
