@@ -677,6 +677,12 @@ const CATALOG = {
   easel:     {name:'Easel',        cat:'Art',      w:0.70, d:0.70, h:1.65, color:'#a58a5f'},
   curtainwin:{name:'Window curtain',cat:'Art',     w:1.80, d:0.16, h:1.60, color:'#c9b8a0', wall:true, curtain:true},
   curtainfull:{name:'Full curtain',cat:'Art',      w:2.60, d:0.18, h:2.30, color:'#b0a0b8', wall:true, curtain:true},
+  // ── Wall panels — decorative hotel-style cladding (mounts flat on a wall, floor-to-top) ──
+  panelflw:  {name:'Fluted walnut',     cat:'Panels', w:0.60, d:0.05, h:2.40, color:'#5c4433', wall:true, panel:'fluted'},
+  panelflo:  {name:'Fluted oak',        cat:'Panels', w:0.60, d:0.05, h:2.40, color:'#b18a5a', wall:true, panel:'fluted'},
+  panelflw2: {name:'Wide fluted',       cat:'Panels', w:0.90, d:0.06, h:2.40, color:'#6b5038', wall:true, panel:'fluted', flute:0.075},
+  panelslo:  {name:'Slat oak · grey',   cat:'Panels', w:0.60, d:0.06, h:2.40, color:'#c2a06a', bg:'#6a6a6e', wall:true, panel:'slat'},
+  panelslw:  {name:'Slat walnut · black',cat:'Panels', w:0.60, d:0.06, h:2.40, color:'#5a4030', bg:'#2b2b2d', wall:true, panel:'slat'},
   rug:       {name:'Rug',          cat:'Decor',    w:2.00, d:1.40, h:0.02, color:'#7a6aa0'},
   ruground:  {name:'Round rug',    cat:'Decor',    w:1.70, d:1.70, h:0.02, color:'#8a6a9a', round:true},
   rugsq:     {name:'Rounded rug',  cat:'Decor',    w:1.80, d:1.80, h:0.02, color:'#6a8a7a', soft:true},
@@ -782,7 +788,7 @@ try{
   const mr = await fetch('assets/models.json?t=' + Date.now());
   if (mr.ok) (await mr.json()).forEach(registerModelDef);
 }catch(e){ console.warn('models.json unavailable', e); }
-const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Fun','Created'];
+const CATEGORIES = ['Seating','Tables','Beds','Storage','Kitchen','Bathroom','Art','Decor','Panels','Fun','Created'];
 
 const ACHIEVEMENTS = [
   {id:'first-piece',    icon:'🛋️', name:'First Piece',      desc:'Place your first furniture'},
@@ -2136,6 +2142,32 @@ function buildFurniture(type){
       fol.position.y = 0.75; fol.castShadow = true; g.add(fol);
       const fol2 = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), lite);
       fol2.position.y = 1.02; fol2.castShadow = true; g.add(fol2);
+      break;
+    }
+    case 'panelflw': case 'panelflo': case 'panelflw2': case 'panelslo': case 'panelslw': {
+      // decorative hotel-style wall panel — a thin backing + a row of vertical flutes (rounded ribs) or
+      // slats. Authored centred at local y = h/2 so, hung on a wall, it stands from the floor up.
+      const cy = h / 2;
+      if (def.panel === 'slat'){                         // acoustic slat: wood slats on a felt backing (its own colour, untinted)
+        const felt = new THREE.MeshStandardMaterial({ color: new THREE.Color(def.bg || '#6a6a6e'), roughness: 0.96 });
+        const back = block(w, h, 0.02, felt); back.position.set(0, cy, -d/2 + 0.011); g.add(back);
+        const sw = 0.032, step = sw + 0.02;              // ~52 mm slat pitch
+        const n = Math.max(3, Math.floor(w / step)), span = (n - 1) * step;
+        for (let i = 0; i < n; i++){
+          const slat = block(sw, h - 0.02, 0.03, main);
+          slat.position.set(-span/2 + i*step, cy, d/2 - 0.016);
+          g.add(slat);
+        }
+      } else {                                           // fluted: rounded wood ribs over a darker recessed backing
+        const back = block(w, h, 0.02, dark); back.position.set(0, cy, -d/2 + 0.011); g.add(back);
+        const r = (def.flute || 0.05) / 2, step = r*2 + 0.006;   // ribs touching, hairline groove between
+        const n = Math.max(4, Math.floor(w / step)), span = (n - 1) * step;
+        for (let i = 0; i < n; i++){
+          const rib = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 16), main);   // vertical half-round flute
+          rib.position.set(-span/2 + i*step, cy, d/2 - r); rib.castShadow = true; rib.receiveShadow = true;
+          g.add(rib);
+        }
+      }
       break;
     }
     default: {
@@ -5212,7 +5244,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.fps-cap-60';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.wall-panels';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
