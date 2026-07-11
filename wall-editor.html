@@ -38,16 +38,17 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
 #insp .row{display:flex;gap:6px}
 #insp button{margin-top:11px;width:100%;border:none;border-radius:10px;padding:9px;background:rgba(224,85,95,.16);color:#f0949c;font-weight:700;cursor:pointer;transition:background .15s}
 #insp button:hover{background:rgba(224,85,95,.32);color:#fff}
-#rooms{position:fixed;right:12px;top:12px;z-index:9;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:11px 13px;width:262px;max-height:52vh;overflow:auto;font-size:12.5px;box-shadow:0 12px 36px rgba(0,0,0,.45)}
+#rooms{position:fixed;right:12px;top:62px;z-index:9;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:11px 13px;width:262px;max-height:56vh;overflow:auto;font-size:12.5px;box-shadow:0 12px 36px rgba(0,0,0,.45);display:none}
+#rooms.open{display:block}                          /* shown only when the top-bar Rooms button is on */
 #rooms h3{font-size:12px;margin-bottom:7px}
 #rooms .sub{color:var(--muted);font-weight:400;font-size:11px}
 .rr{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:9px}
 .rr:hover{background:var(--panel2)}
 .rr .rn{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rr .ra{color:var(--muted);font-size:11px;flex:none}
-.rr .ric{border:none;background:transparent;color:var(--muted);cursor:pointer;padding:4px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center}
-.rr .ric svg{width:15px;height:15px;display:block}
-.rr .ric:hover{background:rgba(255,255,255,.09);color:var(--text)}
+.ric{border:none;background:transparent;color:var(--muted);cursor:pointer;padding:4px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center}
+.ric svg{width:15px;height:15px;display:block}
+.ric:hover{background:rgba(255,255,255,.09);color:var(--text)}
 .rr.off{opacity:.5}
 .rnedit{flex:1;background:var(--panel2);border:1px solid var(--accent);border-radius:7px;color:var(--text);padding:3px 7px;font-size:12.5px;outline:none;min-width:0}
 #hint{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:8;background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:11px;padding:7px 14px;font-size:12px;color:var(--muted);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
@@ -64,8 +65,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
   .ib .ic{width:18px;height:18px}
   .ph{font-size:8px}
   #insp{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:42vh;overflow:auto}
-  #rooms{top:56px;right:8px;left:auto;width:min(72vw,248px);max-height:44vh}
-  #roomsTgl .sub{display:none}                       /* the wordy subtitle wraps ugly on a narrow panel */
+  #rooms{top:54px;right:8px;left:auto;width:min(74vw,252px);max-height:52vh}
+  #rooms h3 .sub{display:none}                        /* the wordy subtitle wraps ugly on a narrow panel */
   .rr .ra{font-size:10.5px}
   body.insp-open #rooms{display:none}
   #hint{display:none}
@@ -80,6 +81,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
   <span class="sep"></span>
   <button class="tb" id="undoB" data-ic="undo" title="Undo (Ctrl+Z)">Undo</button>
   <button class="tb" id="view3d" data-ic="cube" title="3D preview">3D</button>
+  <button class="tb" id="roomsBtn" data-ic="map" title="Show rooms">Rooms</button>
 </div>
 <!-- left rail: Tools · Add · File -->
 <div id="leftRail">
@@ -166,6 +168,7 @@ const LS_KEY = 'walleditor.draft';
 /* ============ line icons (same stroke style as the app) ============ */
 const ICONS = {
   cursor:'<path d="M4 3l6.5 16 2.3-6.7L19.5 10 4 3Z"/>',
+  map:'<path d="M9 4 3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6 9 4Z"/><path d="M9 4v14M15 6v14.5"/>',
   split:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M12 4.5v15" stroke-dasharray="2 2.4"/>',
   trash:'<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/>',
   wall:'<rect x="3" y="5" width="18" height="14" rx="1.3"/><path d="M3 9.7h18M3 14.3h18"/><path d="M12 5v4.7M8 9.7v4.6M16 9.7v4.6M12 14.3V19"/>',
@@ -398,15 +401,18 @@ function openRename(key, px, py){
   }, 200);
 }
 
-let roomsOpen = innerWidth > 720;                    // phones start with the list tucked away
+function setRoomsOpen(on){                            // the top-bar Rooms button shows / hides the whole panel
+  document.getElementById('rooms').classList.toggle('open', on);
+  document.getElementById('roomsBtn').classList.toggle('on', on);
+}
 function renderRooms(){
   const el = document.getElementById('rooms');
   const vis = roomsD.filter(r => !r.hidden);
   const sealed = roomsD.filter(r => r.hidden && !r.access);
   const dismissed = roomsD.filter(r => r.hidden && r.access);
-  el.innerHTML = `<h3 style="display:flex;align-items:center;gap:6px;cursor:pointer" id="roomsTgl">
-      <span style="flex:1">Rooms (${vis.length}) <span class="sub">· shaped by their walls</span></span><span>${roomsOpen ? '▾' : '▸'}</span></h3>` +
-    (!roomsOpen ? '' :
+  el.innerHTML = `<h3 style="display:flex;align-items:center;gap:6px">
+      <span style="flex:1">Rooms (${vis.length}) <span class="sub">· shaped by their walls</span></span>
+      <button class="ric" id="roomsClose" title="Close">${svgIcon('x')}</button></h3>` +
     vis.map(r => `<div class="rr" data-k="${r.key}">
       <span class="rn">${r.name}</span><span class="ra">${r.area.toFixed(1)} m²</span>
       <button class="ric" data-edit="${r.key}" title="Rename">${svgIcon('edit')}</button>
@@ -414,8 +420,8 @@ function renderRooms(){
     (vis.length ? '' : '<div class="sub" style="padding:4px 0">no rooms yet — close a shape with walls</div>') +
     (sealed.length ? `<div class="sub" style="margin-top:7px">${sealed.length} sealed space${sealed.length > 1 ? 's' : ''} hidden (no door in) — add a door or arch to make one a room</div>` : '') +
     dismissed.map(r => `<div class="rr off"><span class="rn">${r.name}</span><span class="ra">${r.area.toFixed(1)} m²</span>
-      <button class="ric" data-restore="${r.key}" title="Restore">${svgIcon('reset')}</button></div>`).join(''));
-  el.querySelector('#roomsTgl').onclick = () => { roomsOpen = !roomsOpen; renderRooms(); };
+      <button class="ric" data-restore="${r.key}" title="Restore">${svgIcon('reset')}</button></div>`).join('');
+  el.querySelector('#roomsClose').onclick = () => setRoomsOpen(false);
   el.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
     const rect = b.getBoundingClientRect();
     openRename(b.dataset.edit, rect.left, rect.top - 8);
@@ -849,6 +855,7 @@ document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
   }[tool];
 });
 document.getElementById('undoB').onclick = undo;
+document.getElementById('roomsBtn').onclick = () => setRoomsOpen(!document.getElementById('rooms').classList.contains('open'));
 const exportObj = () => ({ v: 1, walls: plan.walls.filter(w => !w.zone), zones: plan.walls.filter(w => w.zone), lights: plan.lights,
   rooms: roomsD.filter(r => !r.hidden).map(r => ({ name: r.name, rects: r.rects.map(rc => rc.map(n => +n.toFixed(2))), area: +r.area.toFixed(2) })) });
 document.getElementById('exportB').onclick = () => {
