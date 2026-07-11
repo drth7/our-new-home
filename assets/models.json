@@ -264,16 +264,6 @@
         "slots":  2
     },
     {
-        "id":  "xottoman",
-        "file":  "Sofa/Ottoman Old.glb",
-        "name":  "Ottoman",
-        "cat":  "Seating",
-        "w":  0.7,
-        "d":  0.5,
-        "h":  0.42,
-        "seat":  0.42
-    },
-    {
         "id":  "xlounge",
         "file":  "Chair/lounge_chair_001.fbx",
         "name":  "Lounge chair",
@@ -607,16 +597,5 @@
         "w":  0.7,
         "d":  0.7,
         "h":  1.65
-    },
-    {
-        "id":  "x_sofaottomanoldglb",
-        "file":  "Sofa/Ottoman Old.glb",
-        "name":  "Ottoman Old",
-        "cat":  "Seating",
-        "w":  2,
-        "d":  0.95,
-        "h":  0.85,
-        "seat":  0.42,
-        "slots":  2
     }
 ]
