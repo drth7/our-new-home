@@ -47,15 +47,32 @@ const json = (obj, status, origin) =>
 
 // fetch up to `max` real product photos from a shop URL → Gemini inline_data parts.
 // Used by the realistic-render mode to show the model what each labelled product actually looks like.
+// Prefers CLEAN product-only photos: the variant's own packshot first, then PNGs (often transparent
+// cutouts), and it drops the first image (usually the staged lifestyle hero) when there are alternatives.
 async function fetchPhotos(rawUrl, max){
   let target;
   try { target = new URL(String(rawUrl)); } catch { return []; }
   if (!/^https?:$/.test(target.protocol)) return [];
   const UA = { 'User-Agent': 'Mozilla/5.0' };
+  const norm = u => { u = String(u || ''); return u.startsWith('//') ? 'https:' + u : u; };
+  const isPng = u => /\.png(\?|$)/i.test(u);
+  const variantId = target.searchParams.get('variant');
   let imgUrls = [];
   try {                                                     // Shopify product JSON (most furniture shops)
     const r = await fetch(target.origin + target.pathname.replace(/\/+$/, '') + '.js', { headers: UA });
-    if (r.ok){ const p = await r.json(); if (p && Array.isArray(p.images)) imgUrls = p.images.slice(0, max); }
+    if (r.ok){
+      const p = await r.json();
+      const cand = [];
+      if (variantId && Array.isArray(p.variants)){          // the packshot for THIS variant/colour = cleanest, most on-point
+        const v = p.variants.find(x => String(x.id) === variantId);
+        const fi = v && v.featured_image && (v.featured_image.src || v.featured_image);
+        if (fi) cand.push(norm(fi));
+      }
+      let imgs = (Array.isArray(p.images) ? p.images : []).map(norm);
+      if (imgs.length > 3) imgs = imgs.slice(1);            // drop the first image — usually the staged lifestyle hero
+      imgs.sort((a, b) => (isPng(b) ? 1 : 0) - (isPng(a) ? 1 : 0));   // PNGs (often transparent cutouts) first
+      for (const u of cand.concat(imgs)) if (u && !imgUrls.includes(u)) imgUrls.push(u);
+    }
   } catch {}
   if (!imgUrls.length){                                     // fallback: the page's og:image
     try {
@@ -64,7 +81,7 @@ async function fetchPhotos(rawUrl, max){
         const page = await r.text();
         const og = (page.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
                  || page.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i) || [])[1];
-        if (og) imgUrls = [og];
+        if (og) imgUrls = [norm(og)];
       }
     } catch {}
   }

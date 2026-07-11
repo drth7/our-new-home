@@ -4471,7 +4471,7 @@ async function realisticShot(){
   // photorealism-forward (the earlier "keep everything exactly" wording made it barely change the render)
   let prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo. It must look like a real photograph, NOT a 3D model, render or cartoon.";
   if (refs.length){                                          // reference photos of the real products are attached after the render
-    prompt += " CRITICAL — keep THIS exact room: do NOT change, move, add, remove or reshape any wall, window, door, floor, ceiling, or the furniture positions, and keep the camera identical; only make the surfaces look real. Reference photos of the real products are attached after this image — use each ONLY to give its matching item realistic materials, colour, texture and shape, and completely IGNORE the room, background, floor and décor shown in those reference photos (never copy their surroundings into this picture). Match: " + refs.map(r => '#' + r.label + ' = ' + (r.name || 'item') + ' (' + r.pos + ')').join('; ') + ".";
+    prompt += " CRITICAL — keep THIS exact room: do NOT change, move, add, remove or reshape any wall, window, door, floor, ceiling, or the furniture positions, and keep the camera identical; only make the surfaces look real. Reference photos of the real products are attached after this image — use each ONLY to give its matching item realistic materials, colour, texture and shape. The reference photos may be staged: treat each product as if it were cut out on a plain white background — take ONLY the item itself and completely IGNORE the room, background, floor, props and décor shown around it (never copy any of their surroundings into this picture). Match: " + refs.map(r => '#' + r.label + ' = ' + (r.name || 'item') + ' (' + r.pos + ')').join('; ') + ".";
   }
   try{
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
@@ -5212,7 +5212,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.shot-1080';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.clean-refpix';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
