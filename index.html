@@ -574,6 +574,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 /* ---- inline SVG icon set (Lucide-style, crisp & consistent across devices) ---- */
@@ -778,8 +779,10 @@ const BASE_IDS = new Set(MODEL_DEFS.map(m => m.id));         // the built-in atl
 function registerModelDef(m){
   if (!m || !m.id || !m.file || CATALOG[m.id]) return false;
   const def = {...m, model:m.file};
-  if (m.file.startsWith('Sofa/')) def.plain = 1;             // the atlas doesn't fit the sofa pack — plain white, tintable
-  else if (!BASE_IDS.has(m.id)){                             // a model you added: keep ITS OWN materials/embedded textures
+  if (/\.(glb|gltf)$/i.test(m.file)){                        // glTF/GLB carries its OWN materials + textures — never
+    def.ownMat = 1; def.anchorSize = 1;                      // atlas it or paint it white; size by the model's real dims
+  } else if (m.file.startsWith('Sofa/')) def.plain = 1;      // the atlas doesn't fit the FBX sofa pack — plain white, tintable
+  else if (!BASE_IDS.has(m.id)){                             // an FBX you added: keep ITS OWN materials/embedded textures
     def.ownMat = 1;                                          // (it isn't part of the shared atlas), and size it by the
     def.anchorSize = 1;                                      // catalog dimensions since its authoring scale can't be trusted
   }
@@ -1594,11 +1597,17 @@ const modelCache = {};
 function loadModel(def){
   const key = def.model;
   if (!modelCache[key]){
+    const url = MODEL_BASE + key;
     modelCache[key] = new Promise(res => {
-      new FBXLoader().load(MODEL_BASE + key, async obj => {
-        if (def.ownMat){ try { await applyEmbeddedTex(obj, MODEL_BASE + key); } catch(e){} }
-        res(obj);
-      }, undefined, err => { console.warn('model failed', key, err); res(null); });
+      if (/\.(glb|gltf)$/i.test(key)){              // glTF/GLB: materials + textures load natively (no atlas, no applyEmbeddedTex)
+        new GLTFLoader().load(url, gltf => res(gltf.scene || (gltf.scenes && gltf.scenes[0]) || null),
+          undefined, err => { console.warn('GLB failed', key, err); res(null); });
+      } else {
+        new FBXLoader().load(url, async obj => {
+          if (def.ownMat){ try { await applyEmbeddedTex(obj, url); } catch(e){} }
+          res(obj);
+        }, undefined, err => { console.warn('model failed', key, err); res(null); });
+      }
     });
   }
   return modelCache[key];
@@ -5352,7 +5361,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.render-noinvent';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.glb-loader';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6680,6 +6689,8 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
       const col = itemColor(src); applyTint(sel, col);
       return { from: srcId, srcColor: itemColor(src), to: sel.userData.id, selTintNow: sel.userData.tint }; },
     lastShotHidden: () => lastShotHidden,            // other-room pieces hidden by the most recent realistic shot
+    tris: id => { const g = items.find(i => i.userData.id === id); if (!g) return null;   // triangle count (placeholder box=12; a loaded model is far more)
+      let t = 0; g.traverse(o => { if (o.isMesh && o.geometry && !o.userData.xrayFill && !o.userData.xrayLine){ const ix = o.geometry.index; t += (ix ? ix.count : (o.geometry.attributes.position?.count || 0)) / 3; } }); return Math.round(t); },
   };
 }
 

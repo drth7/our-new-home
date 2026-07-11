@@ -264,6 +264,16 @@
         "slots":  2
     },
     {
+        "id":  "xottoman",
+        "file":  "Sofa/Ottoman Old.glb",
+        "name":  "Ottoman",
+        "cat":  "Seating",
+        "w":  0.7,
+        "d":  0.5,
+        "h":  0.42,
+        "seat":  0.42
+    },
+    {
         "id":  "xlounge",
         "file":  "Chair/lounge_chair_001.fbx",
         "name":  "Lounge chair",
