@@ -4366,9 +4366,10 @@ async function shareScreenshot(){
 const AI_PROXY   = 'https://ournewhome.dov-dov-tak.workers.dev';   // the Cloudflare Worker that holds the key
 const AIPROXY_LS = 'roomplanner.aiproxy';
 const proxyUrl   = () => AI_PROXY || localStorage.getItem(AIPROXY_LS) || '';
-// rough "photos left" estimate: $25 pool ÷ ~13¢/image (Nano Banana Pro). Counts generations made in the app
-// (shared across both phones via room/aiUsed) — it can't read Google's real balance, so it's an estimate.
-const AI_BUDGET_USD = 25, AI_COST_USD = 0.134;
+// rough "photos left" estimate: $25 pool ÷ ~18¢/image (Nano Banana Pro output + the real product reference
+// photos each render now sends). Counts generations made in the app (shared across both phones via room/aiUsed)
+// — it can't read Google's real balance, so it's an estimate.
+const AI_BUDGET_USD = 25, AI_COST_USD = 0.18;
 const AI_MAX  = Math.floor(AI_BUDGET_USD / AI_COST_USD);
 let   aiUsed  = 0;
 const aiLeft  = () => Math.max(0, AI_MAX - aiUsed);
@@ -4435,7 +4436,29 @@ async function realisticShot(){
   const scale = Math.min(1, 1536 / src.width);       // keep detail so the AI has plenty to work with
   const cw = Math.round(src.width * scale), ch = Math.round(src.height * scale);
   const cnv = document.createElement('canvas'); cnv.width = cw; cnv.height = ch;
-  cnv.getContext('2d').drawImage(src, 0, 0, cw, ch);
+  const c2 = cnv.getContext('2d');
+  c2.drawImage(src, 0, 0, cw, ch);
+  // number the REAL products in view (AI-from-URL pieces carry def.url) so the AI can match each to its
+  // actual shop photos — the Worker fetches those photos from the URL and attaches them as references.
+  const refs = [];
+  { const cam = activeCam(), pv = new THREE.Vector3();
+    for (const it of items){
+      const def = CATALOG[it.userData.type];
+      if (!def || !def.url || refs.length >= 6) continue;
+      _box.setFromObject(it);
+      pv.set((_box.min.x + _box.max.x) / 2, (_box.min.y + _box.max.y) / 2, (_box.min.z + _box.max.z) / 2).project(cam);
+      if (pv.z > 1) continue;                                          // behind the camera
+      const lx = (pv.x * 0.5 + 0.5) * cw, ly = (-pv.y * 0.5 + 0.5) * ch;
+      if (lx < 8 || ly < 8 || lx > cw - 8 || ly > ch - 8) continue;    // off-screen
+      const n = refs.length + 1;
+      refs.push({ label: n, name: def.name, url: def.url });
+      c2.beginPath(); c2.arc(lx, ly, 17, 0, Math.PI * 2);
+      c2.fillStyle = 'rgba(233,42,42,.92)'; c2.fill();
+      c2.lineWidth = 3; c2.strokeStyle = '#fff'; c2.stroke();
+      c2.fillStyle = '#fff'; c2.font = 'bold 21px system-ui'; c2.textAlign = 'center'; c2.textBaseline = 'middle';
+      c2.fillText(String(n), lx, ly + 1);
+    }
+  }
   const inB64 = cnv.toDataURL('image/png').split(',')[1];
   // restore the normal view right away (walls see-through again, people/cat back) for the ~10s wait
   charGroup.visible = charVis;
@@ -4445,12 +4468,15 @@ async function realisticShot(){
   showConfirm(`<h2>Making it realistic ✨</h2><p class="wsub">Sending your room to the AI… about 10&nbsp;seconds.</p><div class="rspin"></div>`, []);
 
   // photorealism-forward (the earlier "keep everything exactly" wording made it barely change the render)
-  const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo. It must look like a real photograph, NOT a 3D model, render or cartoon.";
+  let prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo. It must look like a real photograph, NOT a 3D model, render or cartoon.";
+  if (refs.length){                                          // real products are numbered; their reference photos are attached after the render
+    prompt += " Numbered red circles mark REAL products; reference photos for each number are attached after this image. Render each numbered item to match its reference photos exactly — real materials, colour, silhouette and brand look — while keeping it in the same position and size. Then REMOVE the numbered red markers from the final photo (do not draw them). Products: " + refs.map(r => '#' + r.label + ' = ' + (r.name || 'item')).join('; ') + ".";
+  }
   try{
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ image: inB64, prompt, model: 'pro' })   // Nano Banana Pro — much more photoreal
+      body: JSON.stringify({ image: inB64, prompt, model: 'pro', refs })   // Nano Banana Pro + real product photos
     });
     if (!res.ok){
       let gmsg = '';
@@ -5185,7 +5211,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.guest-vieweditor';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.ref-render';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.

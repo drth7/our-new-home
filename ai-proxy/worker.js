@@ -45,6 +45,46 @@ function corsHeaders(origin) {
 const json = (obj, status, origin) =>
   new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
 
+// fetch up to `max` real product photos from a shop URL → Gemini inline_data parts.
+// Used by the realistic-render mode to show the model what each labelled product actually looks like.
+async function fetchPhotos(rawUrl, max){
+  let target;
+  try { target = new URL(String(rawUrl)); } catch { return []; }
+  if (!/^https?:$/.test(target.protocol)) return [];
+  const UA = { 'User-Agent': 'Mozilla/5.0' };
+  let imgUrls = [];
+  try {                                                     // Shopify product JSON (most furniture shops)
+    const r = await fetch(target.origin + target.pathname.replace(/\/+$/, '') + '.js', { headers: UA });
+    if (r.ok){ const p = await r.json(); if (p && Array.isArray(p.images)) imgUrls = p.images.slice(0, max); }
+  } catch {}
+  if (!imgUrls.length){                                     // fallback: the page's og:image
+    try {
+      const r = await fetch(target.href, { headers: UA });
+      if (r.ok){
+        const page = await r.text();
+        const og = (page.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+                 || page.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i) || [])[1];
+        if (og) imgUrls = [og];
+      }
+    } catch {}
+  }
+  const out = [];
+  for (const iu of imgUrls){
+    if (out.length >= max) break;
+    try {
+      const ir = await fetch(new URL(iu, target.href).href, { headers: UA });
+      const mime = (ir.headers.get('Content-Type') || '').split(';')[0];
+      if (!ir.ok || !/^image\/(jpeg|png|webp)$/.test(mime)) continue;
+      const buf = await ir.arrayBuffer();
+      if (buf.byteLength >= 1_500_000) continue;
+      let bin = ''; const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      out.push({ inline_data: { mime_type: mime, data: btoa(bin) } });
+    } catch {}
+  }
+  return out;
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
@@ -210,10 +250,27 @@ export default {
     const prompt = (body.prompt && String(body.prompt)) || DEFAULT_PROMPT;
     const model  = MODELS[body.model] || MODELS[DEFAULT_MODEL];
 
+    const parts = [{ text: prompt }, { inline_data: { mime_type: 'image/png', data: image } }];
+    // reference product photos: for each labelled real product (from the app), fetch its shop photos so
+    // the model renders it to match the real thing instead of the low-poly placeholder.
+    const refs = Array.isArray(body.refs) ? body.refs.slice(0, 6) : [];
+    if (refs.length){
+      const blocks = await Promise.all(refs.map(async ref => {
+        if (!ref || !ref.url) return null;
+        const photos = await fetchPhotos(ref.url, 2);
+        return photos.length ? { ref, photos } : null;
+      }));
+      for (const b of blocks){
+        if (!b) continue;
+        parts.push({ text: 'Reference photos for item #' + b.ref.label + (b.ref.name ? ' ("' + String(b.ref.name).slice(0, 40).replace(/"/g, "'") + '")' : '') + ' — render this item to match these:' });
+        for (const ph of b.photos) parts.push(ph);
+      }
+    }
+
     const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/png', data: image } }] }] }),
+      body: JSON.stringify({ contents: [{ parts }] }),
     });
 
     // pass Google's response (image data or error) straight back, with CORS
