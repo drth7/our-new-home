@@ -696,9 +696,9 @@ const CATALOG = {
    footprint, re-originated to floor-centre, atlas-textured, and thumbnailed. */
 const MODEL_BASE = 'assets/Extra Furniture/';
 const MODEL_DEFS = [
-  {id:'xsofa1',  file:'Sofa/Sofa1.fbx',  name:'Sofa I',    cat:'Seating', w:2.10, d:0.95, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa2',  file:'Sofa/Sofa2.fbx',  name:'Sofa II',   cat:'Seating', w:2.10, d:0.95, h:0.85, seat:0.42, slots:2},
-  {id:'xsofa3',  file:'Sofa/Sofa3.fbx',  name:'Sofa III',  cat:'Seating', w:2.10, d:0.95, h:0.85, seat:0.42, slots:2},
+  {id:'xsofa1',  file:'Sofa/Sofa1.fbx',  name:'Sofa I',    cat:'Seating', w:2.10, d:0.95, h:0.85, seat:0.42, slots:2, url:'https://www.alrugaibfurniture.com/products/elyza-raf-sectional-1?variant=42253092323424'},
+  {id:'xsofa2',  file:'Sofa/Sofa2.fbx',  name:'Sofa II',   cat:'Seating', w:2.10, d:0.95, h:0.85, seat:0.42, slots:2, url:'https://www.alrugaibfurniture.com/products/elyza-raf-sectional-1?variant=42253092323424'},
+  {id:'xsofa3',  file:'Sofa/Sofa3.fbx',  name:'Sofa III',  cat:'Seating', w:2.10, d:0.95, h:0.85, seat:0.42, slots:2, url:'https://www.alrugaibfurniture.com/products/elyza-raf-sectional-1?variant=42253092323424'},
   {id:'xsofa4',  file:'Sofa/Sofa4.fbx',  name:'Sofa IV',   cat:'Seating', w:2.20, d:1.00, h:0.85, seat:0.42, slots:2},
   {id:'xsofa5',  file:'Sofa/Sofa5.fbx',  name:'Sofa V',    cat:'Seating', w:1.80, d:0.90, h:0.85, seat:0.42, slots:2},
   {id:'xsofa6',  file:'Sofa/Sofa6.fbx',  name:'Sofa VI',   cat:'Seating', w:1.80, d:0.90, h:0.85, seat:0.42, slots:2},
@@ -5203,7 +5203,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.ref-render-fix';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.sofa-url';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
