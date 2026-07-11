@@ -501,6 +501,10 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
             <div class="tt"><b>Floor grid</b><small>1 × 1 m reference squares</small></div>
             <div class="switch" id="gridSw" role="switch" tabindex="0"></div>
           </div>
+          <div class="togglerow">
+            <div class="tt"><b>X-ray furniture</b><small>2D only — pieces as blueprint outlines</small></div>
+            <div class="switch" id="xraySw" role="switch" tabindex="0"></div>
+          </div>
         </div>
       </div></div>
     </section>
@@ -1090,6 +1094,8 @@ scene.add(furnGroup);
 let roomGroup = null, wallSegs = [], labels = [], roomLights = {}, lightDiscs = [], floorMeshes = [];
 let gridPref = localStorage.getItem('roomplanner.grid') === '1';
 let wallOpaque = localStorage.getItem('roomplanner.wallopaque') === '1';   // solid walls vs the default see-through (this device)
+let xrayMode = localStorage.getItem('roomplanner.xray') === '1';   // 2D blueprint: furniture drawn as top-down outlines (this device)
+const xrayLineMat = new THREE.LineBasicMaterial({ color: 0x223140, transparent: true, opacity: 0.9 });
 let tempGrid = false;                              // grid flashes on while something is being dragged
 function setTempGrid(b){
   if (tempGrid === b) return;
@@ -1416,6 +1422,34 @@ function applyViewToPlan(){
     if (!m.userData.glass){ const o = plan ? 1 : walk ? 0.96 : (wallOpaque ? 1 : 0.55); (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => x.opacity = o); }
   });
   labels.forEach(l => l.visible = plan);
+  applyXray();
+}
+
+/* X-ray (2D blueprint): hide the solid furniture and show each piece as a top-down outline.
+   The outline is a child of the item, so it follows the piece live as it moves/rotates/resizes. */
+function buildItemOutline(it){
+  if (it.userData.hasXray) return;
+  const rd = realDims(it), hw = rd.w/2, hd = rd.d/2, y = 0.03, def = CATALOG[it.userData.type];
+  let pts;
+  if (def && (def.round || def.rug && def.w === def.d)){       // round tables / round rugs → an ellipse
+    pts = []; for (let i = 0; i <= 40; i++){ const a = i/40*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(a)*hw, y, Math.sin(a)*hd)); }
+  } else {
+    pts = [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd],[-hw,-hd]].map(([x,z]) => new THREE.Vector3(x, y, z));
+  }
+  const ls = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), xrayLineMat);
+  ls.userData.xrayLine = true; ls.visible = false; ls.renderOrder = 5;
+  it.add(ls);
+  it.userData.hasXray = true;
+}
+function applyXray(){
+  const on = xrayMode && view === '2d';
+  for (const it of items){
+    if (on) buildItemOutline(it);
+    it.traverse(o => {
+      if (o.userData.xrayLine) o.visible = on;
+      else if (o.isMesh) o.visible = !on;                      // hide the solid piece; the outline shows through
+    });
+  }
 }
 
 function updateSun(){
@@ -3222,6 +3256,7 @@ function addFurniture(type, opts = {}){
     if (Object.keys(CATALOG).every(t => progress.typesUsed[t])) unlock('full-catalog');
     checkFullHouse();
   }
+  if (xrayMode && view === '2d') applyXray();       // a piece added while x-ray is on shows as an outline
   return g;
 }
 
@@ -5259,7 +5294,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.door-arcs-2d';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.xray-2d';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6065,6 +6100,9 @@ bindSwitch(gridSw, () => gridPref, v => {
 bindSwitch($('wallOpaqueSw'), () => wallOpaque, v => {
   wallOpaque = v; localStorage.setItem('roomplanner.wallopaque', v ? '1' : '0'); applyViewToPlan();
 });
+bindSwitch($('xraySw'), () => xrayMode, v => {
+  xrayMode = v; localStorage.setItem('roomplanner.xray', v ? '1' : '0'); applyViewToPlan();
+});
 
 /* ============================== settings wiring ============================== */
 
@@ -6564,6 +6602,12 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
       if (m.isLine){ const a = m.geometry.attributes.position.array; if (a.length === 54){ o.closed = [+a[0].toFixed(2), +a[2].toFixed(2)]; o.open = [+a[48].toFixed(2), +a[50].toFixed(2)]; o.hinge = [+a[51].toFixed(2), +a[53].toFixed(2)]; } }
       return o;
     }),
+    xray: () => { let meshHidden = 0, meshVisible = 0, outlinesVisible = 0, outlinesTotal = 0;
+      for (const it of items) it.traverse(o => {
+        if (o.userData.xrayLine){ outlinesTotal++; if (o.visible) outlinesVisible++; }
+        else if (o.isMesh){ o.visible ? meshVisible++ : meshHidden++; }
+      });
+      return { on: xrayMode && view === '2d', meshHidden, meshVisible, outlinesVisible, outlinesTotal }; },
   };
 }
 
