@@ -1094,8 +1094,9 @@ scene.add(furnGroup);
 let roomGroup = null, wallSegs = [], labels = [], roomLights = {}, lightDiscs = [], floorMeshes = [];
 let gridPref = localStorage.getItem('roomplanner.grid') === '1';
 let wallOpaque = localStorage.getItem('roomplanner.wallopaque') === '1';   // solid walls vs the default see-through (this device)
-let xrayMode = localStorage.getItem('roomplanner.xray') === '1';   // 2D blueprint: furniture drawn as top-down outlines (this device)
-const xrayLineMat = new THREE.LineBasicMaterial({ color: 0x223140, transparent: true, opacity: 0.9 });
+let xrayMode = localStorage.getItem('roomplanner.xray') === '1';   // 2D blueprint: furniture as translucent filled outlines (this device)
+const xrayLineMat = new THREE.LineBasicMaterial({ color: 0xcdd8e4, transparent: true, opacity: 0.85 });
+const xrayBg = new THREE.Color(0x12161d);                          // dark blueprint backdrop, like the wall editor
 let tempGrid = false;                              // grid flashes on while something is being dragged
 function setTempGrid(b){
   if (tempGrid === b) return;
@@ -1429,13 +1430,21 @@ function applyViewToPlan(){
    The outline is a child of the item, so it follows the piece live as it moves/rotates/resizes. */
 function buildItemOutline(it){
   if (it.userData.hasXray) return;
-  const rd = realDims(it), hw = rd.w/2, hd = rd.d/2, y = 0.03, def = CATALOG[it.userData.type];
+  const rd = realDims(it), hw = rd.w/2, hd = rd.d/2, def = CATALOG[it.userData.type];
+  // average colour of the model's meshes → the translucent fill
+  let r = 0, g2 = 0, b = 0, n = 0;
+  it.traverse(o => { if (o.isMesh && o.material && o.material.color){ const c = o.material.color; r += c.r; g2 += c.g; b += c.b; n++; } });
+  const avg = n ? new THREE.Color(r/n, g2/n, b/n) : new THREE.Color(0x8a9bb0);
+  const round = !!(def && (def.round || (def.rug && def.w === def.d)));
+  const fill = round
+    ? new THREE.Mesh(new THREE.CircleGeometry(0.5, 40), new THREE.MeshBasicMaterial({ color: avg, transparent: true, opacity: 0.5, depthWrite: false }))
+    : new THREE.Mesh(new THREE.PlaneGeometry(rd.w, rd.d),  new THREE.MeshBasicMaterial({ color: avg, transparent: true, opacity: 0.5, depthWrite: false }));
+  if (round) fill.scale.set(rd.w, rd.d, 1);
+  fill.rotation.x = -Math.PI/2; fill.position.y = 0.02; fill.userData.xrayFill = true; fill.visible = false; fill.renderOrder = 4;
+  it.add(fill);
   let pts;
-  if (def && (def.round || def.rug && def.w === def.d)){       // round tables / round rugs → an ellipse
-    pts = []; for (let i = 0; i <= 40; i++){ const a = i/40*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(a)*hw, y, Math.sin(a)*hd)); }
-  } else {
-    pts = [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd],[-hw,-hd]].map(([x,z]) => new THREE.Vector3(x, y, z));
-  }
+  if (round){ pts = []; for (let i = 0; i <= 40; i++){ const a = i/40*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(a)*hw, 0.03, Math.sin(a)*hd)); } }
+  else pts = [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd],[-hw,-hd]].map(([x,z]) => new THREE.Vector3(x, 0.03, z));
   const ls = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), xrayLineMat);
   ls.userData.xrayLine = true; ls.visible = false; ls.renderOrder = 5;
   it.add(ls);
@@ -1443,11 +1452,13 @@ function buildItemOutline(it){
 }
 function applyXray(){
   const on = xrayMode && view === '2d';
+  scene.background = on ? xrayBg : new THREE.Color(SCENES[theme].bg);   // dark blueprint backdrop while on
+  for (const f of floorMeshes) f.visible = !on;                        // hide the porcelain floor → dark shows through
   for (const it of items){
     if (on) buildItemOutline(it);
     it.traverse(o => {
-      if (o.userData.xrayLine) o.visible = on;
-      else if (o.isMesh) o.visible = !on;                      // hide the solid piece; the outline shows through
+      if (o.userData.xrayLine || o.userData.xrayFill) o.visible = on;
+      else if (o.isMesh) o.visible = !on;                              // hide the solid piece; the fill+outline show instead
     });
   }
 }
@@ -5294,7 +5305,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.xray-2d';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.xray-blueprint';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6602,12 +6613,15 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
       if (m.isLine){ const a = m.geometry.attributes.position.array; if (a.length === 54){ o.closed = [+a[0].toFixed(2), +a[2].toFixed(2)]; o.open = [+a[48].toFixed(2), +a[50].toFixed(2)]; o.hinge = [+a[51].toFixed(2), +a[53].toFixed(2)]; } }
       return o;
     }),
-    xray: () => { let meshHidden = 0, meshVisible = 0, outlinesVisible = 0, outlinesTotal = 0;
+    xray: () => { let meshHidden = 0, meshVisible = 0, outlinesVisible = 0, outlinesTotal = 0, fillsVisible = 0;
       for (const it of items) it.traverse(o => {
         if (o.userData.xrayLine){ outlinesTotal++; if (o.visible) outlinesVisible++; }
+        else if (o.userData.xrayFill){ if (o.visible) fillsVisible++; }
         else if (o.isMesh){ o.visible ? meshVisible++ : meshHidden++; }
       });
-      return { on: xrayMode && view === '2d', meshHidden, meshVisible, outlinesVisible, outlinesTotal }; },
+      return { on: xrayMode && view === '2d', meshHidden, meshVisible, outlinesVisible, outlinesTotal, fillsVisible,
+               bgDark: !!(scene.background && scene.background.getHex() === xrayBg.getHex()),
+               floorHidden: floorMeshes.length > 0 && floorMeshes.every(f => !f.visible) }; },
   };
 }
 
