@@ -433,18 +433,6 @@ function renderRooms(){
 
 /* ============ drawing ============ */
 const ROOM_TINTS = ['#4c86d622','#e8709a22','#5bd6a022','#e0a33e22','#a06aff22','#6ad0e022','#d6cf4c22','#e0653e22'];
-function drawPen(cx, cy, s){                          // a little stroked pencil, centred on (cx,cy)
-  ctx.save();
-  ctx.strokeStyle = 'rgba(150,163,178,.95)';
-  ctx.lineWidth = Math.max(1.3, s * 0.34); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(cx - s, cy + s);                         // nib (lower-left)
-  ctx.lineTo(cx + s, cy - s);                         // body up to the top-right
-  ctx.moveTo(cx + s * 0.32, cy - s * 1.32);           // the eraser band across the top
-  ctx.lineTo(cx + s * 1.32, cy - s * 0.32);
-  ctx.stroke();
-  ctx.restore();
-}
 function draw(){
   const dpr = devicePixelRatio;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -470,9 +458,10 @@ function draw(){
     ctx.fillText(r.area.toFixed(1) + ' m²', sx(r.cx), sz(r.cz) + fs * 0.85);
     ctx.font = `600 ${fs}px system-ui`;              // measure the NAME with its own font, not the area's
     const pw = ctx.measureText(r.name).width;        // little pen right after the name — tap it to rename
-    const px = sx(r.cx) + pw / 2 + fs * 0.9, py = sz(r.cz) - fs * 0.3;
-    drawPen(px, py, fs * 0.62);                       // stroked pencil (matches the SVG UI icons, no emoji)
-    penHits.push({ x: px, y: py, key: r.key });
+    const px = sx(r.cx) + pw / 2 + fs * 0.9, py = sz(r.cz) - fs * 0.45;
+    ctx.fillStyle = 'rgba(139,151,165,.95)'; ctx.font = `${fs * 0.95}px system-ui`;
+    ctx.fillText('✎', px, py + fs * 0.35);
+    penHits.push({ x: px, y: py + fs * 0.1, key: r.key });
   });
   // walls
   plan.walls.forEach((w, i) => {
