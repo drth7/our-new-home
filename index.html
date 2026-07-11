@@ -49,6 +49,8 @@ button{font-family:inherit;touch-action:manipulation}
 .pillrow{display:flex;gap:6px}
 .pbtn{width:40px;height:40px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pbtn.tint{padding:4px}
+.pbtn.armed{background:var(--accent);color:#fff;box-shadow:0 0 0 2px rgba(76,134,214,.5)}
+body.eyedrop #app canvas{cursor:crosshair}
 .pbtn.on{background:linear-gradient(135deg,#4b86d8,#6aa4f2);color:#fff}
 #tintInput{width:32px;height:32px;border:none;border-radius:8px;padding:0;background:none;cursor:pointer}
 #selName{font-size:12.5px;font-weight:700;color:var(--text);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;padding:2px 6px 0}
@@ -404,6 +406,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
     <button class="pbtn" id="rotBtn" title="Rotate 45°" data-icon="rotate"></button>
     <button class="pbtn" id="flipBtn" title="Flip to the other side" data-icon="flip" style="display:none"></button>
     <label class="pbtn tint" title="Colour"><input type="color" id="tintInput"></label>
+    <button class="pbtn" id="eyedropBtn" title="Copy colour from another piece" data-icon="eyedrop"></button>
     <button class="pbtn" id="sizeBtn" title="Resize" data-icon="resize"></button>
     <button class="pbtn" id="wallBtn" title="Hang on the wall / put back on the floor" data-icon="wallmount"></button>
     <button class="pbtn" id="useBtn" title="Use" style="display:none"></button>
@@ -604,7 +607,8 @@ const ICONS = {
   shoplink:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   flip:'<path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><path d="M12 2v2"/><path d="M12 8v2"/><path d="M12 14v2"/><path d="M12 20v2"/>',
   house:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>',
-  chevron:'<path d="m6 9 6 6 6-6"/>'
+  chevron:'<path d="m6 9 6 6 6-6"/>',
+  eyedrop:'<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L21 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 0 1 0-3l1.8-1.8Z"/>'
 };
 const svgIcon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
 document.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', svgIcon(el.dataset.icon)));
@@ -2273,6 +2277,13 @@ function applyTint(g, hex){
   });
   if (g.userData.lampLight) setLampLit(g, g.userData.lit);               // and stays correctly lit/dark after the recolour
 }
+// a piece's representative colour: its explicit tint, else the average of its mesh colours (for the eyedropper)
+function itemColor(g){
+  if (g.userData.tint) return g.userData.tint;
+  let r = 0, gg = 0, b = 0, n = 0;
+  g.traverse(o => { if (o.isMesh && o.material && o.material.color && !o.userData.xrayFill){ const c = o.material.color; r += c.r; gg += c.g; b += c.b; n++; } });
+  return n ? '#' + new THREE.Color(r/n, gg/n, b/n).getHexString() : (CATALOG[g.userData.type]?.color || '#888888');
+}
 
 function realDims(g){
   const def = CATALOG[g.userData.type];
@@ -3431,6 +3442,7 @@ function deselect(){
   sel = null;
   pill.classList.remove('on');
   $('sizePanel').classList.remove('on');
+  if (eyedropArmed){ eyedropArmed = false; document.body.classList.remove('eyedrop'); $('eyedropBtn').classList.remove('armed'); }
   closeRadial();
   $('wallPill').classList.remove('on');
   if (typeof dropMarker !== 'undefined') dropMarker.visible = false;
@@ -3508,6 +3520,7 @@ const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 let dragging = false, moved = false, downAt = null, downOnItem = false, downDirt = null;
 let dragChar = null, looking = false, lookLast = null, downCat = false, downCharRole = null;
 let carried = [], carryIgnore = null;               // pieces stacked on the dragged item — they ride along
+let eyedropArmed = false;                            // eyedropper: next tapped piece's colour copies onto the selected one
 const dragOff = new THREE.Vector3(), _p = new THREE.Vector3();
 const dragTilt = {x:0, z:0};                        // inertia lean while sliding furniture
 const charFalls = [];                               // characters dropping back to the floor
@@ -3772,6 +3785,17 @@ renderer.domElement.addEventListener('pointerup', e => {
   } else if (downAt && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) < 6){
     looking = false; lookLast = null;                        // a tap (not a look-drag): let it interact
     closeRadial();
+    if (eyedropArmed){                                       // eyedropper: copy the tapped piece's colour onto the selected one
+      eyedropArmed = false; document.body.classList.remove('eyedrop'); $('eyedropBtn').classList.remove('armed');
+      const src = downOnItem || pickItem(e);
+      if (src && sel && src !== sel && canEdit()){
+        const col = itemColor(src); pushUndo();
+        applyTint(sel, col); tintInput.value = col;
+        logActivity('edit', `matched the ${CATALOG[sel.userData.type].name}'s colour 🎨`); scheduleSave();
+        toast('Colour copied 🎨');
+      } else toast('Tap another piece to copy its colour');
+      e.stopPropagation(); return;
+    }
     if (measureMode){ placeMeasurePoint(e); return; }        // measure mode: a tap drops a distance point
     if (downDirt){                                           // a mess was under the finger — clean it (beats the rug it sits on)
       scrubDirt(downDirt.m);
@@ -5305,7 +5329,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.xray-blueprint';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.copy-colour';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5962,6 +5986,13 @@ tintInput.addEventListener('change', () => {
   scheduleSave();
   logActivity('edit', `recoloured the ${CATALOG[sel.userData.type].name}`);
 });
+$('eyedropBtn').onclick = () => {                    // arm/disarm the eyedropper (copy another piece's colour onto this one)
+  if (!sel || !canEdit()) return;
+  eyedropArmed = !eyedropArmed;
+  $('eyedropBtn').classList.toggle('armed', eyedropArmed);
+  document.body.classList.toggle('eyedrop', eyedropArmed);
+  if (eyedropArmed) toast('Tap another piece to copy its colour 🎨');
+};
 
 /* -------- custom sizes: tweak any piece's width / depth / height -------- */
 
@@ -6622,6 +6653,9 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
       return { on: xrayMode && view === '2d', meshHidden, meshVisible, outlinesVisible, outlinesTotal, fillsVisible,
                bgDark: !!(scene.background && scene.background.getHex() === xrayBg.getHex()),
                floorHidden: floorMeshes.length > 0 && floorMeshes.every(f => !f.visible) }; },
+    eyedrop: srcId => { const src = items.find(i => i.userData.id === srcId); if (!src || !sel) return null;
+      const col = itemColor(src); applyTint(sel, col);
+      return { from: srcId, srcColor: itemColor(src), to: sel.userData.id, selTintNow: sel.userData.tint }; },
   };
 }
 
