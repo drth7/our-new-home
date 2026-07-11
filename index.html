@@ -683,6 +683,7 @@ const CATALOG = {
   panelflw2: {name:'Wide fluted',       cat:'Panels', w:0.90, d:0.06, h:2.40, color:'#6b5038', wall:true, panel:'fluted', flute:0.075},
   panelslo:  {name:'Slat oak · grey',   cat:'Panels', w:0.60, d:0.06, h:2.40, color:'#c2a06a', bg:'#6a6a6e', wall:true, panel:'slat'},
   panelslw:  {name:'Slat walnut · black',cat:'Panels', w:0.60, d:0.06, h:2.40, color:'#5a4030', bg:'#2b2b2d', wall:true, panel:'slat'},
+  panelhb:   {name:'Pillow headboard',  cat:'Panels', w:1.80, d:0.14, h:1.20, color:'#8a7d95', wall:true, panel:'pillow'},
   rug:       {name:'Rug',          cat:'Decor',    w:2.00, d:1.40, h:0.02, color:'#7a6aa0'},
   ruground:  {name:'Round rug',    cat:'Decor',    w:1.70, d:1.70, h:0.02, color:'#8a6a9a', round:true},
   rugsq:     {name:'Rounded rug',  cat:'Decor',    w:1.80, d:1.80, h:0.02, color:'#6a8a7a', soft:true},
@@ -2144,9 +2145,22 @@ function buildFurniture(type){
       fol2.position.y = 1.02; fol2.castShadow = true; g.add(fol2);
       break;
     }
-    case 'panelflw': case 'panelflo': case 'panelflw2': case 'panelslo': case 'panelslw': {
+    case 'panelflw': case 'panelflo': case 'panelflw2': case 'panelslo': case 'panelslw': case 'panelhb': {
       // decorative hotel-style wall panel — a thin backing + a row of vertical flutes (rounded ribs) or
       // slats. Authored centred at local y = h/2 so, hung on a wall, it stands from the floor up.
+      if (def.panel === 'pillow'){                       // upholstered "pillow" headboard — mounts behind a bed's pillows
+        const cy = 1.25;
+        const back = block(w, h, 0.04, main); back.position.set(0, cy, -d/2 + 0.02); g.add(back);
+        const cols = Math.max(3, Math.round(w / 0.42)), rows = Math.max(2, Math.round(h / 0.42));
+        const cwid = w / cols, chgt = h / rows;
+        for (let ri = 0; ri < rows; ri++) for (let ci = 0; ci < cols; ci++){
+          const puff = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), main);   // a soft tufted cushion
+          puff.scale.set(cwid*0.46, chgt*0.46, 0.055);
+          puff.position.set(-w/2 + cwid*(ci+0.5), cy - h/2 + chgt*(ri+0.5), d/2 - 0.02);
+          puff.castShadow = true; g.add(puff);
+        }
+        break;
+      }
       const cy = h / 2;
       if (def.panel === 'slat'){                         // acoustic slat: wood slats on a felt backing (its own colour, untinted)
         const felt = new THREE.MeshStandardMaterial({ color: new THREE.Color(def.bg || '#6a6a6e'), roughness: 0.96 });
@@ -5244,7 +5258,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.wall-panels';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.pillow-headboard';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
