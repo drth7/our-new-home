@@ -4566,50 +4566,14 @@ async function realisticShot(){
   renderer.setPixelRatio(1);
   renderer.setSize(cw, ch, false);                   // false = leave the on-screen canvas' CSS size alone
   if (shotCam.isPerspectiveCamera){ shotCam.aspect = cw / ch; shotCam.updateProjectionMatrix(); }
-  // capture the room you're looking at: the focus room = the one with the MOST on-screen furniture; hide
-  // furniture that belongs to OTHER rooms (a kitchen vent / living-room chair caught over or around a wall).
-  // Using the majority room (not a single ray) means it keeps the room you're in and never blanks the render.
-  const roomCounts = {}, pvc = new THREE.Vector3();
-  for (const it of items){
-    if (!it.userData.room) continue;
-    _box.setFromObject(it);
-    pvc.set((_box.min.x + _box.max.x)/2, (_box.min.y + _box.max.y)/2, (_box.min.z + _box.max.z)/2).project(shotCam);
-    if (pvc.z > 1 || Math.abs(pvc.x) > 1 || Math.abs(pvc.y) > 1) continue;   // off-screen
-    roomCounts[it.userData.room] = (roomCounts[it.userData.room] || 0) + 1;
-  }
-  let focusRoom = null, bestCount = 0, totalOnScreen = 0;
-  for (const rid in roomCounts){ totalOnScreen += roomCounts[rid]; if (roomCounts[rid] > bestCount){ bestCount = roomCounts[rid]; focusRoom = rid; } }
-  // only trim to the focus room when it CLEARLY dominates — a single-room shot with a few stragglers seen
-  // over the walls. A wide / bird's-eye shot spreads furniture across several rooms, so keep everything.
-  const singleRoomShot = focusRoom && bestCount >= 0.6 * totalOnScreen;
-  const hiddenForShot = [];
-  if (singleRoomShot) for (const it of items){
-    if (it.userData.room && it.userData.room !== focusRoom){ it.visible = false; hiddenForShot.push(it); }
-  }
-  lastShotHidden = hiddenForShot.length;
-  renderer.render(scene, shotCam);
+  renderer.render(scene, shotCam);                   // capture EXACTLY what the camera sees — nothing hidden
   const cnv = document.createElement('canvas'); cnv.width = cw; cnv.height = ch;
   cnv.getContext('2d').drawImage(renderer.domElement, 0, 0, cw, ch);
-  // list the REAL products in view (AI-from-URL pieces carry def.url) with a rough on-screen position, so the
-  // AI can match each to its shop photos. NO markers are drawn on the image — they made the AI redraw the room.
-  const refs = [];
-  { const cam = activeCam(), pv = new THREE.Vector3();
-    for (const it of items){
-      const def = CATALOG[it.userData.type];
-      if (!def || !def.url || !it.visible || refs.length >= 6) continue;   // skip other-room pieces hidden for the shot
-      _box.setFromObject(it);
-      pv.set((_box.min.x + _box.max.x) / 2, (_box.min.y + _box.max.y) / 2, (_box.min.z + _box.max.z) / 2).project(cam);
-      if (pv.z > 1 || Math.abs(pv.x) > 1.05 || Math.abs(pv.y) > 1.05) continue;   // behind the camera / off-screen
-      const pos = pv.x < -0.33 ? 'on the left' : pv.x > 0.33 ? 'on the right' : 'in the centre';
-      refs.push({ label: refs.length + 1, name: def.name, url: def.url, pos });
-    }
-  }
   const inB64 = cnv.toDataURL('image/png').split(',')[1];
   // restore the normal view right away (full-res canvas, walls see-through again, people/cat back) for the ~10s wait
   if (shotCam.isPerspectiveCamera){ shotCam.aspect = prevAspect; shotCam.updateProjectionMatrix(); }
   renderer.setPixelRatio(prevPR);
   renderer.setSize(prevSize.x, prevSize.y, false);
-  for (const it of hiddenForShot) it.visible = true;                 // other-room furniture back
   charGroup.visible = charVis;
   if (cat) cat.g.visible = catVis;
   for (const wi in savedOpacity) for (const m of wallMats[wi]) m.opacity = savedOpacity[wi];
@@ -4617,16 +4581,13 @@ async function realisticShot(){
 
   showConfirm(`<h2>Making it realistic ✨</h2><p class="wsub">Sending your room to the AI… about 10&nbsp;seconds.</p><div class="rspin"></div>`, []);
 
-  // photorealism-forward (the earlier "keep everything exactly" wording made it barely change the render)
-  let prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo. STRICT RULE — reproduce ONLY the exact pieces of furniture that are actually visible in THIS render, one-for-one. Do NOT add, invent, duplicate or import ANY new object: no extra chair, armchair, sofa, stool, table, bench, plant, lamp, rug, appliance, vent, artwork or décor of any kind. Any empty floor, empty wall or empty corner MUST stay empty — never furnish or decorate a bare area. It must look like a real photograph, NOT a 3D model, render or cartoon.";
-  if (refs.length){                                          // reference photos of the real products are attached after the render
-    prompt += " CRITICAL — keep THIS exact room: do NOT change, move, add, remove or reshape any wall, window, door, floor, ceiling, or the furniture positions, and keep the camera identical; only make the surfaces look real. Reference photos of the real products are attached after this image — use each ONLY to give its matching item realistic materials, colour, texture and shape. The reference photos may be staged: treat each product as if it were cut out on a plain white background — take ONLY the item itself and completely IGNORE the room, background, floor, props and décor shown around it (never copy any of their surroundings into this picture). Match: " + refs.map(r => '#' + r.label + ' = ' + (r.name || 'item') + ' (' + r.pos + ')').join('; ') + ".";
-  }
+  // simple + clean: keep the layout, just make it realistic (no references, no labels, no per-room hiding)
+  const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo. It must look like a real photograph, NOT a 3D model, render or cartoon.";
   try{
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ image: inB64, prompt, model: 'pro', refs })   // Nano Banana Pro + real product photos
+      body: JSON.stringify({ image: inB64, prompt, model: 'pro' })   // Nano Banana Pro — just the screenshot + prompt
     });
     if (!res.ok){
       let gmsg = '';
@@ -5361,7 +5322,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.glb-loader';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.render-simple';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
