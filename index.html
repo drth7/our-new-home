@@ -4568,10 +4568,13 @@ async function realisticShot(){
     if (pvc.z > 1 || Math.abs(pvc.x) > 1 || Math.abs(pvc.y) > 1) continue;   // off-screen
     roomCounts[it.userData.room] = (roomCounts[it.userData.room] || 0) + 1;
   }
-  let focusRoom = null, bestCount = 0;
-  for (const rid in roomCounts) if (roomCounts[rid] > bestCount){ bestCount = roomCounts[rid]; focusRoom = rid; }
+  let focusRoom = null, bestCount = 0, totalOnScreen = 0;
+  for (const rid in roomCounts){ totalOnScreen += roomCounts[rid]; if (roomCounts[rid] > bestCount){ bestCount = roomCounts[rid]; focusRoom = rid; } }
+  // only trim to the focus room when it CLEARLY dominates — a single-room shot with a few stragglers seen
+  // over the walls. A wide / bird's-eye shot spreads furniture across several rooms, so keep everything.
+  const singleRoomShot = focusRoom && bestCount >= 0.6 * totalOnScreen;
   const hiddenForShot = [];
-  if (focusRoom) for (const it of items){
+  if (singleRoomShot) for (const it of items){
     if (it.userData.room && it.userData.room !== focusRoom){ it.visible = false; hiddenForShot.push(it); }
   }
   lastShotHidden = hiddenForShot.length;
@@ -5349,7 +5352,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.render-majorityroom';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.render-birdview';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
