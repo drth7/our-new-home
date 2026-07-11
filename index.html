@@ -27,6 +27,10 @@ button{font-family:inherit;touch-action:manipulation}
 #topbar h1{font-size:15px;font-weight:700;margin-right:auto;display:flex;gap:7px;align-items:center;background:var(--panel);padding:10px 14px;border-radius:12px;box-shadow:var(--shadow)}
 #userDot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--muted)}
 .iconbtn{position:relative;min-width:42px;height:42px;padding:0 12px;border:none;border-radius:12px;background:var(--panel);color:var(--text);font-size:17px;line-height:1;font-weight:700;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:system-ui,"Segoe UI Emoji","Apple Color Emoji",sans-serif}
+#fps{height:42px;padding:0 11px;border-radius:12px;background:var(--panel);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;font:600 12.5px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted);min-width:56px;letter-spacing:.2px;white-space:nowrap;-webkit-user-select:none;user-select:none}
+#fps.good{color:#5fc98b}
+#fps.mid{color:#e0a33e}
+#fps.low{color:#e0555f}
 .iconbtn:active{transform:scale(.96)}
 #bottombar{bottom:0;left:0;right:0;justify-content:center;padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 #addBtn{background:var(--accent);color:#fff;font-size:15px;padding:0 20px;height:42px;border-radius:12px}
@@ -352,6 +356,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
   <button class="iconbtn" id="roomsBtn" title="Rooms" data-icon="house"></button>
   <button class="iconbtn" id="wallEdBtn" title="Wall editor" data-icon="blueprint"></button>
   <h1><span id="userDot"></span><span id="homeTitle">Our New Home</span></h1>
+  <div id="fps" title="Frames per second (≈30 idle, ≈60 while you interact)">-- fps</div>
   <button class="iconbtn" id="viewBtn" title="Toggle 2D / 3D view">2D</button>
   <button class="iconbtn" id="themeBtn" title="Light / Dark"></button>
   <button class="iconbtn" id="settingsBtn" title="Settings" data-icon="settings"></button>
@@ -1030,6 +1035,8 @@ pan.enabled = false;
 // (the cat and avatars still breathe, at roughly half the GPU cost). Any input wakes full rate
 // instantly; the worst a missed wake can do is 30fps, never a frozen screen.
 let interactUntil = 0, idleParity = 0, __rc = 0;
+let fpsFrames = 0, fpsStamp = performance.now();
+const fpsEl = document.getElementById('fps');
 const wakeRender = (ms = 700) => { interactUntil = performance.now() + ms; };
 for (const ev of ['pointerdown','pointermove','pointerup','wheel','keydown','touchstart','touchmove'])
   addEventListener(ev, () => wakeRender(), {capture:true, passive:true});
@@ -5109,7 +5116,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.perf-audit';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.fps-meter';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6457,6 +6464,15 @@ function animate(){
   updateMeasureLabelPos();                         // keep the distance label on the line's midpoint
   __rc++;
   renderer.render(scene, activeCam());
+  // live FPS pill — reflects the real rendered rate (so ~30 when idle, ~60 while you interact)
+  fpsFrames++;
+  const fnow = performance.now();
+  if (fnow - fpsStamp >= 500 && fpsEl){
+    const fps = Math.round(fpsFrames * 1000 / (fnow - fpsStamp));
+    fpsFrames = 0; fpsStamp = fnow;
+    fpsEl.textContent = fps + ' fps';
+    fpsEl.className = fps >= 50 ? 'good' : fps < 22 ? 'low' : '';   // green when smooth, red on real jank, muted at the 30fps idle
+  }
 }
 animate();
 </script>
