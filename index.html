@@ -6407,13 +6407,13 @@ document.addEventListener('visibilitychange', () => {
 const clock = new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.1);
   // The welcome card fully covers the scene with an OPAQUE backdrop — rendering the whole 3D home
   // behind it just burns the CPU/GPU (the cause of the sign-in lag + jerky animation) and paints
   // nothing you can see. Skip the frame entirely while the welcome screen owns the view, UNLESS
   // the cinematic reveal is playing (then it needs to render). Also idle when the tab is hidden.
   const welcomeUp = welcome.classList.contains('on') && !welcome.classList.contains('glass') && !introPlaying;
   if (welcomeUp || document.hidden){ clock.getDelta(); return; }   // keep the clock from banking a huge dt
+  const dt = Math.min(clock.getDelta(), 0.1);
   if (view === '3d' && !introActive) orbit.update();   // the intro drives the camera itself
   else if (view === '2d') pan.update();
   updateWalk(dt);
