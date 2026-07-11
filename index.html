@@ -2201,12 +2201,12 @@ function halfExtents(g){
 /* Snap-while-dragging: pull the carried piece flush against a neighbour's edge (or line their
    centres up) when it gets close. Device-local toggle on the toolbar magnet. */
 let snapOn = localStorage.getItem('roomplanner.snap') !== '0';
-function applySnap(g){
+function applySnap(g, ignore){
   if (!snapOn || isWall(g)) return;
   const me = halfExtents(g), T = 0.14;               // grab distance in metres
   let bx = null, bz = null, dx = T, dz = T;          // best candidate per axis
   for (const it of items){
-    if (it === g || isWall(it)) continue;
+    if (it === g || isWall(it) || (ignore && ignore.has(it))) continue;   // don't snap to a piece we're carrying
     const d2 = CATALOG[it.userData.type];
     if (!d2 || d2.h <= 0.1) continue;                // rugs aren't snap targets
     const o = halfExtents(it);
@@ -2253,7 +2253,7 @@ function applyHangY(g){
   g.position.y = d.wall ? hy - 1.5 : hy;
 }
 
-function clampToRoom(g){
+function clampToRoom(g, ignore){                     // ignore = pieces being carried on top of g (skip them when stacking g)
   const def = CATALOG[g.userData.type];
   const r = rectAt(g.position.x, g.position.z) || nearestRect(g.position.x, g.position.z);
   if (isWall(g)){
@@ -2291,7 +2291,7 @@ function clampToRoom(g){
   if (footprintOnFloor(g)){
     g.userData.room = r.room.id;
     g.userData.gx = g.position.x; g.userData.gz = g.position.z;   // remember the last spot that fully fit
-    applyStackY(g);                                 // ride on top of any piece underneath
+    applyStackY(g, ignore);                          // ride on top of any piece underneath
     return;
   }
   // blocked by a wall: SLIDE along it instead of jumping — try keeping each axis separately,
@@ -2299,12 +2299,12 @@ function clampToRoom(g){
   const nx = g.position.x, nz = g.position.z, lx = g.userData.gx, lz = g.userData.gz;
   if (lx != null){
     g.position.x = nx; g.position.z = lz;
-    if (footprintOnFloor(g)){ g.userData.gx = nx; g.userData.room = r.room.id; applyStackY(g); return; }
+    if (footprintOnFloor(g)){ g.userData.gx = nx; g.userData.room = r.room.id; applyStackY(g, ignore); return; }
     g.position.x = lx; g.position.z = nz;
-    if (footprintOnFloor(g)){ g.userData.gz = nz; g.userData.room = r.room.id; applyStackY(g); return; }
+    if (footprintOnFloor(g)){ g.userData.gz = nz; g.userData.room = r.room.id; applyStackY(g, ignore); return; }
     g.position.x = lx; g.position.z = lz;           // fully blocked — stay where it last fit
     g.userData.room = r.room.id;
-    applyStackY(g);
+    applyStackY(g, ignore);
     return;
   }
   const {hw, hd} = halfExtents(g);                  // no history (fresh load outside the floor) — clamp into the nearest rect
@@ -2312,7 +2312,7 @@ function clampToRoom(g){
   g.position.x = x1 > x2 ? (r.x1 + r.x2)/2 : THREE.MathUtils.clamp(g.position.x, x1, x2);
   g.position.z = z1 > z2 ? (r.z1 + r.z2)/2 : THREE.MathUtils.clamp(g.position.z, z1, z2);
   g.userData.room = r.room.id;
-  applyStackY(g);
+  applyStackY(g, ignore);
 }
 
 // the height of the surface an item offers to whatever sits on it
@@ -2324,12 +2324,14 @@ function stackTopOf(it){
   return base + (it.userData.realH ?? d2.h) * it.scale.y;                   // solid top (washer, fridge, bed…)
 }
 // any piece dropped so its centre sits over another piece rides on top of it (stack two washers, etc.)
-function applyStackY(g){
+// `ignore`: items to skip as possible supports (the pieces being CARRIED on top of g while g is dragged —
+// otherwise a centred rider counts as "under" g by x/z overlap and lifts g onto it).
+function applyStackY(g, ignore){
   const gd = CATALOG[g.userData.type];
   if (gd && gd.h <= 0.1 && (!gd.gen || gd.rug)){ g.position.y = 0; g.userData.loadY = null; return; }   // rugs/mats lie flat & never stack — incl. AI-made rugs (a thin AI appliance still stacks)
   let top = 0;
   for (const it of items){
-    if (it === g) continue;
+    if (it === g || (ignore && ignore.has(it))) continue;
     const d2 = CATALOG[it.userData.type];
     if (isWall(it) || d2.h <= 0.05) continue;       // never land on a wall-mounted piece (hung art OR a floor piece toggled onto the wall) or a flat rug
     const {hw, hd} = halfExtents(it);
@@ -2338,6 +2340,25 @@ function applyStackY(g){
     }
   }
   g.position.y = top;
+}
+// every piece resting (transitively) on `base` — the flower on the table, a mug on that flowerpot…
+// so moving the base carries its whole stack. A rider must sit clearly ABOVE its support's own base
+// level (so furniture merely standing over a flat rug is NOT swept up).
+function carriedStack(base){
+  const riders = [], seen = new Set([base]), queue = [base];
+  while (queue.length){
+    const cur = queue.shift();
+    const top = stackTopOf(cur), { hw, hd } = halfExtents(cur);
+    for (const it of items){
+      if (seen.has(it) || isWall(it)) continue;
+      if (CATALOG[it.userData.type].h <= 0.05) continue;
+      if (it.position.y > cur.position.y + 0.05 && Math.abs(it.position.y - top) < 0.12 &&
+          Math.abs(it.position.x - cur.position.x) < hw && Math.abs(it.position.z - cur.position.z) < hd){
+        seen.add(it); queue.push(it); riders.push(it);
+      }
+    }
+  }
+  return riders;
 }
 
 function spawnPos(){
@@ -3393,6 +3414,7 @@ const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 let dragging = false, moved = false, downAt = null, downOnItem = false, downDirt = null;
 let dragChar = null, looking = false, lookLast = null, downCat = false, downCharRole = null;
+let carried = [], carryIgnore = null;               // pieces stacked on the dragged item — they ride along
 const dragOff = new THREE.Vector3(), _p = new THREE.Vector3();
 const dragTilt = {x:0, z:0};                        // inertia lean while sliding furniture
 const charFalls = [];                               // characters dropping back to the floor
@@ -3492,6 +3514,11 @@ renderer.domElement.addEventListener('pointerdown', e => {
     if (hit === sel){
       dragging = true;                             // already selected -> this press drags it
       orbit.enabled = false; pan.enabled = false;
+      // whatever is stacked on it comes along (flower on a table) — record each rider's offset
+      carried = isWall(hit) ? [] : carriedStack(hit).map(it => ({
+        it, dx: it.position.x - hit.position.x, dz: it.position.z - hit.position.z, dy: it.position.y - hit.position.y
+      }));
+      carryIgnore = carried.length ? new Set(carried.map(c => c.it)) : null;
       if (floorPoint(e, _p)) dragOff.subVectors(hit.position, _p); else dragOff.set(0, 0, 0);
       const di = dropping.findIndex(dd => dd.g === hit);
       if (di >= 0){
@@ -3563,8 +3590,9 @@ renderer.domElement.addEventListener('pointermove', e => {
   const ox = sel.position.x, oz = sel.position.z;
   sel.position.x = Math.round((_p.x + dragOff.x) * 100) / 100;   // 1 cm — light snap so the lean feels natural
   sel.position.z = Math.round((_p.z + dragOff.z) * 100) / 100;
-  applySnap(sel);                                                // magnet: settle flush against a neighbour when close
-  clampToRoom(sel);
+  applySnap(sel, carryIgnore);                                   // magnet: settle flush against a neighbour when close
+  clampToRoom(sel, carryIgnore);
+  for (const c of carried) c.it.position.set(sel.position.x + c.dx, sel.position.y + c.dy, sel.position.z + c.dz);   // riders keep their place on top
   if (!CATALOG[sel.userData.type].wall){                       // lean back against the motion, like real dragging
     dragTilt.z = THREE.MathUtils.clamp(dragTilt.z + (sel.position.x - ox) * 1.4, -0.16, 0.16);
     dragTilt.x = THREE.MathUtils.clamp(dragTilt.x - (sel.position.z - oz) * 1.4, -0.16, 0.16);
@@ -3634,6 +3662,11 @@ renderer.domElement.addEventListener('pointerup', e => {
       playSound('drop');
     }
     if (moved && sel){
+      for (const c of carried){                    // the carried stack settled with it — refresh each rider's bookkeeping
+        const rr = rectAt(c.it.position.x, c.it.position.z) || nearestRect(c.it.position.x, c.it.position.z);
+        c.it.userData.gx = c.it.position.x; c.it.userData.gz = c.it.position.z;
+        c.it.userData.room = rr.room.id; c.it.userData.loadY = null;
+      }
       logActivity('move', `moved the ${CATALOG[sel.userData.type].name}`);
       scheduleSave();
       const id = sel.userData.id;
@@ -3641,6 +3674,7 @@ renderer.domElement.addEventListener('pointerup', e => {
       jset(LS.progress, progress);
       if (progress.moves[id] >= 10) unlock('cant-decide');
     }
+    carried = []; carryIgnore = null;
     e.stopPropagation();
   } else if (downAt && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) < 6){
     looking = false; lookLast = null;                        // a tap (not a look-drag): let it interact
@@ -3704,7 +3738,7 @@ function resetPointerState(){
   if (cat && cat.carried){ cat.carried = false; cat.g.position.y = 0; cat.state = 'idle'; cat.t = 1; }
   if (dragChar){ dragChar.dragFall = false; dragChar.g.position.y = 0; }
   dragging = false; dragChar = null; downCat = false; looking = false; measureDrag = null;
-  downCharRole = null; downAt = null; lookLast = null; moved = false;
+  downCharRole = null; downAt = null; lookLast = null; moved = false; carried = []; carryIgnore = null;
   orbit.enabled = view === '3d'; pan.enabled = view === '2d';
   if (typeof dropMarker !== 'undefined') dropMarker.visible = false;
   if (typeof setTempGrid === 'function') setTempGrid(false);
@@ -5151,7 +5185,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.guest-noedit';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.carry-stack';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
