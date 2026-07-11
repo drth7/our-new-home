@@ -597,16 +597,5 @@
         "w":  0.7,
         "d":  0.7,
         "h":  1.65
-    },
-    {
-        "id":  "x_sofaottomanoldfbx",
-        "file":  "Sofa/Ottoman Old.fbx",
-        "name":  "Ottoman Old",
-        "cat":  "Seating",
-        "w":  2,
-        "d":  0.95,
-        "h":  0.85,
-        "seat":  0.42,
-        "slots":  2
     }
 ]
