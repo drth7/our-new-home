@@ -4489,6 +4489,7 @@ const proxyUrl   = () => AI_PROXY || localStorage.getItem(AIPROXY_LS) || '';
 const AI_BUDGET_USD = 25, AI_COST_USD = 0.18;
 const AI_MAX  = Math.floor(AI_BUDGET_USD / AI_COST_USD);
 let   aiUsed  = 0;
+let   lastShotHidden = 0;                            // how many other-room pieces the last realistic shot hid (for testing)
 const aiLeft  = () => Math.max(0, AI_MAX - aiUsed);
 function updateRealMenu(){ const el = $('realLeft'); if (el) el.textContent = '~' + aiLeft() + ' left'; }
 function bumpAiUsed(){
@@ -4550,21 +4551,30 @@ async function realisticShot(){
   for (const wi in wallMats){ savedOpacity[wi] = wallMats[wi][0].opacity; for (const m of wallMats[wi]) m.opacity = 1; }
   // render a clean 1920×1080 (16:9) frame for the AI, then restore the live view afterwards
   const shotCam = activeCam();
-  // capture ONLY the room you're looking at: hide furniture that lives in OTHER rooms, so the render
-  // doesn't pull in a kitchen vent or a living-room chair the camera can see over/around the walls
-  let focusRoom = null;
-  { ray.setFromCamera(new THREE.Vector2(0, 0), shotCam); const fp = new THREE.Vector3();
-    if (ray.ray.intersectPlane(floorPlane, fp)){ const r = rectAt(fp.x, fp.z) || nearestRect(fp.x, fp.z); focusRoom = r && r.room.id; } }
-  const hiddenForShot = [];
-  if (focusRoom) for (const it of items){
-    if (it.userData.room && it.userData.room !== focusRoom){ it.visible = false; hiddenForShot.push(it); }
-  }
   const prevSize = renderer.getSize(new THREE.Vector2()), prevPR = renderer.getPixelRatio();
   const prevAspect = shotCam.isPerspectiveCamera ? shotCam.aspect : null;
   const cw = 1920, ch = 1080;
   renderer.setPixelRatio(1);
   renderer.setSize(cw, ch, false);                   // false = leave the on-screen canvas' CSS size alone
   if (shotCam.isPerspectiveCamera){ shotCam.aspect = cw / ch; shotCam.updateProjectionMatrix(); }
+  // capture the room you're looking at: the focus room = the one with the MOST on-screen furniture; hide
+  // furniture that belongs to OTHER rooms (a kitchen vent / living-room chair caught over or around a wall).
+  // Using the majority room (not a single ray) means it keeps the room you're in and never blanks the render.
+  const roomCounts = {}, pvc = new THREE.Vector3();
+  for (const it of items){
+    if (!it.userData.room) continue;
+    _box.setFromObject(it);
+    pvc.set((_box.min.x + _box.max.x)/2, (_box.min.y + _box.max.y)/2, (_box.min.z + _box.max.z)/2).project(shotCam);
+    if (pvc.z > 1 || Math.abs(pvc.x) > 1 || Math.abs(pvc.y) > 1) continue;   // off-screen
+    roomCounts[it.userData.room] = (roomCounts[it.userData.room] || 0) + 1;
+  }
+  let focusRoom = null, bestCount = 0;
+  for (const rid in roomCounts) if (roomCounts[rid] > bestCount){ bestCount = roomCounts[rid]; focusRoom = rid; }
+  const hiddenForShot = [];
+  if (focusRoom) for (const it of items){
+    if (it.userData.room && it.userData.room !== focusRoom){ it.visible = false; hiddenForShot.push(it); }
+  }
+  lastShotHidden = hiddenForShot.length;
   renderer.render(scene, shotCam);
   const cnv = document.createElement('canvas'); cnv.width = cw; cnv.height = ch;
   cnv.getContext('2d').drawImage(renderer.domElement, 0, 0, cw, ch);
@@ -5339,7 +5349,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.render-thisroom';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.render-majorityroom';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6666,6 +6676,7 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
     eyedrop: srcId => { const src = items.find(i => i.userData.id === srcId); if (!src || !sel) return null;
       const col = itemColor(src); applyTint(sel, col);
       return { from: srcId, srcColor: itemColor(src), to: sel.userData.id, selTintNow: sel.userData.tint }; },
+    lastShotHidden: () => lastShotHidden,            // other-room pieces hidden by the most recent realistic shot
   };
 }
 
