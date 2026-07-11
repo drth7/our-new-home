@@ -5109,7 +5109,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.adaptive-fps';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.perf-audit';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6416,7 +6416,10 @@ let lastActivityAt = performance.now();            // 45 quiet minutes ends the 
 for (const ev of ['pointerdown','keydown']) addEventListener(ev, () => lastActivityAt = performance.now(), true);
 setInterval(() => { if (performance.now() - lastActivityAt > 45*60000) location.reload(); }, 60000);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && currentUser){ pushPlayer(true); catPushAt = 0; }
+  if (document.visibilityState === 'visible'){
+    wakeRender();                                    // returning to the app renders at full rate straight away
+    if (currentUser){ pushPlayer(true); catPushAt = 0; }
+  }
 });
 
 const clock = new THREE.Clock();
