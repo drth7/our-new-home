@@ -312,6 +312,17 @@ body.guest #guestNote{display:block}
 .segrow button.on{background:var(--accent);color:#fff}
 #settings .field{gap:0}
 #settings .field label{margin-bottom:8px;font-size:12.5px;line-height:1.45}
+/* Environment: quiet subgroups so it doesn't feel like one crowded list */
+.subgroup{display:flex;flex-direction:column;gap:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:14px}
+.subgroup > .subh{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700;margin:-2px 0 0}
+.togglerow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.togglerow .tt{display:flex;flex-direction:column;gap:2px}
+.togglerow .tt b{font-size:13.5px;font-weight:600;color:var(--text)}
+.togglerow .tt small{font-size:11.5px;color:var(--muted)}
+.switch{--w:46px;position:relative;width:var(--w);height:27px;flex:none;border-radius:999px;background:var(--panel2);border:1px solid var(--line);cursor:pointer;transition:background .18s}
+.switch::after{content:'';position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:#c9d2de;transition:transform .18s}
+.switch.on{background:var(--accent);border-color:var(--accent)}
+.switch.on::after{transform:translateX(19px);background:#fff}
 #settings #userChip{background:rgba(255,255,255,.05)}
 #settings #mpStatus{margin:0}
 #settings.on .dbody > section{animation:setin .34s cubic-bezier(.2,.9,.3,1) backwards}
@@ -445,23 +456,39 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
     <section class="acc" id="secEnv">
       <button class="sechdr" type="button"><span class="sec">Environment</span><span class="chev" data-icon="chevron"></span></button>
       <div class="secwrap"><div class="secinner">
-        <div class="field"><label>Time of day — <span id="timeLabel"></span></label>
-          <input type="time" id="timeInput" class="timefield">
-          <button class="btn" id="dayNightBtn"></button>
+        <div class="subgroup">
+          <div class="subh">Lighting</div>
+          <div class="field"><label>Time of day — <span id="timeLabel"></span></label>
+            <input type="time" id="timeInput" class="timefield">
+            <button class="btn" id="dayNightBtn"></button>
+          </div>
+          <div class="field"><label>Sun direction — <span id="sunLabel"></span></label>
+            <input type="range" id="sunSlider" min="0" max="359" step="1">
+            <div class="compass"><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span></div>
+          </div>
         </div>
-        <div class="field"><label>Sun direction — <span id="sunLabel"></span></label>
-          <input type="range" id="sunSlider" min="0" max="359" step="1">
-          <div class="compass"><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span></div>
+        <div class="subgroup">
+          <div class="subh">Walls &amp; floor</div>
+          <div class="field"><label>Wall colour — tap a wall in the room to paint just that one</label>
+            <div class="swrow" id="wallSwatches"></div>
+            <input type="color" id="wallColorInput" value="#8fa1b3" hidden>
+          </div>
+          <div class="field"><label>Floor colour</label>
+            <div class="swrow" id="floorSwatches"></div>
+            <input type="color" id="floorColorInput" value="#c2a883" hidden>
+          </div>
+          <div class="togglerow">
+            <div class="tt"><b>Solid walls</b><small>Off = see-through, so you can look in from outside</small></div>
+            <div class="switch" id="wallOpaqueSw" role="switch" tabindex="0"></div>
+          </div>
         </div>
-        <div class="field"><label>Wall colour — tap a wall in the room to paint just that one</label>
-          <div class="swrow" id="wallSwatches"></div>
-          <input type="color" id="wallColorInput" value="#8fa1b3" hidden>
+        <div class="subgroup">
+          <div class="subh">View helpers</div>
+          <div class="togglerow">
+            <div class="tt"><b>Floor grid</b><small>1 × 1 m reference squares</small></div>
+            <div class="switch" id="gridSw" role="switch" tabindex="0"></div>
+          </div>
         </div>
-        <div class="field"><label>Floor colour — sets the whole floor</label>
-          <div class="swrow" id="floorSwatches"></div>
-          <input type="color" id="floorColorInput" value="#c2a883" hidden>
-        </div>
-        <button class="btn" id="gridToggle"></button>
       </div></div>
     </section>
     <section class="acc" id="secLayout">
@@ -993,6 +1020,7 @@ scene.add(furnGroup);
 
 let roomGroup = null, wallSegs = [], labels = [], roomLights = {}, lightDiscs = [], floorMeshes = [];
 let gridPref = localStorage.getItem('roomplanner.grid') === '1';
+let wallOpaque = localStorage.getItem('roomplanner.wallopaque') === '1';   // solid walls vs the default see-through (this device)
 let tempGrid = false;                              // grid flashes on while something is being dragged
 function setTempGrid(b){
   if (tempGrid === b) return;
@@ -1301,7 +1329,7 @@ function applyViewToPlan(){
     if (m.userData.grid1m){ m.visible = !plan && (gridPref || tempGrid); return; }
     if (m.userData.grid){ m.visible = plan; return; }               // measuring grid lives in the 2D plan
     if (m.userData.planHidden) m.visible = !plan;
-    if (!m.userData.glass){ const o = plan ? 1 : walk ? 0.96 : 0.55; (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => x.opacity = o); }
+    if (!m.userData.glass){ const o = plan ? 1 : walk ? 0.96 : (wallOpaque ? 1 : 0.55); (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => x.opacity = o); }
   });
   labels.forEach(l => l.visible = plan);
 }
@@ -5045,7 +5073,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-10.arcs-agree';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.welcome-perf';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5858,15 +5886,22 @@ function renderQuality(){
 document.querySelectorAll('#qualityRow button').forEach(b => b.onclick = () => { applyQuality(b.dataset.q); renderQuality(); toast(`Quality: ${b.textContent} ✓`); });
 renderQuality();
 
-const gridToggle = $('gridToggle');
-function updateGridBtn(){ gridToggle.textContent = `📏 Floor grid (1×1 m): ${gridPref ? 'On' : 'Off'}`; }
-gridToggle.onclick = () => {
-  gridPref = !gridPref;
-  localStorage.setItem('roomplanner.grid', gridPref ? '1' : '0');
-  updateGridBtn();
-  applyViewToPlan();
-};
-updateGridBtn();
+function bindSwitch(el, get, set){                  // a reusable on/off pill switch
+  const paint = () => el.classList.toggle('on', get());
+  const flip = () => { set(!get()); paint(); };
+  el.onclick = flip;
+  el.onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); flip(); } };
+  paint();
+  return paint;
+}
+const gridSw = $('gridSw');
+function updateGridBtn(){ if (gridSw) gridSw.classList.toggle('on', gridPref); }   // kept: other code calls it
+bindSwitch(gridSw, () => gridPref, v => {
+  gridPref = v; localStorage.setItem('roomplanner.grid', v ? '1' : '0'); applyViewToPlan();
+});
+bindSwitch($('wallOpaqueSw'), () => wallOpaque, v => {
+  wallOpaque = v; localStorage.setItem('roomplanner.wallopaque', v ? '1' : '0'); applyViewToPlan();
+});
 
 /* ============================== settings wiring ============================== */
 
@@ -6345,6 +6380,7 @@ if (ROOM !== 'room'){                              // sandbox rooms only: expose
     delSel: id => { const g = items.find(i => i.userData.id === id); if (g){ sel = g; deleteSel(); return true; } return false; },
     tombs: () => Object.keys(tombstones).length,
     plan: () => PLAN,
+    wallOpacity: () => { const m = wallSegs.find(s => !s.userData.glass && !s.userData.grid1m && !s.userData.grid && !s.userData.ceiling); const mat = m && (Array.isArray(m.material) ? m.material[0] : m.material); return mat ? +mat.opacity.toFixed(2) : null; },
     move: (id, x, z) => { const g = items.find(i => i.userData.id === id); if (!g) return null; g.position.x = x; g.position.z = z; clampToRoom(g); scheduleSave(); return {x:+g.position.x.toFixed(3), z:+g.position.z.toFixed(3), rotY:+g.rotation.y.toFixed(3)}; },
     wallpill: (wi, side) => openWallPill(wi, innerWidth/2, 200, side),
     wallState: wi => ({ stored: wallColors[wi] ?? null, mats: (wallMats[wi] || []).map(m => '#' + m.color.getHexString()), opacity: wallMats[wi] ? wallMats[wi][0].opacity : null }),
@@ -6372,6 +6408,12 @@ const clock = new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.1);
+  // The welcome card fully covers the scene with an OPAQUE backdrop — rendering the whole 3D home
+  // behind it just burns the CPU/GPU (the cause of the sign-in lag + jerky animation) and paints
+  // nothing you can see. Skip the frame entirely while the welcome screen owns the view, UNLESS
+  // the cinematic reveal is playing (then it needs to render). Also idle when the tab is hidden.
+  const welcomeUp = welcome.classList.contains('on') && !welcome.classList.contains('glass') && !introPlaying;
+  if (welcomeUp || document.hidden){ clock.getDelta(); return; }   // keep the clock from banking a huge dt
   if (view === '3d' && !introActive) orbit.update();   // the intro drives the camera itself
   else if (view === '2d') pan.update();
   updateWalk(dt);
