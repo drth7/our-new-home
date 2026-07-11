@@ -259,7 +259,7 @@ body.guest #radial button[data-act="kiss"]{display:none}
 .szval:focus{border-color:var(--accent);outline:none}
 .szbtn{width:36px;height:36px;border:none;border-radius:9px;background:var(--btn);color:var(--text);font-size:16px;font-weight:800;cursor:pointer}
 
-body.guest #addBtn,body.guest #undoBtn,body.guest #achBtn,body.guest .rbtn[data-a="rn"],body.guest .rbtn[data-a="lt"],
+body.guest #addBtn,body.guest #undoBtn,body.guest #achBtn,body.guest #wallEdBtn,body.guest .rbtn[data-a="rn"],body.guest .rbtn[data-a="lt"],
 body.guest #secProfile,body.guest #secEnv,body.guest #secLayout{display:none!important}
 #guestNote{display:none;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted)}
 body.guest #guestNote{display:block}
@@ -5151,7 +5151,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.rooms-toggle';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.guest-noedit';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6040,6 +6040,7 @@ $('importBtn').onclick = () => $('importFile').click();
 /* ---- Wall editor: opens INSIDE the app (session kept), Save rebuilds the real apartment ---- */
 let edFrame = null;
 function openWallEditor(){
+  if (!canEdit()){ toast('Editing is off for guests'); return; }   // guests are view-only — no layout editing
   // hand the editor the CURRENT live plan as its base (with room names + lights)
   const names = {};
   for (const r of (planOverride ? planOverride.rooms : PLAN.rooms.map(rm => ({name:getName(rm), rects:rm.rects})))){
