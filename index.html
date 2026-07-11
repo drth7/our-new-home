@@ -1376,7 +1376,7 @@ function buildPlan(){
         new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.3 }));
       strip.rotation.x = -Math.PI / 2;
       strip.position.set(w.d === 'h' ? o.at : w.pos, 0.007, w.d === 'h' ? w.pos : o.at);
-      strip.userData.grid1m = true; strip.visible = false;
+      strip.userData.grid1m = strip.userData.doorMark = true; strip.visible = false;
       roomGroup.add(strip); wallSegs.push(strip);
       if (o.t === 'door'){                           // swing arc + leaf — EXACTLY the wall editor's math, so the plans agree
         const hg = o.hinge || 1, sw = o.swing || 1;
@@ -1392,7 +1392,7 @@ function buildPlan(){
         pts.push(new THREE.Vector3(hx, 0.012, hz));
         const arc = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
           new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85 }));
-        arc.userData.grid1m = true; arc.visible = false;
+        arc.userData.grid1m = arc.userData.doorMark = true; arc.visible = false;
         roomGroup.add(arc); wallSegs.push(arc);
       }
     }
@@ -1409,6 +1409,7 @@ function applyViewToPlan(){
   const walk = view === 'tp';
   wallSegs.forEach(m => {
     if (m.userData.ceiling){ m.visible = false; return; }   // roof stays hidden (walls fade in walk view instead)
+    if (m.userData.doorMark){ m.visible = plan || gridPref || tempGrid; return; }   // door swing arcs: always in 2D, + in 3D with the grid/drag
     if (m.userData.grid1m){ m.visible = !plan && (gridPref || tempGrid); return; }
     if (m.userData.grid){ m.visible = plan; return; }               // measuring grid lives in the 2D plan
     if (m.userData.planHidden) m.visible = !plan;
@@ -5258,7 +5259,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.pillow-headboard';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.door-arcs-2d';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
