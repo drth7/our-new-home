@@ -5151,7 +5151,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.editor-panels';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-11.stack-keepy';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6079,7 +6079,11 @@ function adoptEditorPlan(p){
       setPlanFromOverride(p);
       wallColors = {};                               // the wall numbering changed with the plan
       buildPlan();
-      items.forEach(g => clampToRoom(g));            // pull furniture out of any new wall
+      // pull furniture out of any new wall — but PRESERVE each floor piece's stacked height.
+      // clampToRoom runs applyStackY, which decides "support" by x/z overlap alone: a piece
+      // centred on a table counts as being UNDER the table and lifts it off the floor (runaway).
+      // The saved y is already correct, so restore it after the horizontal re-clamp.
+      items.forEach(g => { const keepY = g.position.y; clampToRoom(g); if (!isWall(g)) g.position.y = keepY; });
       closeWallEditor();
       saveLocal(); scheduleSave();
       renderRooms(); syncSettingsUI(); refreshTags();
