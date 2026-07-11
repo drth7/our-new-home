@@ -40,6 +40,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
 #insp button:hover{background:rgba(224,85,95,.32);color:#fff}
 #rooms{position:fixed;right:12px;top:62px;z-index:9;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:11px 13px;width:262px;max-height:56vh;overflow:auto;font-size:12.5px;box-shadow:0 12px 36px rgba(0,0,0,.45);display:none}
 #rooms.open{display:block}                          /* shown only when the top-bar Rooms button is on */
+body.ro #leftRail,body.ro #undoB,body.ro #saveB,body.ro #insp{display:none!important}   /* guest view-only: leaves 3D · Back · Rooms */
 #rooms h3{font-size:12px;margin-bottom:7px}
 #rooms .sub{color:var(--muted);font-weight:400;font-size:11px}
 .rr{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:9px}
@@ -190,7 +191,9 @@ const svgIcon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="cu
 document.querySelectorAll('[data-ic]').forEach(b => b.insertAdjacentHTML('afterbegin', svgIcon(b.dataset.ic)));
 
 /* ============ state ============ */
-let plan = load() || fresh();
+const READONLY = new URLSearchParams(location.search).has('ro');   // guest view-only: no editing, only 3D preview / Back / Rooms
+if (READONLY) document.body.classList.add('ro');
+let plan = READONLY ? fresh() : (load() || fresh());   // guests always view the real current home, never a saved draft
 let roomsD = [];                                     // detected rooms [{name, rects, cx, cz, area}]
 let names = plan.names || {};                        // room name memory keyed by rounded centroid
 let tool = 'select', selW = -1, selOp = -1, selLight = -1;
@@ -213,7 +216,7 @@ function load(){
     return d;
   }catch(e){ return null; }
 }
-function save(){ plan.names = names; try{ localStorage.setItem(LS_KEY, JSON.stringify(plan)); }catch(e){} }
+function save(){ if (READONLY) return; plan.names = names; try{ localStorage.setItem(LS_KEY, JSON.stringify(plan)); }catch(e){} }
 function snap(v){ return Math.round(v / SNAP) * SNAP; }
 function pushUndo(){ undoStack.push(JSON.stringify(plan)); if (undoStack.length > 60) undoStack.shift(); }
 function undo(){ if (!undoStack.length) return; plan = JSON.parse(undoStack.pop()); selW = selOp = selLight = -1; detect(); save(); draw(); inspect(); }
@@ -415,12 +418,12 @@ function renderRooms(){
       <button class="ric" id="roomsClose" title="Close">${svgIcon('x')}</button></h3>` +
     vis.map(r => `<div class="rr" data-k="${r.key}">
       <span class="rn">${r.name}</span><span class="ra">${r.area.toFixed(1)} m²</span>
-      <button class="ric" data-edit="${r.key}" title="Rename">${svgIcon('edit')}</button>
-      <button class="ric" data-hide="${r.key}" title="This isn't a room">${svgIcon('x')}</button></div>`).join('') +
+      ${READONLY ? '' : `<button class="ric" data-edit="${r.key}" title="Rename">${svgIcon('edit')}</button>
+      <button class="ric" data-hide="${r.key}" title="This isn't a room">${svgIcon('x')}</button>`}</div>`).join('') +
     (vis.length ? '' : '<div class="sub" style="padding:4px 0">no rooms yet — close a shape with walls</div>') +
     (sealed.length ? `<div class="sub" style="margin-top:7px">${sealed.length} sealed space${sealed.length > 1 ? 's' : ''} hidden (no door in) — add a door or arch to make one a room</div>` : '') +
     dismissed.map(r => `<div class="rr off"><span class="rn">${r.name}</span><span class="ra">${r.area.toFixed(1)} m²</span>
-      <button class="ric" data-restore="${r.key}" title="Restore">${svgIcon('reset')}</button></div>`).join('');
+      ${READONLY ? '' : `<button class="ric" data-restore="${r.key}" title="Restore">${svgIcon('reset')}</button>`}</div>`).join('');
   el.querySelector('#roomsClose').onclick = () => setRoomsOpen(false);
   el.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
     const rect = b.getBoundingClientRect();
@@ -462,12 +465,14 @@ function draw(){
     ctx.fillText(r.name, sx(r.cx), sz(r.cz) - fs * 0.3);
     ctx.fillStyle = '#8b97a5'; ctx.font = `${Math.max(9, fs * 0.78)}px system-ui`;
     ctx.fillText(r.area.toFixed(1) + ' m²', sx(r.cx), sz(r.cz) + fs * 0.85);
-    ctx.font = `600 ${fs}px system-ui`;              // measure the NAME with its own font, not the area's
-    const pw = ctx.measureText(r.name).width;        // little pen right after the name — tap it to rename
-    const px = sx(r.cx) + pw / 2 + fs * 0.9, py = sz(r.cz) - fs * 0.45;
-    ctx.fillStyle = 'rgba(139,151,165,.95)'; ctx.font = `${fs * 0.95}px system-ui`;
-    ctx.fillText('✎', px, py + fs * 0.35);
-    penHits.push({ x: px, y: py + fs * 0.1, key: r.key });
+    if (!READONLY){                                  // guests can't rename — no ✎
+      ctx.font = `600 ${fs}px system-ui`;            // measure the NAME with its own font, not the area's
+      const pw = ctx.measureText(r.name).width;      // little pen right after the name — tap it to rename
+      const px = sx(r.cx) + pw / 2 + fs * 0.9, py = sz(r.cz) - fs * 0.45;
+      ctx.fillStyle = 'rgba(139,151,165,.95)'; ctx.font = `${fs * 0.95}px system-ui`;
+      ctx.fillText('✎', px, py + fs * 0.35);
+      penHits.push({ x: px, y: py + fs * 0.1, key: r.key });
+    }
   });
   // walls
   plan.walls.forEach((w, i) => {
@@ -622,6 +627,7 @@ cv.addEventListener('pointerdown', e => {
     return;
   }
   if (ptrs.size > 2) return;
+  if (READONLY){ panLast = { x: e.clientX, y: e.clientY }; return; }   // guest: every drag just pans, nothing is editable
   const x = wx(e.clientX), z = wz(e.clientY);
   if (tool === 'wall' || tool === 'zone'){ pushUndo(); drawing = { x1: snap(x), z1: snap(z), x2: snap(x), z2: snap(z), zone: tool === 'zone' }; return; }
   if (tool === 'door' || tool === 'win' || tool === 'arch'){
@@ -756,6 +762,7 @@ cv.addEventListener('wheel', e => {
   draw();
 }, { passive: false });
 addEventListener('keydown', e => {
+  if (READONLY) return;                                        // guest view-only: no keyboard editing
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;   // typing in a field must NEVER demolish a wall
   if (e.key === 'Delete' || e.key === 'Backspace'){
     if (selW >= 0 && selOp >= 0){ pushUndo(); plan.walls[selW].ops.splice(selOp, 1); selOp = -1; }
@@ -864,7 +871,7 @@ document.getElementById('exportB').onclick = () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'home-plan.json'; a.click();
   navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(out)).catch(() => {});
 };
-if (EMBED){                                          // inside the app: Save hands the plan up — the app confirms + applies + syncs
+if (EMBED && !READONLY){                             // inside the app: Save hands the plan up — the app confirms + applies + syncs (guests can't save)
   const b = document.getElementById('saveB');
   b.style.display = 'flex';
   b.onclick = () => { save(); parent.postMessage({ type: 'wallEditorSave', plan: exportObj() }, '*'); };
@@ -990,6 +997,7 @@ window.ED = {
   pens: () => penHits.slice(),
   reset: () => { plan = fresh(); names = {}; detect(); save(); draw(); }
 };
+if (READONLY) document.getElementById('hint').textContent = 'Viewing only · drag to pan · pinch to zoom · try 3D or Rooms';
 resize();
 detect();
 draw();
