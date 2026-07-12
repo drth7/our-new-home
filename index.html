@@ -3537,7 +3537,7 @@ function deleteSel(){
 
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-let dragging = false, moved = false, downAt = null, downOnItem = false, downDirt = null;
+let dragging = false, moved = false, downAt = null, downOnItem = false, downDirt = null, lastPointerId = 0;
 let dragChar = null, looking = false, lookLast = null, downCat = false, downCharRole = null;
 let carried = [], carryIgnore = null;               // pieces stacked on the dragged item — they ride along
 let eyedropArmed = false;                            // eyedropper: next tapped piece's colour copies onto the selected one
@@ -3590,6 +3590,7 @@ function pickChar(e){
 
 renderer.domElement.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
+  lastPointerId = e.pointerId;                        // remembered so we can force-end an OrbitControls gesture later
   downAt = {x:e.clientX, y:e.clientY};
   moved = false;
   downOnItem = false;
@@ -3801,6 +3802,7 @@ renderer.domElement.addEventListener('pointerup', e => {
       if (progress.moves[id] >= 10) unlock('cant-decide');
     }
     carried = []; carryIgnore = null;
+    if (!moved) deselect();                          // a tap on the already-selected piece toggles the selection off
     e.stopPropagation();
   } else if (downAt && Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) < 6){
     looking = false; lookLast = null;                        // a tap (not a look-drag): let it interact
@@ -3879,6 +3881,10 @@ function resetPointerState(){
   orbit.enabled = view === '3d'; pan.enabled = view === '2d';
   if (typeof dropMarker !== 'undefined') dropMarker.visible = false;
   if (typeof setTempGrid === 'function') setTempGrid(false);
+  // OrbitControls keeps rotating/panning until it sees a pointerup for the gesture it started. If the
+  // OS colour dialog (or a tab switch) swallowed that pointerup, the camera stays "stuck to the mouse".
+  // Feed OrbitControls a synthetic pointerup so it ends the gesture (state → NONE) and releases capture.
+  try { renderer.domElement.dispatchEvent(new PointerEvent('pointerup', {pointerId: lastPointerId, bubbles: true})); } catch(_){}
 }
 renderer.domElement.addEventListener('pointercancel', resetPointerState);
 renderer.domElement.addEventListener('lostpointercapture', () => { if (dragging || dragChar || downCat || looking || measureDrag != null) resetPointerState(); });
@@ -5337,7 +5343,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-12.editor-drag-select';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-12.tap-deselect';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
