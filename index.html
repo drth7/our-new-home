@@ -1823,6 +1823,9 @@ function buildFurniture(type){
   const main = new THREE.MeshStandardMaterial({roughness:0.85}); main.userData.role = 'main';
   const lite = new THREE.MeshStandardMaterial({roughness:0.9});  lite.userData.role = 'light';
   const dark = new THREE.MeshStandardMaterial({roughness:0.85}); dark.userData.role = 'dark';
+  // one shared material per extra part (doors / drawers), so painting that part recolours all of them
+  // together; they default to the body colour and become their own swatch in the colour picker.
+  const partMat = role => { const m = new THREE.MeshStandardMaterial({roughness:0.8}); m.userData.role = role; return m; };
   const {w, d, h} = def;
   if (def.parts){                                    // AI-generated model: assemble it from primitive parts
     for (const p of def.parts){
@@ -1942,11 +1945,13 @@ function buildFurniture(type){
       break;
     }
     case 'dresser': {
-      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);
-      for (let i = 1; i <= 3; i++){
-        const line = block(w*0.9, 0.015, 0.012, dark); line.position.set(0, h*i/4 - h*0.02, d/2 + 0.006); g.add(line);
-        const k1 = block(0.03, 0.03, 0.02, dark); k1.position.set(-w*0.18, h*i/4 - h*0.14, d/2 + 0.012); g.add(k1);
-        const k2 = k1.clone(); k2.position.x = w*0.18; g.add(k2);
+      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);            // Body
+      const draw = partMat('drawer');
+      const dt = 0.02, mg = 0.02, n = 3, dh = (h - mg*(n+1))/n;                // 3 stacked drawer fronts
+      for (let i = 0; i < n; i++){
+        const y = mg + dh/2 + i*(dh + mg);
+        const df = block(w - mg*2, dh, dt, draw); df.position.set(0, y, d/2 + dt/2 - 0.002); g.add(df);
+        for (const sx of [-1, 1]){ const k = block(0.03, 0.03, 0.03, dark); k.position.set(sx*w*0.18, y, d/2 + dt + 0.01); g.add(k); }
       }
       break;
     }
@@ -2134,10 +2139,15 @@ function buildFurniture(type){
       break;
     }
     case 'wardrobe': {
-      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);
-      const seam = block(0.015, h*0.9, 0.012, dark); seam.position.set(0, h/2, d/2 + 0.006); g.add(seam);
-      const h1 = block(0.03, 0.25, 0.02, dark); h1.position.set(-0.06, h*0.55, d/2 + 0.012); g.add(h1);
-      const h2 = h1.clone(); h2.position.x = 0.06; g.add(h2);
+      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);            // carcass = Body
+      const door = partMat('door');                                            // both doors share one tintable material
+      const dt = 0.02, gap = 0.012, mg = 0.03, dw = (w - gap)/2 - mg;          // door thickness, centre gap, edge margin, door width
+      for (const s of [-1, 1]){
+        const dr = block(dw, h - mg*2, dt, door);                              // door panel standing just proud of the front
+        dr.position.set(s * (gap/2 + dw/2), h/2, d/2 + dt/2 - 0.002); g.add(dr);
+        const handle = block(0.028, 0.26, 0.03, dark);                         // vertical bar handle by the centre gap
+        handle.position.set(s * (gap/2 + 0.05), h/2, d/2 + dt + 0.008); g.add(handle);
+      }
       break;
     }
     case 'bookshelf': {
@@ -2149,15 +2159,24 @@ function buildFurniture(type){
       break;
     }
     case 'tvstand': {
-      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);
+      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);            // Body
+      const door = partMat('door');
+      const dt = 0.02, gap = 0.012, mg = 0.03, dw = (w - gap)/2 - mg;
+      for (const s of [-1, 1]){
+        const dr = block(dw, h - mg*2, dt, door); dr.position.set(s * (gap/2 + dw/2), h/2, d/2 + dt/2 - 0.002); g.add(dr);
+        const handle = block(0.05, 0.022, 0.03, dark); handle.position.set(s * (gap/2 + 0.06), h/2, d/2 + dt + 0.008); g.add(handle);
+      }
       const tv = block(w*0.7, 0.5, 0.05, new THREE.MeshStandardMaterial({color:0x11151a, roughness:0.4}));
       tv.position.set(0, h + 0.28, 0); g.add(tv);
       break;
     }
     case 'fridge': {
-      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);
-      const seam = block(w*0.96, 0.015, 0.012, dark); seam.position.set(0, h*0.72, d/2 + 0.006); g.add(seam);
-      const hd = block(0.03, 0.5, 0.02, dark); hd.position.set(-w/2 + 0.08, h*0.55, d/2 + 0.012); g.add(hd);
+      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);            // Body
+      const door = partMat('door');
+      const split = h*0.72, dt = 0.02, mg = 0.02;                              // freezer/fridge split -> two doors
+      const upper = block(w - mg*2, (h - split) - mg*1.5, dt, door); upper.position.set(0, split + (h - split - mg)/2 + mg/2, d/2 + dt/2 - 0.002); g.add(upper);
+      const lower = block(w - mg*2, split - mg*1.5, dt, door); lower.position.set(0, (split - mg)/2, d/2 + dt/2 - 0.002); g.add(lower);
+      const hd = block(0.03, 0.5, 0.03, dark); hd.position.set(-w/2 + 0.09, h*0.55, d/2 + dt + 0.01); g.add(hd);
       break;
     }
     case 'rug': case 'rugsq': case 'rugrun': case 'rugrun2': case 'rugpersian': {
@@ -2211,9 +2230,11 @@ function buildFurniture(type){
       break;
     }
     case 'nightstand': {
-      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);
-      const drawer = block(w*0.82, 0.02, 0.012, dark); drawer.position.set(0, h*0.68, d/2 + 0.006); g.add(drawer);
-      const knob = block(0.035, 0.035, 0.02, dark); knob.position.set(0, h*0.52, d/2 + 0.012); g.add(knob);
+      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);            // Body
+      const draw = partMat('drawer');
+      const dt = 0.02, mg = 0.02, dh = h*0.36;
+      const df = block(w - mg*2, dh, dt, draw); df.position.set(0, h - mg - dh/2, d/2 + dt/2 - 0.002); g.add(df);   // top drawer front
+      const knob = block(0.04, 0.04, 0.03, dark); knob.position.set(0, h - mg - dh/2, d/2 + dt + 0.01); g.add(knob);
       break;
     }
     case 'vanity': {
@@ -2337,8 +2358,8 @@ function buildFurniture(type){
 //   g.userData.partCols = { main:'#..', light:'#..', dark:'#..' }
 // and a role with no entry falls back to the classic shade of the base tint, so a freshly placed piece
 // looks exactly as before. The colour picker lets you paint each detected part on its own.
-const ROLE_ORDER = ['main', 'light', 'dark'];
-const ROLE_LABEL = { main:'Body', light:'Cushion', dark:'Legs' };
+const ROLE_ORDER = ['main', 'door', 'drawer', 'light', 'dark'];
+const ROLE_LABEL = { main:'Body', door:'Doors', drawer:'Drawers', light:'Cushion', dark:'Legs' };
 const TYPE_PARTS = {};
 (function(){ const set = (types, m) => types.forEach(t => TYPE_PARTS[t] = m);
   set(['sofa','sofa2','sofal','wsofa1','wsofa2','wsofa3'], {main:'Body', dark:'Arms', light:'Cushions'});
@@ -2352,8 +2373,11 @@ const TYPE_PARTS = {};
   set(['counter','island','ksink'], {main:'Cabinet', light:'Countertop', dark:'Fixtures'});
   set(['stove'], {main:'Cabinet', dark:'Cooktop'});
   set(['bed','bedk','beds'], {main:'Headboard', light:'Mattress', dark:'Frame'});
-  set(['nightstand'], {main:'Body', light:'Top', dark:'Details'});
-  set(['dresser','wardrobe','bookshelf','tvstand','fridge','shelfw','shelfw2'], {main:'Body', dark:'Details'});
+  set(['wardrobe','tvstand'], {main:'Body', door:'Doors', dark:'Handles'});
+  set(['fridge'], {main:'Body', door:'Doors', dark:'Handle'});
+  set(['dresser'], {main:'Body', drawer:'Drawers', dark:'Knobs'});
+  set(['nightstand'], {main:'Body', drawer:'Drawer', dark:'Knob'});
+  set(['bookshelf','shelfw','shelfw2'], {main:'Body', dark:'Details'});
   set(['rug','rugsq','rugrun','rugrun2','rugpersian','ruground'], {main:'Border', light:'Field'});
   set(['tub'], {main:'Body', light:'Inner', dark:'Tap'});
   set(['toilet','wsink'], {main:'Porcelain', dark:'Fixtures'});
@@ -5472,7 +5496,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-12.select-fix';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-12.doors-drawers';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
