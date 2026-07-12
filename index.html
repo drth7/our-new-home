@@ -1091,6 +1091,33 @@ orbit.addEventListener('end',   () => camGestureLive = false);
 pan.addEventListener('start', () => camGestureLive = true);
 pan.addEventListener('end',   () => camGestureLive = false);
 
+// ── Touch safety net for the camera controls ────────────────────────────────────────────────────
+// On phones a pinch-zoom's second finger-up occasionally never reaches the page, so OrbitControls keeps
+// a PHANTOM finger: the controls stay stuck in zoom and only a refresh clears it. We mirror the fingers
+// the canvas actually holds and, when a brand-new gesture begins (the primary finger, which by spec means
+// nothing else is touching), cancel any phantom the controls still hold — so the next touch self-heals.
+// These run in the capture phase, before OrbitControls, so the cleanup lands before the fresh gesture.
+const activePointers = new Set();
+function purgeStalePointers(){
+  const ids = [...activePointers];                    // whatever the canvas still believes is down
+  activePointers.clear();
+  camGestureLive = false;
+  for (const id of ids){ try { renderer.domElement.dispatchEvent(new PointerEvent('pointercancel', {pointerId:id, bubbles:true})); } catch(_){} }
+}
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (e.isPrimary && activePointers.size) purgeStalePointers();   // a fresh gesture must start with no leftover fingers
+  activePointers.add(e.pointerId);
+}, true);
+renderer.domElement.addEventListener('pointerup', e => {
+  activePointers.delete(e.pointerId);
+  if (!activePointers.size && camGestureLive){         // last finger lifted but the controls still think a gesture is live
+    camGestureLive = false;
+    try { renderer.domElement.dispatchEvent(new PointerEvent('pointercancel', {pointerId:e.pointerId, bubbles:true})); } catch(_){}
+  }
+}, true);
+renderer.domElement.addEventListener('pointercancel', e => activePointers.delete(e.pointerId), true);
+renderer.domElement.addEventListener('lostpointercapture', e => activePointers.delete(e.pointerId));
+
 // Adaptive frame rate — the battery saver. The home renders at a full 60fps while you're
 // interacting (or something's actively animating), and drops to ~30fps when it's just idling
 // (the cat and avatars still breathe, at roughly half the GPU cost). Any input wakes full rate
@@ -5447,7 +5474,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-12.per-part-colour';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-12.touch-unstick';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
