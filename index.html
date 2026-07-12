@@ -154,6 +154,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .stylegrid .btn{width:100%;margin:0}
 .stylebtn b{display:block;font-size:14px}
 .stylebtn span{display:block;font-size:11px;color:var(--muted);font-weight:500;margin-top:1px}
+.stylebtn.primary span{color:rgba(255,255,255,.82)}
 #confirm input[type=text]{text-align:center}
 .rspin{width:36px;height:36px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:10px auto 4px;animation:rspin 1s linear infinite}
 @keyframes rspin{to{transform:rotate(360deg)}}
@@ -4907,18 +4908,18 @@ let renderStyle = null;                              // the chosen style key, re
 let renderTime = 'day';                              // day / night lighting for the render
 function chooseRenderStyle(){                         // pick time-of-day + a look before rendering, so the AI matches what you pictured
   const keys = Object.keys(RENDER_STYLES);
-  const btns = keys.map(k => `<button class="btn stylebtn" id="st_${k}"><b>${RENDER_STYLES[k][0]}</b><span>${RENDER_STYLES[k][1]}</span></button>`).join('');
+  const btns = keys.map(k => `<button class="btn stylebtn${renderStyle === k ? ' primary' : ''}" id="st_${k}"><b>${RENDER_STYLES[k][0]}</b><span>${RENDER_STYLES[k][1]}</span></button>`).join('');
   const dayA = renderTime === 'day' ? ' primary' : '', nightA = renderTime === 'night' ? ' primary' : '';
   showConfirm(
-    `<h2>Realistic render ✨</h2><p class="wsub">Pick the time of day and a look — the AI makes your room a real photo to match, keeping the same layout.</p>
+    `<h2>Realistic render ✨</h2><p class="wsub">Pick the time of day and a look (optional), then make it real — the layout stays the same.</p>
      <div class="stylegrid" style="margin-bottom:2px"><button class="btn${dayA}" id="tmDay">☀️ Day</button><button class="btn${nightA}" id="tmNight">🌙 Night</button></div>
      <div class="stylegrid">${btns}</div>
-     <button class="btn" id="stNone">Realistic — no set style</button>
+     <button class="btn primary" id="stGo">Make it realistic ✨</button>
      <button class="btn" id="stCancel">Cancel</button>`,
-    [['tmDay',   () => { renderTime = 'day';   chooseRenderStyle(); }],   // toggle stays open; just re-highlights
+    [['tmDay',   () => { renderTime = 'day';   chooseRenderStyle(); }],   // all toggles keep the dialog open, just re-highlight
      ['tmNight', () => { renderTime = 'night'; chooseRenderStyle(); }],
-     ...keys.map(k => ['st_' + k, () => { renderStyle = k; hideConfirm(); realisticShot(); }]),
-     ['stNone', () => { renderStyle = null; hideConfirm(); realisticShot(); }],
+     ...keys.map(k => ['st_' + k, () => { renderStyle = (renderStyle === k ? null : k); chooseRenderStyle(); }]),   // tap to select, tap again to clear
+     ['stGo', () => { hideConfirm(); realisticShot(); }],              // only THIS starts the generation
      ['stCancel', hideConfirm]]);
 }
 
@@ -5701,7 +5702,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.render-daynight';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.render-makebtn';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
