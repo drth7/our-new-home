@@ -4904,15 +4904,20 @@ const RENDER_STYLES = {
   Boho:       ['Boho',        'eclectic & relaxed',    'a bohemian interior — layered textiles, rattan and plants, warm eclectic colours and patterns, a relaxed lived-in feel'],
 };
 let renderStyle = null;                              // the chosen style key, remembered for "Try again"
-function chooseRenderStyle(){                         // pick a look before rendering, so the AI matches what you pictured
+let renderTime = 'day';                              // day / night lighting for the render
+function chooseRenderStyle(){                         // pick time-of-day + a look before rendering, so the AI matches what you pictured
   const keys = Object.keys(RENDER_STYLES);
   const btns = keys.map(k => `<button class="btn stylebtn" id="st_${k}"><b>${RENDER_STYLES[k][0]}</b><span>${RENDER_STYLES[k][1]}</span></button>`).join('');
+  const dayA = renderTime === 'day' ? ' primary' : '', nightA = renderTime === 'night' ? ' primary' : '';
   showConfirm(
-    `<h2>Pick a style ✨</h2><p class="wsub">The AI makes your room a real photo in the look you choose — so it matches what you have in mind.</p>
+    `<h2>Realistic render ✨</h2><p class="wsub">Pick the time of day and a look — the AI makes your room a real photo to match, keeping the same layout.</p>
+     <div class="stylegrid" style="margin-bottom:2px"><button class="btn${dayA}" id="tmDay">☀️ Day</button><button class="btn${nightA}" id="tmNight">🌙 Night</button></div>
      <div class="stylegrid">${btns}</div>
      <button class="btn" id="stNone">Realistic — no set style</button>
      <button class="btn" id="stCancel">Cancel</button>`,
-    [...keys.map(k => ['st_' + k, () => { renderStyle = k; hideConfirm(); realisticShot(); }]),
+    [['tmDay',   () => { renderTime = 'day';   chooseRenderStyle(); }],   // toggle stays open; just re-highlights
+     ['tmNight', () => { renderTime = 'night'; chooseRenderStyle(); }],
+     ...keys.map(k => ['st_' + k, () => { renderStyle = k; hideConfirm(); realisticShot(); }]),
      ['stNone', () => { renderStyle = null; hideConfirm(); realisticShot(); }],
      ['stCancel', hideConfirm]]);
 }
@@ -4953,7 +4958,10 @@ async function realisticShot(){
   const styleLine = (renderStyle && RENDER_STYLES[renderStyle])
     ? ` Style the whole room as ${RENDER_STYLES[renderStyle][2]} — let the furniture, materials, colours, finishes and lighting all read as this style — while keeping every piece in its exact same position, the same layout and the same camera angle.`
     : '';
-  const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo." + styleLine + " It must look like a real photograph, NOT a 3D model, render or cartoon.";
+  const timeLine = renderTime === 'night'
+    ? ' Set it at NIGHT: a dark evening sky through the windows, the room lit warmly by its own lamps and ceiling fixtures (glowing, with soft pools of light and gentle shadows), a cozy ambient evening mood.'
+    : ' Set it in bright DAYTIME: soft natural sunlight coming through the windows, a bright and airy feel with realistic daylight shadows.';
+  const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo." + styleLine + timeLine + " It must look like a real photograph, NOT a 3D model, render or cartoon.";
   try{
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
       method: 'POST',
@@ -5693,7 +5701,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.render-style';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.render-daynight';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
