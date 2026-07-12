@@ -418,6 +418,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
     <button class="pbtn" id="eyedropBtn" title="Copy colour from another piece" data-icon="eyedrop"></button>
     <button class="pbtn" id="sizeBtn" title="Resize" data-icon="resize"></button>
     <button class="pbtn" id="wallBtn" title="Hang on the wall / put back on the floor" data-icon="wallmount"></button>
+    <button class="pbtn" id="ceilBtn" title="Hang from the ceiling / put back on the floor" data-icon="ceiling"></button>
     <button class="pbtn" id="useBtn" title="Use" style="display:none"></button>
     <button class="pbtn" id="lampBtn" title="Light on / off" style="display:none">💡</button>
     <button class="pbtn" id="shopBtn" title="Open the product page" data-icon="shoplink" style="display:none"></button>
@@ -623,7 +624,8 @@ const ICONS = {
   flip:'<path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><path d="M12 2v2"/><path d="M12 8v2"/><path d="M12 14v2"/><path d="M12 20v2"/>',
   house:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>',
   chevron:'<path d="m6 9 6 6 6-6"/>',
-  eyedrop:'<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L21 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 0 1 0-3l1.8-1.8Z"/>'
+  eyedrop:'<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L21 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 0 1 0-3l1.8-1.8Z"/>',
+  ceiling:'<path d="M4 4h16"/><path d="M12 4v6"/><path d="M8 16a4 4 0 0 1 8 0Z"/>'
 };
 const svgIcon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
 document.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', svgIcon(el.dataset.icon)));
@@ -718,7 +720,10 @@ const CATALOG = {
   lamp1:     {name:'Floor lamp',   cat:'Decor',    w:0.35, d:0.35, h:1.55, color:'#8a7a5e', lamp:true},
   lamp2:     {name:'Tripod lamp',  cat:'Decor',    w:0.48, d:0.48, h:1.45, color:'#c9a86a', lamp:true},
   lamp3:     {name:'Arc lamp',     cat:'Decor',    w:0.90, d:0.35, h:1.80, color:'#9aa5b0', lamp:true},
-  tlamp:     {name:'Table lamp',   cat:'Decor',    w:0.24, d:0.24, h:0.45, color:'#c9b06a', stack:true, lamp:true}
+  tlamp:     {name:'Table lamp',   cat:'Decor',    w:0.24, d:0.24, h:0.45, color:'#c9b06a', stack:true, lamp:true},
+  pendant:   {name:'Pendant light', cat:'Decor',   w:0.34, d:0.34, h:0.30, color:'#2b2f36', ceiling:true, lamp:true},
+  pendant3:  {name:'Triple pendant',cat:'Decor',   w:1.50, d:0.20, h:0.26, color:'#2b2f36', ceiling:true, lamp:true},
+  chandelier:{name:'Chandelier',    cat:'Decor',   w:0.72, d:0.72, h:0.42, color:'#c9a86a', ceiling:true, lamp:true}
 };
 
 /* ---------- external model library (assets/Extra Furniture) ----------
@@ -2273,6 +2278,40 @@ function buildFurniture(type){
       }
       break;                                     // the light itself comes from the lamp switch (setLampLit)
     }
+    case 'pendant': case 'pendant3': case 'chandelier': {
+      // Ceiling fixtures: built centred at local y≈0 (applyCeilingHang drops the whole group to hangY),
+      // with a cord tagged userData.cord that stretches UP to the ceiling. The shade glows via the lamp switch.
+      const metal = new THREE.MeshStandardMaterial({color:new THREE.Color(def.color || '#2b2f36'), roughness:0.4, metalness:0.5});
+      const shadeMat = new THREE.MeshStandardMaterial({color:0xf2e4c4, emissive:0xffd9a0, emissiveIntensity:0, roughness:0.5, side:THREE.DoubleSide});
+      const bulbMat = () => new THREE.MeshStandardMaterial({color:0xfff3d0, emissive:0xffd9a0, emissiveIntensity:0});
+      const cordAt = (x, z, topY) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1, 6), metal);
+        c.geometry.translate(0, 0.5, 0); c.position.set(x, topY, z); c.scale.y = 0.3; c.userData.cord = true; return c; };   // pivot at bottom; 0.3 default for a tidy thumbnail
+      if (type === 'pendant'){
+        const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.17, 0.2, 22, 1, true), shadeMat); shade.userData.glow = true; shade.castShadow = true; g.add(shade);
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), bulbMat()); bulb.position.y = -0.05; bulb.userData.glow = true; g.add(bulb);
+        g.add(cordAt(0, 0, 0.1));
+      } else if (type === 'pendant3'){
+        const bar = block(w - 0.16, 0.04, 0.06, metal); bar.position.y = 0.16; g.add(bar);            // canopy bar
+        for (const sx of [-1, 0, 1]){
+          const x = sx * (w/2 - 0.24);
+          const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.12, 0.15, 20, 1, true), shadeMat); shade.position.set(x, 0, 0); shade.userData.glow = true; shade.castShadow = true; g.add(shade);
+          const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 10), bulbMat()); bulb.position.set(x, -0.04, 0); bulb.userData.glow = true; g.add(bulb);
+          const drop = block(0.008, 0.11, 0.008, metal); drop.position.set(x, 0.10, 0); g.add(drop);   // short cord shade→bar
+        }
+        g.add(cordAt(0, 0, 0.18));
+      } else {                                                                                          // chandelier: ring + candle arms
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(w*0.34, 0.02, 8, 28), metal); ring.rotation.x = Math.PI/2; ring.position.y = 0; g.add(ring);
+        const arms = 6;
+        for (let i = 0; i < arms; i++){
+          const a = i * Math.PI*2/arms, r = w*0.34;
+          const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.05, 10), metal); cup.position.set(Math.cos(a)*r, 0.04, Math.sin(a)*r); g.add(cup);
+          const flame = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 8), bulbMat()); flame.position.set(Math.cos(a)*r, 0.11, Math.sin(a)*r); flame.userData.glow = true; g.add(flame);
+        }
+        const hub = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), metal); hub.position.y = -0.02; g.add(hub);
+        g.add(cordAt(0, 0, 0.08));
+      }
+      break;
+    }
     case 'plant': {
       const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.3, 16), dark);
       pot.position.y = 0.15; pot.castShadow = true; g.add(pot);
@@ -2513,6 +2552,34 @@ function applyHangY(g){
   const hy = g.userData.hangY ?? (d.wall ? 1.5 : 1.4);
   g.position.y = d.wall ? hy - 1.5 : hy;
 }
+// ── Hang from the ceiling ───────────────────────────────────────────────────────
+// A ceiling piece (inherent pendant/chandelier, or any floor piece the user sends up) hangs at
+// userData.hangY and its cord(s) stretch up to the ceiling (WALL_H). hangY is the fixture's height.
+const isCeiling = g => { const d = CATALOG[g.userData.type]; return !!(d && (d.ceiling || g.userData.onCeiling)); };
+function defaultHangY(def, sy){ return def.ceiling ? 1.7 : Math.max(1.3, WALL_H - def.h * (sy || 1) - 0.35); }
+function applyCeilingHang(g){
+  const def = CATALOG[g.userData.type];
+  const hy = g.userData.hangY ?? defaultHangY(def, g.scale.y);
+  g.position.y = hy;
+  const sy = g.scale.y || 1;
+  g.traverse(o => { if (o.userData.cord){                       // grow each cord from its anchor up to the ceiling
+    const anchorWorldY = hy + o.position.y * sy;
+    o.scale.y = Math.max(0.02, (WALL_H - anchorWorldY) / sy);   // /sy so the group scale doesn't double it
+  }});
+}
+function addAutoCord(g){                                        // a floor piece toggled up gets a cord to the ceiling
+  if (g.userData.autoCord) return;
+  const def = CATALOG[g.userData.type];
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 1, 6), new THREE.MeshStandardMaterial({color:0x3a3f46, roughness:0.5}));
+  cord.geometry.translate(0, 0.5, 0);                          // pivot at bottom
+  cord.position.y = def.h;                                     // anchor at the (unscaled) top of the piece
+  cord.userData.cord = true; cord.userData.autoCord = true;
+  g.add(cord); g.userData.autoCord = cord;
+}
+function removeAutoCord(g){
+  const c = g.userData.autoCord;
+  if (c){ if (c.parent) c.parent.remove(c); c.geometry.dispose(); c.material.dispose(); g.userData.autoCord = null; }
+}
 
 function clampToRoom(g, ignore){                     // ignore = pieces being carried on top of g (skip them when stacking g)
   const def = CATALOG[g.userData.type];
@@ -2545,6 +2612,16 @@ function clampToRoom(g, ignore){                     // ignore = pieces being ca
     if (best){ g.position.set(best.x, g.position.y, best.z); g.rotation.y = best.rotY + (g.userData.flip ? Math.PI : 0); }   // flipped = show the other face
     applyHangY(g);
     g.userData.room = r.room.id;
+    return;
+  }
+  if (isCeiling(g)){                                 // hangs from the ceiling: keep it inside the room, at its drop height
+    const {hw, hd} = halfExtents(g);
+    const x1 = r.x1 + hw, x2 = r.x2 - hw, z1 = r.z1 + hd, z2 = r.z2 - hd;
+    g.position.x = x1 > x2 ? (r.x1 + r.x2)/2 : THREE.MathUtils.clamp(g.position.x, x1, x2);
+    g.position.z = z1 > z2 ? (r.z1 + r.z2)/2 : THREE.MathUtils.clamp(g.position.z, z1, z2);
+    g.userData.room = r.room.id;
+    g.userData.gx = g.position.x; g.userData.gz = g.position.z;
+    applyCeilingHang(g);
     return;
   }
   // open plan: anywhere the whole footprint stands on floor is fine — pieces slide
@@ -2594,7 +2671,7 @@ function applyStackY(g, ignore){
   for (const it of items){
     if (it === g || (ignore && ignore.has(it))) continue;
     const d2 = CATALOG[it.userData.type];
-    if (isWall(it) || d2.h <= 0.05) continue;       // never land on a wall-mounted piece (hung art OR a floor piece toggled onto the wall) or a flat rug
+    if (isWall(it) || isCeiling(it) || d2.h <= 0.05) continue;   // never land on a wall-mounted or ceiling-hung piece, or a flat rug
     const {hw, hd} = halfExtents(it);
     if (Math.abs(g.position.x - it.position.x) < hw && Math.abs(g.position.z - it.position.z) < hd){
       top = Math.max(top, stackTopOf(it));
@@ -3369,7 +3446,7 @@ function setLampLit(g, on){
   g.userData.lit = !!on;
   const L = g.userData.lampLight;
   if (L){
-    if (on){ if (L.parent !== g) g.add(L); L.intensity = 2.2; }
+    if (on){ if (L.parent !== g) g.add(L); L.intensity = L.userData.onI || 2.2; }
     else if (L.parent) L.parent.remove(L);
   }
   g.traverse(o => {
@@ -3401,8 +3478,13 @@ function addFurniture(type, opts = {}){
   if (opts.rz) g.rotation.z = opts.rz;               // restore a hung piece's in-wall spin
   g.scale.set(opts.sx || 1, opts.sy || 1, opts.sz || 1);
   g.userData.onWall = !!opts.ow;                   // floor piece the user toggled onto the wall
+  g.userData.onCeiling = !!opts.oc || !!def.ceiling;   // pendant/chandelier, or a floor piece toggled up
   g.userData.flip = !!opts.fl;                     // which face a hung piece shows
-  if (isWall(g)){
+  if (isCeiling(g)){
+    if (!def.ceiling) addAutoCord(g);              // a floor piece sent up gets a cord to the ceiling
+    g.userData.hangY = opts.hy != null ? opts.hy : defaultHangY(def, opts.sy || 1);
+    applyCeilingHang(g);
+  } else if (isWall(g)){
     g.userData.hangY = opts.hy || (def.wall ? 1.5 : 1.4);
     applyHangY(g);
   }
@@ -3414,18 +3496,19 @@ function addFurniture(type, opts = {}){
   if (def.lamp){                                     // give the lamp its switch (light joins the scene only when ON)
     let glowMesh = null;
     g.traverse(o => { if (o.isMesh && (o.userData.glow || o.material?.userData?.role === 'light') && (!glowMesh || o.position.y > glowMesh.position.y)) glowMesh = o; });
-    const pt = new THREE.PointLight(0xffd9a6, 0, Math.max(2.5, def.h * 2.2), 1.7);
+    const pt = new THREE.PointLight(0xffd9a6, 0, def.ceiling ? 5 : Math.max(2.5, def.h * 2.2), 1.7);
+    pt.userData.onI = def.ceiling ? 3 : 2.2;         // a hanging fixture throws light further, over the area below
     if (glowMesh) pt.position.copy(glowMesh.position); else pt.position.set(0, def.h * 0.72, 0);
     g.userData.lampLight = pt;                       // NOT added to the group yet — setLampLit does that
     setLampLit(g, opts.lit != null ? !!opts.lit : false);   // like the ceiling lights: off until you switch it on
   }
   clampToRoom(g);
-  if (opts.y != null && !isWall(g) && (def.h > 0.1 || def.gen) && !def.rug){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (rugs always stay flat)
+  if (opts.y != null && !isWall(g) && !isCeiling(g) && (def.h > 0.1 || def.gen) && !def.rug){ g.position.y = opts.y; g.userData.loadY = opts.y; }   // exact stack height from a saved/synced layout (rugs always stay flat)
   furnGroup.add(g);
   items.push(g);
   if (typeof refreshCatNav === 'function') refreshCatNav();   // the cat re-plans around the new piece
   if (!opts.silent){
-    if (!isWall(g) && !opts.fromTray){             // tray drags place directly, no drop-in
+    if (!isWall(g) && !isCeiling(g) && !opts.fromTray){   // tray drags place directly, no drop-in; ceiling pieces are already up
       const floorY = g.position.y;                 // stacked items land on the tabletop, not the floor
       g.position.y = floorY + 0.9;
       dropping.push({g, v:0, floorY});
@@ -3470,11 +3553,18 @@ function select(g){
     useBtn.style.display = 'none';
   }
   const wallBtn = $('wallBtn');
-  if (!def.wall && def.h > 0.1){                    // any real floor piece can be hung on / taken off the wall
+  if (!def.wall && !def.ceiling && def.h > 0.1){    // any real floor piece can be hung on / taken off the wall
     wallBtn.style.display = 'flex';
     wallBtn.classList.toggle('on', !!g.userData.onWall);
   } else {
     wallBtn.style.display = 'none';
+  }
+  const ceilBtn = $('ceilBtn');                     // …or sent up to hang from the ceiling
+  if (!def.wall && !def.ceiling && def.h > 0.05){
+    ceilBtn.style.display = 'flex';
+    ceilBtn.classList.toggle('on', !!g.userData.onCeiling);
+  } else {
+    ceilBtn.style.display = 'none';
   }
   const flipBtn = $('flipBtn');                     // hung pieces can show their other face
   flipBtn.style.display = isWall(g) ? 'flex' : 'none';
@@ -3511,7 +3601,9 @@ function setOnWall(g, on){
   if (di >= 0) dropping.splice(di, 1);
   g.userData.onWall = on;
   if (on){
-    g.userData.hangY = g.userData.hangY || 1.4;
+    const wasCeiling = g.userData.onCeiling;                                          // a piece can't be on the wall AND the ceiling
+    if (wasCeiling){ g.userData.onCeiling = false; removeAutoCord(g); }
+    g.userData.hangY = wasCeiling ? 1.4 : (g.userData.hangY || 1.4);                  // reset to a wall height when coming down from the ceiling
     g.userData.loadY = null;
   } else {
     g.position.y = 0;
@@ -3520,10 +3612,38 @@ function setOnWall(g, on){
   }
   clampToRoom(g);
   if ($('wallBtn')) $('wallBtn').classList.toggle('on', on);
+  if ($('ceilBtn')) $('ceilBtn').classList.toggle('on', !!g.userData.onCeiling);
   if ($('flipBtn')){ $('flipBtn').style.display = isWall(g) ? 'flex' : 'none'; $('flipBtn').classList.toggle('on', !!g.userData.flip); }   // flip appears the moment it hangs
   updateMeasure(); refreshSizePanel(); updateSelPos();
   scheduleSave();
   toast(on ? 'Hung on the wall 🖼️ — use Resize ▸ Raise to slide it up/down' : 'Back on the floor');
+}
+// send a floor piece up to hang from the ceiling (or bring it back down)
+function setOnCeiling(g, on){
+  const def = CATALOG[g.userData.type];
+  if (def.wall || def.ceiling || def.h <= 0.05) return;   // inherent wall/ceiling pieces & rugs don't toggle
+  pushUndo();
+  const di = dropping.findIndex(dd => dd.g === g);          // cancel any in-progress drop-in
+  if (di >= 0) dropping.splice(di, 1);
+  g.userData.onCeiling = on;
+  if (on){
+    if (g.userData.onWall){ g.userData.onWall = false; g.rotation.z = 0; g.userData.flip = false; }   // not on the wall anymore
+    g.userData.hangY = defaultHangY(def, g.scale.y);
+    g.userData.loadY = null;
+    addAutoCord(g);
+  } else {
+    removeAutoCord(g);
+    g.userData.hangY = undefined;
+    g.position.y = 0;
+    g.rotation.z = 0;
+  }
+  clampToRoom(g);
+  if ($('ceilBtn')) $('ceilBtn').classList.toggle('on', on);
+  if ($('wallBtn')) $('wallBtn').classList.toggle('on', !!g.userData.onWall);
+  if ($('flipBtn')){ $('flipBtn').style.display = isWall(g) ? 'flex' : 'none'; }
+  updateMeasure(); refreshSizePanel(); updateSelPos();
+  scheduleSave();
+  toast(on ? 'Hung from the ceiling 💡 — use Resize ▸ Raise to set the drop' : 'Back on the floor');
 }
 
 /* ---- distance measure tool ---- */
@@ -3865,7 +3985,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   applySnap(sel, carryIgnore);                                   // magnet: settle flush against a neighbour when close
   clampToRoom(sel, carryIgnore);
   for (const c of carried) c.it.position.set(sel.position.x + c.dx, sel.position.y + c.dy, sel.position.z + c.dz);   // riders keep their place on top
-  if (!CATALOG[sel.userData.type].wall){                       // lean back against the motion, like real dragging
+  if (!isWall(sel) && !isCeiling(sel)){                         // lean back against the motion, like real dragging
     dragTilt.z = THREE.MathUtils.clamp(dragTilt.z + (sel.position.x - ox) * 1.4, -0.16, 0.16);
     dragTilt.x = THREE.MathUtils.clamp(dragTilt.x - (sel.position.z - oz) * 1.4, -0.16, 0.16);
   }
@@ -4283,6 +4403,7 @@ function itemRecord(g){                               // one furniture record, t
   if (g.userData.tint != null) rec.tint = g.userData.tint;
   if (g.userData.partCols && Object.keys(g.userData.partCols).length) rec.pc = g.userData.partCols;   // per-part colours
   if (g.userData.onWall) rec.ow = 1;
+  if (g.userData.onCeiling && !CATALOG[g.userData.type]?.ceiling) rec.oc = 1;   // a floor piece the user hung from the ceiling
   if (Math.abs(g.rotation.z) > 0.001) rec.rz = +g.rotation.z.toFixed(3);   // a hung piece's in-wall spin
   if (g.userData.flip) rec.fl = 1;                  // …and which face it shows
   if (CATALOG[g.userData.type]?.lamp) rec.lit = g.userData.lit ? 1 : 0;   // lamp switch state syncs
@@ -5496,7 +5617,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-12.doors-drawers';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.ceiling-hang';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6146,6 +6267,7 @@ $('flipBtn').onclick = () => {
 };
 $('delBtn').onclick = deleteSel;
 $('wallBtn').onclick = () => { if (sel) setOnWall(sel, !sel.userData.onWall); };
+$('ceilBtn').onclick = () => { if (sel) setOnCeiling(sel, !sel.userData.onCeiling); };
 
 /* -------- per-part colour: detect a piece's surfaces and paint each one on its own -------- */
 const partsPop = $('partsPop');
@@ -6209,8 +6331,9 @@ function refreshSizePanel(){
   setv('szX', Math.round(rd.w * 100 * sel.scale.x));
   setv('szZ', Math.round(rd.d * 100 * sel.scale.z));
   setv('szY', Math.round(rd.h * 100 * sel.scale.y));
-  $('szHangRow').style.display = isWall(sel) ? 'flex' : 'none';
-  if (isWall(sel)) $('szHang').textContent = Math.round((sel.userData.hangY || (def.wall ? 1.5 : 1.4)) * 100) + ' cm';
+  const hangable = isWall(sel) || isCeiling(sel);
+  $('szHangRow').style.display = hangable ? 'flex' : 'none';
+  if (hangable) $('szHang').textContent = Math.round((sel.userData.hangY ?? (isCeiling(sel) ? defaultHangY(def, sel.scale.y) : (def.wall ? 1.5 : 1.4))) * 100) + ' cm';
 }
 
 $('sizeBtn').onclick = () => {
@@ -6242,11 +6365,16 @@ function setDim(axis, cm){
 sizePanel.querySelectorAll('.szbtn').forEach(b => b.onclick = () => {
   if (!sel) return;
   const axis = b.dataset.d, dir = +b.dataset.s;
-  if (axis === 'hang'){                            // a wall-mounted piece rides up and down the wall
+  if (axis === 'hang'){                            // a wall piece rides up/down the wall; a ceiling piece changes its drop
     pushUndo();
     const d0 = CATALOG[sel.userData.type];
-    sel.userData.hangY = THREE.MathUtils.clamp((sel.userData.hangY || (d0.wall ? 1.5 : 1.4)) + dir*0.1, 0.5, 2.4);
-    applyHangY(sel);
+    if (isCeiling(sel)){
+      sel.userData.hangY = THREE.MathUtils.clamp((sel.userData.hangY ?? defaultHangY(d0, sel.scale.y)) + dir*0.1, 0.8, WALL_H - 0.1);
+      applyCeilingHang(sel);
+    } else {
+      sel.userData.hangY = THREE.MathUtils.clamp((sel.userData.hangY || (d0.wall ? 1.5 : 1.4)) + dir*0.1, 0.5, 2.4);
+      applyHangY(sel);
+    }
     refreshSizePanel();
     scheduleSave();
     return;
