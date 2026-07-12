@@ -46,6 +46,10 @@ button{font-family:inherit;touch-action:manipulation}
 
 #pill{position:fixed;z-index:15;display:none;flex-direction:column;align-items:center;gap:5px;transform:translate(-50%,-100%);background:var(--panel);padding:6px;border-radius:13px;box-shadow:var(--shadow)}
 #pill.on{display:flex}
+#doorPill{position:fixed;z-index:15;display:none;flex-direction:column;align-items:center;gap:5px;transform:translate(-50%,-100%);background:var(--panel);padding:6px;border-radius:13px;box-shadow:var(--shadow)}
+#doorPill.on{display:flex}
+#doorName{font-size:12.5px;font-weight:700;color:var(--text);padding:2px 6px 0}
+#doorToggle{width:auto;padding:0 14px;font-size:13px;font-weight:700}
 .pillrow{display:flex;gap:6px}
 .pbtn{width:40px;height:40px;border:none;border-radius:10px;background:var(--btn);color:var(--text);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pbtn.tint{padding:5px}
@@ -434,6 +438,16 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
 
 <div id="partsPop"></div>
 
+<div id="doorPill">
+  <div id="doorName">Door</div>
+  <div class="pillrow">
+    <button class="pbtn" id="doorToggle" title="Open / close">Open</button>
+    <button class="pbtn tint" id="doorTintBtn" title="Colour"><span class="sw"></span></button>
+    <input type="color" id="doorTint" style="display:none">
+    <button class="pbtn" id="doorClose" title="Done" data-icon="x"></button>
+  </div>
+</div>
+
 <div id="wallPill">
   <button id="wallScope" title="Paint this side only, or the whole wall">This side</button>
   <label class="pbtn tint" title="Paint"><input type="color" id="wallTint"></label>
@@ -513,6 +527,14 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
           <div class="togglerow">
             <div class="tt"><b>Solid walls</b><small>Off = see-through, so you can look in from outside</small></div>
             <div class="switch" id="wallOpaqueSw" role="switch" tabindex="0"></div>
+          </div>
+          <div class="togglerow">
+            <div class="tt"><b>Doors</b><small>Show real doors in every doorway — tap one to open/close or recolour</small></div>
+            <div class="switch" id="doorSw" role="switch" tabindex="0"></div>
+          </div>
+          <div class="field" id="doorColorField" style="display:none">
+            <label>Door colour — or tap a door in the room to paint just that one</label>
+            <input type="color" id="doorColorInput" value="#95643a" style="width:54px;height:34px;border:none;border-radius:9px;padding:0;background:none;cursor:pointer">
           </div>
         </div>
         <div class="subgroup">
@@ -1140,7 +1162,8 @@ for (const ev of ['pointerdown','pointermove','pointerup','wheel','keydown','tou
 // full 60fps whenever the user is interacting or anything is actively animating; idle otherwise
 function frameActive(){
   return performance.now() < interactUntil || introActive || dragging || dragChar || looking
-    || remoteDrag || view === 'tp' || dropping.length || hearts.length || puffs.length || charFalls.length || dirtWaveActive;
+    || remoteDrag || view === 'tp' || dropping.length || hearts.length || puffs.length || charFalls.length || dirtWaveActive
+    || (doorGroup && doorGroup.children.some(d => d.userData.targetRotY != null));
 }
 
 let view = '3d';
@@ -1217,6 +1240,113 @@ let wallMats = {};                                   // wall index -> [matA, mat
 // made "paint this wall" repaint the neighbour's room too. So the plan's walls are SPLIT at every
 // junction with a crossing wall — each piece between two corners is its own paintable wall.
 let WALLS = [];
+// ── Doors ───────────────────────────────────────────────────────────────────────
+// Real hinged door leaves placed in every door opening the wall editor defines. Each can be opened /
+// closed (swinging to the editor's hinge + swing direction) and recoloured. State (open, per-door
+// colour) lives in doorStates keyed by the opening's world position, so it survives plan rebuilds and
+// syncs between phones. A global "show doors" toggle + door colour live in the layout too.
+let doorGroup = null, doorsShown = false, doorColor = '#95643a', doorStates = {}, selDoor = null;
+function doorKey(w, op){                              // stable id for one opening (survives wall re-splits)
+  const cx = w.d === 'h' ? op.at : w.pos, cz = w.d === 'h' ? w.pos : op.at;
+  return 'd' + cx.toFixed(2) + '_' + cz.toFixed(2);
+}
+function buildDoorLeaf(w, op){
+  const key = doorKey(w, op), st = doorStates[key] || (doorStates[key] = {});
+  const H = w.h ?? WALL_H, oh = Math.min(op.h ?? 2.05, H);
+  const hg = op.hinge || 1, sw = op.swing || 1;
+  const jamb = op.at - hg * op.w / 2;                 // hinge jamb along the wall (matches the 2D swing arc)
+  const hx = w.d === 'h' ? jamb : w.pos, hz = w.d === 'h' ? w.pos : jamb;
+  const ax = w.d === 'h' ? hg : 0, az = w.d === 'h' ? 0 : hg;   // closed-leaf direction (toward the far jamb)
+  const closedRotY = Math.atan2(-az, ax);             // pivot Y so the leaf's local +X points along the closed direction
+  const openRotY = Math.atan2(-(ax * sw), -(az * sw));// …and 90° toward the swing side when open
+  const pivot = new THREE.Group();
+  pivot.position.set(hx, 0, hz);
+  pivot.rotation.y = st.open ? openRotY : closedRotY;
+  const lw = op.w - 0.03, lh = oh - 0.04, th = 0.04;
+  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(st.color || doorColor), roughness: 0.72 });
+  const leaf = new THREE.Mesh(new THREE.BoxGeometry(lw, lh, th), mat);
+  leaf.position.set(op.w / 2, lh / 2 + 0.02, 0);      // hinge edge sits at the pivot; leaf extends along +X
+  leaf.castShadow = true; leaf.receiveShadow = true; leaf.userData.doorLeaf = true;
+  pivot.add(leaf);
+  const panelMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(st.color || doorColor).multiplyScalar(0.9), roughness: 0.72 });
+  const inset = new THREE.Mesh(new THREE.BoxGeometry(lw * 0.72, lh * 0.82, th * 0.4), panelMat);   // recessed panel for a little detail
+  inset.position.set(op.w / 2, lh / 2 + 0.02, th / 2); pivot.add(inset);
+  const hmat = new THREE.MeshStandardMaterial({ color: 0x2c3036, roughness: 0.35, metalness: 0.7 });
+  for (const zs of [1, -1]){                           // a handle on each face near the far jamb
+    const h = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.11, 8), hmat);
+    h.rotation.x = Math.PI / 2; h.position.set(op.w - 0.09, oh * 0.46, zs * (th / 2 + 0.035)); pivot.add(h);
+  }
+  pivot.userData = { door: true, key, closedRotY, openRotY, mat, panelMat, oh };
+  doorGroup.add(pivot);
+  return pivot;
+}
+function buildDoors(){                                // (re)build every door leaf; called from buildPlan and when toggled
+  if (doorGroup){ if (doorGroup.parent) doorGroup.parent.remove(doorGroup); disposeGroup(doorGroup); }
+  doorGroup = new THREE.Group();
+  if (roomGroup) roomGroup.add(doorGroup);
+  selDoor = null;
+  if (!doorsShown) return;
+  for (const w of WALLS) for (const op of (w.ops || [])) if (op.t === 'door') buildDoorLeaf(w, op);
+  if (typeof applyViewToPlan === 'function') applyViewToPlan();
+}
+function toggleDoor(d){                               // swing a door open/closed (animated in the render loop)
+  const st = doorStates[d.userData.key] = doorStates[d.userData.key] || {};
+  st.open = !st.open;
+  d.userData.targetRotY = st.open ? d.userData.openRotY : d.userData.closedRotY;
+  wakeRender(); playSound('pop'); scheduleSave();
+}
+function paintDoor(d, hex){                           // recolour one door leaf
+  const st = doorStates[d.userData.key] = doorStates[d.userData.key] || {};
+  st.color = hex;
+  d.userData.mat.color.set(hex);
+  d.userData.panelMat.color.set(new THREE.Color(hex).multiplyScalar(0.9));
+  wakeRender(); scheduleSave();
+}
+function pickDoor(e){
+  if (!doorGroup || !doorsShown || view === '2d') return null;
+  setNdc(e); ray.setFromCamera(ndc, activeCam());
+  const hits = ray.intersectObjects(doorGroup.children, true);
+  if (!hits.length) return null;
+  let o = hits[0].object; while (o.parent && o.parent !== doorGroup) o = o.parent;
+  return o.parent === doorGroup ? o : null;
+}
+function updateDoorPill(){
+  if (!selDoor) return;
+  const open = !!(doorStates[selDoor.userData.key] && doorStates[selDoor.userData.key].open);
+  $('doorToggle').textContent = open ? 'Close' : 'Open';
+  const sw = $('doorTintBtn').querySelector('.sw'); if (sw) sw.style.background = '#' + selDoor.userData.mat.color.getHexString();
+  $('doorTint').value = '#' + selDoor.userData.mat.color.getHexString();
+}
+function positionDoorPill(){
+  if (!selDoor) return;
+  _v.set(selDoor.position.x, selDoor.userData.oh || 2.05, selDoor.position.z);
+  _v.project(activeCam());
+  const x = (_v.x * 0.5 + 0.5) * innerWidth, y = (-_v.y * 0.5 + 0.5) * innerHeight;
+  const dp = $('doorPill');
+  dp.style.left = Math.min(Math.max(x, 84), innerWidth - 84) + 'px';
+  dp.style.top  = Math.min(Math.max(y - 14, 128), innerHeight - 120) + 'px';
+}
+function selectDoor(d){
+  if (typeof deselect === 'function') deselect();    // a door and a piece can't both be selected
+  selDoor = d;
+  updateDoorPill();
+  $('doorPill').classList.add('on');
+  positionDoorPill();
+}
+function deselectDoor(){ selDoor = null; if ($('doorPill')) $('doorPill').classList.remove('on'); }
+function setGlobalDoorColor(hex){                     // the default colour — repaints every door without its own colour
+  doorColor = hex;
+  if (doorGroup) for (const d of doorGroup.children){
+    const st = doorStates[d.userData.key];
+    if (!(st && st.color)){ d.userData.mat.color.set(hex); d.userData.panelMat.color.set(new THREE.Color(hex).multiplyScalar(0.9)); }
+  }
+  wakeRender();
+}
+function syncDoorUI(){                                // reflect doorsShown / doorColor into the settings panel
+  const sw = $('doorSw'); if (sw) sw.classList.toggle('on', doorsShown);
+  const f = $('doorColorField'); if (f) f.style.display = doorsShown ? 'block' : 'none';
+  const ci = $('doorColorInput'); if (ci) ci.value = doorColor;
+}
 function computePaintWalls(){
   const out = [];
   PLAN.walls.forEach((w, si) => {
@@ -1472,6 +1602,7 @@ function buildPlan(){
     }
   }
   dbl(roomGroup);                                   // walls, floors, ceilings all two-sided
+  buildDoors();                                     // real hinged doors in every door opening (after dbl, they keep their own faces)
   scene.add(roomGroup);
   applyViewToPlan();
   updateSun();
@@ -1490,6 +1621,7 @@ function applyViewToPlan(){
     if (!m.userData.glass){ const o = plan ? 1 : walk ? 0.96 : (wallOpaque ? 1 : 0.55); (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => x.opacity = o); }
   });
   labels.forEach(l => l.visible = plan);
+  if (doorGroup) doorGroup.visible = !plan;          // doors show in 3D / walk; the 2D plan shows the swing arc instead
   applyXray();
 }
 
@@ -3773,6 +3905,7 @@ function deselect(){
     selBox = null;
   }
   sel = null;
+  selDoor = null; if ($('doorPill')) $('doorPill').classList.remove('on');   // a door and a piece never stay selected together
   pill.classList.remove('on');
   $('partsPop').classList.remove('on');
   $('sizePanel').classList.remove('on');
@@ -3784,6 +3917,7 @@ function deselect(){
 
 const _box = new THREE.Box3(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
 function updateSelPos(){
+  if (selDoor) positionDoorPill();
   if (!sel) return;
   _box.setFromObject(sel);
   _v.set((_box.min.x + _box.max.x)/2, _box.max.y, (_box.min.z + _box.max.z)/2);
@@ -4145,6 +4279,8 @@ renderer.domElement.addEventListener('pointerup', e => {
     } else if (downOnItem){                                  // tapped a piece (not a drag) -> select it now
       select(downOnItem);
     } else if (!downOnItem){
+      const door = canEdit() ? pickDoor(e) : null;           // tap a door -> select it (open/close + colour)
+      if (door){ selectDoor(door); e.stopPropagation(); return; }
       setNdc(e);
       ray.setFromCamera(ndc, activeCam());
       const lh = ray.intersectObjects(lightDiscs, false);    // tap a ceiling light to flip it
@@ -4248,6 +4384,15 @@ function animateCharFalls(dt){
       setPoseVisual(f.c.g.userData.role, 'stand');
       charFalls.splice(i, 1);
     }
+  }
+}
+function animateDoors(dt){                            // smooth swing toward each door's open/closed target
+  if (!doorGroup) return;
+  for (const d of doorGroup.children){
+    if (d.userData.targetRotY == null) continue;
+    const t = d.userData.targetRotY;
+    d.rotation.y += (t - d.rotation.y) * Math.min(1, dt * 9);
+    if (Math.abs(t - d.rotation.y) < 0.002){ d.rotation.y = t; d.userData.targetRotY = null; }
   }
 }
 
@@ -4386,6 +4531,7 @@ function serialize(){
     wallColor,
     wallColors:{...wallColors},
     floorColor,
+    doorsShown, doorColor, doors:{...doorStates},     // doors: shown?, default colour, and per-door open/colour state
     roomNames:{...roomNames},
     lights:{...lightsState},
     players:{...players},
@@ -4411,11 +4557,15 @@ function loadData(data){
   wallColor = data.wallColor || null;
   wallColors = (data.v || 3) < 4 ? migrateWallColors(data.wallColors) : {...(data.wallColors || {})};   // pre-split layouts: re-key paint onto the new segments
   floorColor = data.floorColor || null;
+  doorsShown = !!data.doorsShown;                    // doors travel with the layout so both phones agree
+  doorColor = data.doorColor || doorColor;
+  doorStates = {...(data.doors || {})};
   lightsState = {...(data.lights || {})};
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   planOverride = data.planOv || null;                // a saved layout may carry a redrawn apartment
   setPlanFromOverride(planOverride);
-  buildPlan();
+  buildPlan();                                       // (re)builds the doors too, from the state just set
+  syncDoorUI();
   if (data.genDefs) for (const id in data.genDefs) registerGenModel(data.genDefs[id]);   // recipes embedded in the layout
   const hadTombs = tombstones;
   tombstones = {...(data.deleted || {})};                             // adopt the snapshot's view of what's deleted
@@ -5702,7 +5852,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.render-makebtn';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.doors';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5826,6 +5976,7 @@ function applyRemoteLayout(data, adopt){
     wallColor = data.wallColor || null;
     wallColors = (data.v || 3) < 4 ? migrateWallColors(data.wallColors) : {...(data.wallColors || {})};   // pre-split layouts: re-key paint onto the new segments
     floorColor = data.floorColor || null;
+    doorsShown = !!data.doorsShown; doorColor = data.doorColor || doorColor; doorStates = {...(data.doors || {})};   // doors sync live
     lightsState = {...(data.lights || {})};
     deselect();
     clearDragFx();
@@ -5853,9 +6004,9 @@ function applyRemoteLayout(data, adopt){
         if (c){ c.g.position.set(p.x, 0, p.z); c.g.rotation.y = p.rotY || 0; c.moving = false; setPoseVisual(role, p.pose || 'stand'); }
       }
     }
-    if (planChanged) buildPlan(); else { applyLightsLive(); updateSun(); }
+    if (planChanged) buildPlan(); else { buildDoors(); applyLightsLive(); updateSun(); }   // rebuild doors to reflect the partner's open/colour/show changes
     jset(LS.layout, serialize());
-    syncSettingsUI(); renderRooms(); refreshTags();
+    syncSettingsUI(); syncDoorUI(); renderRooms(); refreshTags();
   } finally { syncMuted = false; }
 }
 
@@ -6354,6 +6505,13 @@ $('delBtn').onclick = deleteSel;
 $('wallBtn').onclick = () => { if (sel) setOnWall(sel, !sel.userData.onWall); };
 $('ceilBtn').onclick = () => { if (sel) setOnCeiling(sel, !sel.userData.onCeiling); };
 
+/* -------- door pill: open/close + colour for the selected door -------- */
+$('doorToggle').onclick = () => { if (selDoor){ toggleDoor(selDoor); updateDoorPill(); } };
+$('doorTintBtn').onclick = () => { if (selDoor) $('doorTint').click(); };   // opens the native colour picker for this door
+$('doorTint').addEventListener('input',  () => { if (selDoor) paintDoor(selDoor, $('doorTint').value); });
+$('doorTint').addEventListener('change', () => { resetPointerState(); if (selDoor){ paintDoor(selDoor, $('doorTint').value); updateDoorPill(); logActivity('edit', 'painted a door'); } });
+$('doorClose').onclick = deselectDoor;
+
 /* -------- per-part colour: detect a piece's surfaces and paint each one on its own -------- */
 const partsPop = $('partsPop');
 function refreshTintSwatch(){                          // the pill's colour button shows the selected piece's colour
@@ -6561,6 +6719,16 @@ bindSwitch($('wallOpaqueSw'), () => wallOpaque, v => {
 bindSwitch($('xraySw'), () => xrayMode, v => {
   xrayMode = v; localStorage.setItem('roomplanner.xray', v ? '1' : '0'); applyViewToPlan();
 });
+bindSwitch($('doorSw'), () => doorsShown, v => {
+  doorsShown = v;
+  $('doorColorField').style.display = v ? 'block' : 'none';
+  buildDoors();
+  if (!v) deselectDoor();
+  scheduleSave();
+});
+$('doorColorInput').value = doorColor;
+$('doorColorInput').addEventListener('input',  () => setGlobalDoorColor($('doorColorInput').value));
+$('doorColorInput').addEventListener('change', () => { setGlobalDoorColor($('doorColorInput').value); scheduleSave(); });
 
 /* ============================== settings wiring ============================== */
 
@@ -6575,6 +6743,7 @@ function syncSettingsUI(){
   renderFloorSwatches();
   renderQuality();
   updateDayNightBtn();
+  syncDoorUI();
   syncProfileUI();
 }
 
@@ -7118,6 +7287,7 @@ function animate(){
   animateDrops(dt);
   animateTilt(dt);
   animateCharFalls(dt);
+  animateDoors(dt);
   updateCat(dt);
   updateDirt(dt);
   if (view === 'tp') updateWalkCamera();
