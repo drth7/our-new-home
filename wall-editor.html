@@ -794,10 +794,17 @@ function inspect(){
       <label>Slide along the wall (m)</label><input id="opAt" type="number" step="0.05" value="${o.at}">
       ${o.t === 'door' ? `<div class="row" style="margin-top:9px"><button type="button" id="opHinge" style="margin-top:0;background:var(--panel2);color:var(--text)">⇋ Flip hinge</button>
       <button type="button" id="opSwing" style="margin-top:0;background:var(--panel2);color:var(--text)">⇵ Flip swing</button></div>` : ''}
+      ${o.t === 'arch' ? `<button type="button" id="opSlide" style="background:${o.slider ? 'var(--accent)' : 'var(--panel2)'};color:${o.slider ? '#fff' : 'var(--text)'}">${o.slider ? '✓ Sliding door on' : '+ Add sliding door'}</button>
+      ${o.slider ? `<button type="button" id="opSlideSide" style="background:var(--panel2);color:var(--text)">⇋ Flip slide side</button>` : ''}
+      <p class="tip">A sliding door only shows in the 3D home (turn "Doors" on in the app's settings). Tap it there to slide it open.</p>` : ''}
       <button id="opDel">Remove ${o.t === 'win' ? 'window' : o.t}</button>`;
     if (o.t === 'door'){
       el.querySelector('#opHinge').onclick = () => { pushUndo(); o.hinge = (o.hinge || 1) * -1; save(); draw(); };
       el.querySelector('#opSwing').onclick = () => { pushUndo(); o.swing = (o.swing || 1) * -1; save(); draw(); };
+    }
+    if (o.t === 'arch'){
+      el.querySelector('#opSlide').onclick = () => { pushUndo(); o.slider = !o.slider; save(); draw(); inspect(); };
+      if (o.slider) el.querySelector('#opSlideSide').onclick = () => { pushUndo(); o.hinge = (o.hinge || 1) * -1; save(); draw(); };
     }
     const upd = () => {
       o.w = Math.max(0.3, +el.querySelector('#opW').value || o.w);

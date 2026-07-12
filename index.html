@@ -1163,7 +1163,7 @@ for (const ev of ['pointerdown','pointermove','pointerup','wheel','keydown','tou
 function frameActive(){
   return performance.now() < interactUntil || introActive || dragging || dragChar || looking
     || remoteDrag || view === 'tp' || dropping.length || hearts.length || puffs.length || charFalls.length || dirtWaveActive
-    || (doorGroup && doorGroup.children.some(d => d.userData.targetRotY != null));
+    || (doorGroup && doorGroup.children.some(d => d.userData.targetRotY != null || d.userData.targetX != null));
 }
 
 let view = '3d';
@@ -1280,19 +1280,54 @@ function buildDoorLeaf(w, op){
   doorGroup.add(pivot);
   return pivot;
 }
+function buildSlideDoor(w, op){                       // a barn-style sliding door for an arch: slides sideways across the wall
+  const key = doorKey(w, op), st = doorStates[key] || (doorStates[key] = {});
+  const H = w.h ?? WALL_H, oh = Math.min(op.h ?? 2.3, H);
+  const cx = w.d === 'h' ? op.at : w.pos, cz = w.d === 'h' ? w.pos : op.at;
+  const side = op.hinge || 1;                         // which way it slides open (reuse the editor's hinge flip)
+  const grp = new THREE.Group();
+  grp.position.set(cx, 0, cz);
+  if (w.d === 'v') grp.rotation.y = -Math.PI / 2;     // local +x runs along the wall (like buildWall)
+  const pw = op.w - 0.02, ph = oh - 0.03, th = 0.05, front = WALL_T / 2 + th / 2 + 0.006;
+  const col = st.color || doorColor;
+  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(col), roughness: 0.72 });
+  const slider = new THREE.Group();                   // this group slides along local x
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, th), mat);
+  panel.position.set(0, ph / 2 + 0.015, front); panel.castShadow = true; panel.userData.doorLeaf = true; slider.add(panel);
+  const panelMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(col).multiplyScalar(0.9), roughness: 0.72 });
+  for (const sx of [-0.26, 0.26]){                    // two recessed panels for a barn-door look
+    const p = new THREE.Mesh(new THREE.BoxGeometry(pw * 0.42, ph * 0.86, th * 0.4), panelMat);
+    p.position.set(sx * pw, ph / 2 + 0.015, front + th / 2); slider.add(p);
+  }
+  const hmat = new THREE.MeshStandardMaterial({ color: 0x2c3036, roughness: 0.35, metalness: 0.7 });
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.24, 0.03), hmat);
+  handle.position.set(-side * pw * 0.4, ph * 0.5, front + th / 2 + 0.02); slider.add(handle);
+  grp.add(slider);
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(pw * 2.1, 0.05, 0.05), hmat);   // top track the panel hangs from
+  rail.position.set(side * pw * 0.5, oh + 0.03, WALL_T / 2 + 0.03); grp.add(rail);
+  const closedX = 0, openX = side * op.w;
+  slider.position.x = st.open ? openX : closedX;
+  grp.userData = { door: true, slide: true, key, closedX, openX, mat, panelMat, oh, slider };
+  doorGroup.add(grp);
+  return grp;
+}
 function buildDoors(){                                // (re)build every door leaf; called from buildPlan and when toggled
   if (doorGroup){ if (doorGroup.parent) doorGroup.parent.remove(doorGroup); disposeGroup(doorGroup); }
   doorGroup = new THREE.Group();
   if (roomGroup) roomGroup.add(doorGroup);
   selDoor = null;
   if (!doorsShown) return;
-  for (const w of WALLS) for (const op of (w.ops || [])) if (op.t === 'door') buildDoorLeaf(w, op);
+  for (const w of WALLS) for (const op of (w.ops || [])){
+    if (op.t === 'door') buildDoorLeaf(w, op);
+    else if (op.t === 'arch' && op.slider) buildSlideDoor(w, op);   // an arch the user turned into a sliding door
+  }
   if (typeof applyViewToPlan === 'function') applyViewToPlan();
 }
-function toggleDoor(d){                               // swing a door open/closed (animated in the render loop)
+function toggleDoor(d){                               // open/close: swing a hinged door, slide a sliding door
   const st = doorStates[d.userData.key] = doorStates[d.userData.key] || {};
   st.open = !st.open;
-  d.userData.targetRotY = st.open ? d.userData.openRotY : d.userData.closedRotY;
+  if (d.userData.slide) d.userData.targetX = st.open ? d.userData.openX : d.userData.closedX;
+  else d.userData.targetRotY = st.open ? d.userData.openRotY : d.userData.closedRotY;
   wakeRender(); playSound('pop'); scheduleSave();
 }
 function paintDoor(d, hex){                           // recolour one door leaf
@@ -4386,13 +4421,20 @@ function animateCharFalls(dt){
     }
   }
 }
-function animateDoors(dt){                            // smooth swing toward each door's open/closed target
+function animateDoors(dt){                            // smooth swing (hinged) / slide (sliding) toward each door's target
   if (!doorGroup) return;
   for (const d of doorGroup.children){
-    if (d.userData.targetRotY == null) continue;
-    const t = d.userData.targetRotY;
-    d.rotation.y += (t - d.rotation.y) * Math.min(1, dt * 9);
-    if (Math.abs(t - d.rotation.y) < 0.002){ d.rotation.y = t; d.userData.targetRotY = null; }
+    if (d.userData.slide){
+      if (d.userData.targetX == null) continue;
+      const t = d.userData.targetX, s = d.userData.slider;
+      s.position.x += (t - s.position.x) * Math.min(1, dt * 9);
+      if (Math.abs(t - s.position.x) < 0.002){ s.position.x = t; d.userData.targetX = null; }
+    } else {
+      if (d.userData.targetRotY == null) continue;
+      const t = d.userData.targetRotY;
+      d.rotation.y += (t - d.rotation.y) * Math.min(1, dt * 9);
+      if (Math.abs(t - d.rotation.y) < 0.002){ d.rotation.y = t; d.userData.targetRotY = null; }
+    }
   }
 }
 
@@ -5852,7 +5894,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.doors';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.sliding-doors';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
