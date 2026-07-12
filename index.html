@@ -1254,7 +1254,7 @@ let WALLS = [];
 // closed (swinging to the editor's hinge + swing direction) and recoloured. State (open, per-door
 // colour) lives in doorStates keyed by the opening's world position, so it survives plan rebuilds and
 // syncs between phones. A global "show doors" toggle + door colour live in the layout too.
-let doorGroup = null, doorsShown = false, doorColor = '#95643a', doorStyle = 'classic', doorStates = {}, selDoor = null;
+let doorGroup = null, doorsShown = true, doorColor = '#95643a', doorStyle = 'classic', doorStates = {}, selDoor = null;
 const DOOR_STYLES = {                                 // pickable door models — each detailed on BOTH faces
   modern:  ['Modern',  'flat slab'],
   classic: ['Classic', 'raised panels'],
@@ -4651,7 +4651,7 @@ function loadData(data){
   wallColor = data.wallColor || null;
   wallColors = (data.v || 3) < 4 ? migrateWallColors(data.wallColors) : {...(data.wallColors || {})};   // pre-split layouts: re-key paint onto the new segments
   floorColor = data.floorColor || null;
-  doorsShown = !!data.doorsShown;                    // doors travel with the layout so both phones agree
+  doorsShown = data.doorsShown ?? true;              // on by default; an explicit off (from the toggle) is respected
   doorColor = data.doorColor || doorColor;
   doorStyle = data.doorStyle || doorStyle;
   doorStates = {...(data.doors || {})};
@@ -5947,7 +5947,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.door-styles';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.doors-default-on';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6071,7 +6071,7 @@ function applyRemoteLayout(data, adopt){
     wallColor = data.wallColor || null;
     wallColors = (data.v || 3) < 4 ? migrateWallColors(data.wallColors) : {...(data.wallColors || {})};   // pre-split layouts: re-key paint onto the new segments
     floorColor = data.floorColor || null;
-    doorsShown = !!data.doorsShown; doorColor = data.doorColor || doorColor; doorStyle = data.doorStyle || doorStyle; doorStates = {...(data.doors || {})};   // doors sync live
+    doorsShown = data.doorsShown ?? true; doorColor = data.doorColor || doorColor; doorStyle = data.doorStyle || doorStyle; doorStates = {...(data.doors || {})};   // doors sync live (on by default)
     lightsState = {...(data.lights || {})};
     deselect();
     clearDragFx();
