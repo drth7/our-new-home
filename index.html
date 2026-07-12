@@ -688,6 +688,7 @@ const CATALOG = {
   stove:     {name:'Stove',        cat:'Kitchen',  w:0.60, d:0.62, h:0.90, color:'#4d545c'},
   ksink:     {name:'Sink unit',    cat:'Kitchen',  w:0.80, d:0.62, h:0.90, color:'#9aa5b0'},
   fridge:    {name:'Fridge',       cat:'Kitchen',  w:0.70, d:0.70, h:1.80, color:'#c8ccd2'},
+  ovencab:   {name:'Oven & microwave',cat:'Kitchen',w:0.90, d:0.62, h:2.60, color:'#e6e1d8'},   // tall built-in appliance column
   washer:    {name:'Washer',       cat:'Kitchen',  w:0.60, d:0.60, h:0.85, color:'#d5d9dd'},
   dishwasher:{name:'Dishwasher',   cat:'Kitchen',  w:0.60, d:0.62, h:0.85, color:'#c7ccd2'},
   trash:     {name:'Trash can',    cat:'Kitchen',  w:0.35, d:0.35, h:0.55, color:'#7a838c'},
@@ -2184,6 +2185,41 @@ function buildFurniture(type){
       const hd = block(0.03, 0.5, 0.03, dark); hd.position.set(-w/2 + 0.09, h*0.55, d/2 + dt + 0.01); g.add(hd);
       break;
     }
+    case 'ovencab': {
+      // tall floor-to-ceiling appliance column: cabinet doors, a wall oven and a microwave built in
+      const b = block(w, h, d, main); b.position.y = h/2; g.add(b);            // carcass = Cabinet (Body)
+      const door = partMat('door');
+      const steel = new THREE.MeshStandardMaterial({color:0xb9bdc2, roughness:0.35, metalness:0.85});   // stainless surround
+      const glass = new THREE.MeshStandardMaterial({color:0x0d0f13, roughness:0.12, metalness:0.4});    // black glass door
+      const ctrl  = new THREE.MeshStandardMaterial({color:0x16191f, roughness:0.4, metalness:0.55});    // control panel
+      const fz = d/2, gap = 0.012, mg = 0.03, dt = 0.02;
+      const doorPair = (y0, y1) => {                                           // a pair of cabinet doors spanning [y0,y1]
+        const dw = (w - gap)/2 - mg, dh = (y1 - y0) - mg;
+        for (const s of [-1, 1]){
+          const dr = block(dw, dh, dt, door); dr.position.set(s*(gap/2 + dw/2), (y0+y1)/2, fz + dt/2 - 0.001); g.add(dr);
+          const hn = block(0.026, Math.min(0.32, dh*0.5), 0.03, dark); hn.position.set(s*(gap/2 + 0.05), (y0+y1)/2, fz + dt + 0.008); g.add(hn);
+        }
+      };
+      const oven = (y0, y1) => {                                               // stainless surround + black glass + handle + controls
+        const cy = (y0+y1)/2, ah = y1 - y0;
+        const frame = block(w - 0.05, ah, 0.03, steel); frame.position.set(0, cy, fz + 0.015); g.add(frame);
+        const strip = block(w - 0.11, ah*0.14, 0.014, ctrl); strip.position.set(0, y1 - ah*0.10, fz + 0.033); g.add(strip);
+        const gl = block(w - 0.13, ah*0.66, 0.014, glass); gl.position.set(0, y0 + ah*0.40, fz + 0.033); g.add(gl);
+        const bar = block(w - 0.17, 0.024, 0.038, steel); bar.position.set(0, y1 - ah*0.26, fz + 0.055); g.add(bar);
+      };
+      const micro = (y0, y1) => {                                              // glass door on the left, control pad on the right
+        const cy = (y0+y1)/2, ah = y1 - y0;
+        const frame = block(w - 0.05, ah, 0.03, steel); frame.position.set(0, cy, fz + 0.015); g.add(frame);
+        const gl = block((w - 0.11)*0.64, ah*0.66, 0.014, glass); gl.position.set(-w*0.15, cy, fz + 0.033); g.add(gl);
+        const pad = block((w - 0.11)*0.30, ah*0.66, 0.014, ctrl); pad.position.set(w*0.25, cy, fz + 0.033); g.add(pad);
+        const bar = block(0.022, ah*0.5, 0.03, steel); bar.position.set(-w*0.33, cy, fz + 0.05); g.add(bar);
+      };
+      doorPair(0.06, 0.80);                                                    // lower cabinets
+      oven(0.84, 1.60);                                                        // wall oven
+      micro(1.64, 2.04);                                                       // microwave
+      doorPair(2.08, h - 0.04);                                               // upper cabinets to the ceiling
+      break;
+    }
     case 'rug': case 'rugsq': case 'rugrun': case 'rugrun2': case 'rugpersian': {
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.02, d), main);
       b.position.y = 0.01; b.receiveShadow = true; g.add(b);
@@ -2410,6 +2446,7 @@ const TYPE_PARTS = {};
   set(['table','coffee','desk','tableround','tablebig','tableoval','coffeeround'], {main:'Top', dark:'Legs'});
   set(['pcdesk'], {main:'Top', dark:'Legs', light:'Tray'});
   set(['counter','island','ksink'], {main:'Cabinet', light:'Countertop', dark:'Fixtures'});
+  set(['ovencab'], {main:'Cabinet', door:'Doors', dark:'Handles'});
   set(['stove'], {main:'Cabinet', dark:'Cooktop'});
   set(['bed','bedk','beds'], {main:'Headboard', light:'Mattress', dark:'Frame'});
   set(['wardrobe','tvstand'], {main:'Body', door:'Doors', dark:'Handles'});
@@ -5617,7 +5654,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.ceiling-hang';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.oven-cabinet';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
