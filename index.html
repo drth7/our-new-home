@@ -2331,7 +2331,7 @@ function buildFurniture(type){
         for (const sx of [-1, 0, 1]){
           const x = sx * (w/2 - 0.24);
           const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.12, 0.15, 20, 1, true), shadeMat); shade.position.set(x, 0, 0); shade.userData.glow = true; shade.castShadow = true; g.add(shade);
-          const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 10), bulbMat()); bulb.position.set(x, -0.04, 0); bulb.userData.glow = true; g.add(bulb);
+          const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 10), bulbMat()); bulb.position.set(x, -0.04, 0); bulb.userData.glow = true; if (sx === 0) bulb.userData.lightAnchor = true; g.add(bulb);   // the lamp light lives at the MIDDLE pendant
           const drop = block(0.008, 0.11, 0.008, metal); drop.position.set(x, 0.10, 0); g.add(drop);   // short cord shade→bar
         }
         g.add(cordAt(0, 0, 0.18));
@@ -3531,11 +3531,15 @@ function addFurniture(type, opts = {}){
     applyTints(g);
   }
   if (def.lamp){                                     // give the lamp its switch (light joins the scene only when ON)
-    let glowMesh = null;
-    g.traverse(o => { if (o.isMesh && (o.userData.glow || o.material?.userData?.role === 'light') && (!glowMesh || o.position.y > glowMesh.position.y)) glowMesh = o; });
+    let glowMesh = null, anchor = null;
+    g.traverse(o => {
+      if (o.userData.lightAnchor) anchor = o;         // a fixture can pin where its light emits (e.g. the middle of a triple pendant)
+      if (o.isMesh && (o.userData.glow || o.material?.userData?.role === 'light') && (!glowMesh || o.position.y > glowMesh.position.y)) glowMesh = o;
+    });
+    const src = anchor || glowMesh;
     const pt = new THREE.PointLight(0xffd9a6, 0, def.ceiling ? 5 : Math.max(2.5, def.h * 2.2), 1.7);
     pt.userData.onI = def.ceiling ? 3 : 2.2;         // a hanging fixture throws light further, over the area below
-    if (glowMesh) pt.position.copy(glowMesh.position); else pt.position.set(0, def.h * 0.72, 0);
+    if (src) pt.position.copy(src.position); else pt.position.set(0, def.h * 0.72, 0);
     g.userData.lampLight = pt;                       // NOT added to the group yet — setLampLit does that
     setLampLit(g, opts.lit != null ? !!opts.lit : false);   // like the ceiling lights: off until you switch it on
   }
@@ -5654,7 +5658,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.oven-cabinet';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.pendant3-light';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
