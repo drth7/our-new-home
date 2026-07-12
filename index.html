@@ -3883,6 +3883,9 @@ function resetPointerState(){
 renderer.domElement.addEventListener('pointercancel', resetPointerState);
 renderer.domElement.addEventListener('lostpointercapture', () => { if (dragging || dragChar || downCat || looking || measureDrag != null) resetPointerState(); });
 addEventListener('blur', resetPointerState);
+// A native OS colour picker (opened from the swatch that floats over the 3D view) can swallow the
+// pointerup, leaving a drag/orbit stuck when it closes — so also clear everything when focus returns.
+addEventListener('focus', resetPointerState);
 
 function pickWall(e){
   if (view !== '2d' && view !== '3d') return null;
@@ -4007,6 +4010,7 @@ wallTint.addEventListener('input', () => {
   repaintWall(selWallIdx);
 });
 wallTint.addEventListener('change', () => {
+  resetPointerState();                               // OK/close on the OS picker can leave a drag stuck — clear it
   if (selWallIdx == null) return;
   scheduleSave();
   logActivity('edit', 'painted a wall');
@@ -5333,7 +5337,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-12.glb-optimized';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-12.editor-drag-select';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -5985,6 +5989,7 @@ $('delBtn').onclick = deleteSel;
 $('wallBtn').onclick = () => { if (sel) setOnWall(sel, !sel.userData.onWall); };
 tintInput.addEventListener('input', () => { if (sel) applyTint(sel, tintInput.value); });
 tintInput.addEventListener('change', () => {
+  resetPointerState();                               // OK/close on the OS picker can leave a drag stuck — clear it
   if (!sel) return;
   applyTint(sel, tintInput.value);
   scheduleSave();
