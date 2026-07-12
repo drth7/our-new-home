@@ -581,27 +581,35 @@ function solidSegs(w){                               // wall spans minus its ope
 }
 
 /* ============ hit testing ============ */
+// hit tolerances are pixel-based (…/cam.s = pixels → world metres) so the targets stay finger-sized at any zoom
 function hitWall(x, z){
-  let best = -1, bd = 0.18;
+  const pad = Math.max(0.1, 12 / cam.s);
+  let best = -1, bd = Math.max(0.2, 15 / cam.s);
   plan.walls.forEach((w, i) => {
     const d = w.d === 'h'
-      ? (x >= w.from - 0.1 && x <= w.to + 0.1 ? Math.abs(z - w.pos) : 1e9)
-      : (z >= w.from - 0.1 && z <= w.to + 0.1 ? Math.abs(x - w.pos) : 1e9);
+      ? (x >= w.from - pad && x <= w.to + pad ? Math.abs(z - w.pos) : 1e9)
+      : (z >= w.from - pad && z <= w.to + pad ? Math.abs(x - w.pos) : 1e9);
     if (d < bd){ bd = d; best = i; }
   });
   return best;
 }
-function hitOp(x, z){
-  if (selW < 0) return -1;
-  const w = plan.walls[selW];
-  const along = w.d === 'h' ? x : z, perp = w.d === 'h' ? Math.abs(z - w.pos) : Math.abs(x - w.pos);
-  if (perp > 0.25) return -1;
-  let best = -1;
-  (w.ops || []).forEach((o, i) => { if (o.t !== 'glasswall' && Math.abs(along - o.at) <= o.w / 2 + 0.1) best = i; });
+// find the door/window/arch under the finger on ANY wall (not just the selected one) with a generous target,
+// so one tap grabs it. Returns {wi, oi} or null.
+function hitOpAny(x, z){
+  const pad = Math.max(0.18, 22 / cam.s);            // slack along the wall
+  let best = null, bestPerp = Math.max(0.32, 26 / cam.s);   // slack across the wall
+  plan.walls.forEach((w, wi) => {
+    const along = w.d === 'h' ? x : z, perp = w.d === 'h' ? Math.abs(z - w.pos) : Math.abs(x - w.pos);
+    if (perp > bestPerp) return;
+    (w.ops || []).forEach((o, i) => {
+      if (o.t === 'glasswall') return;
+      if (Math.abs(along - o.at) <= o.w / 2 + pad){ bestPerp = perp; best = { wi, oi: i }; }
+    });
+  });
   return best;
 }
 function hitLight(x, z){
-  let best = -1, bd = 0.3;
+  let best = -1, bd = Math.max(0.3, 26 / cam.s);
   plan.lights.forEach((L, i) => { const d = Math.hypot(L.x - x, L.z - z); if (d < bd){ bd = d; best = i; } });
   return best;
 }
@@ -610,7 +618,7 @@ function hitEndpoint(x, z){
   const w = plan.walls[selW];
   for (const [which, e] of [[-1, w.from], [1, w.to]]){
     const px = w.d === 'h' ? e : w.pos, pz = w.d === 'h' ? w.pos : e;
-    if (Math.hypot(x - px, z - pz) < 10 / cam.s) return which;
+    if (Math.hypot(x - px, z - pz) < 18 / cam.s) return which;
   }
   return 0;
 }
@@ -678,14 +686,14 @@ cv.addEventListener('pointerdown', e => {
   if (pen){ e.preventDefault(); openRename(pen.key, pen.x, pen.y); return; }   // the ✎ next to a room name: type right there
   const ep = hitEndpoint(x, z);
   if (ep){ pushUndo(); dragMode = { kind: 'end', which: ep }; return; }        // hitEndpoint only fires for the selected wall
-  const oi = hitOp(x, z);                                                       // hitOp only searches the selected wall
-  if (oi >= 0 && oi === selOp){ pushUndo(); dragMode = { kind: 'op' }; return; }   // drag an already-selected opening
+  const opHit = hitOpAny(x, z);                                                 // door / window / arch on ANY wall
+  if (opHit && opHit.wi === selW && opHit.oi === selOp){ pushUndo(); dragMode = { kind: 'op' }; return; }   // drag an already-selected opening
   const li = hitLight(x, z);
   if (li >= 0 && li === selLight){ pushUndo(); dragMode = { kind: 'light' }; return; }   // drag an already-selected light
   const wi = hitWall(x, z);
   if (wi >= 0 && wi === selW && selOp < 0){ pushUndo(); dragMode = { kind: 'wall' }; return; }   // slide an already-selected wall
   // nothing already-selected is under the finger: remember what a tap would pick, but let a drag pan
-  pendSel = { x: e.clientX, y: e.clientY, op: oi, light: li, wall: wi };
+  pendSel = { x: e.clientX, y: e.clientY, opHit, light: li, wall: wi };
 });
 cv.addEventListener('pointermove', e => {
   if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -750,7 +758,7 @@ cv.addEventListener('pointerup', e => {
   }
   if (dragMode){ save(); }
   else if (pendSel){                                 // a tap that never turned into a pan: commit the selection now
-    if (pendSel.op >= 0){ selOp = pendSel.op; selLight = -1; }
+    if (pendSel.opHit){ selW = pendSel.opHit.wi; selOp = pendSel.opHit.oi; selLight = -1; }   // one tap grabs a door/arch AND its wall
     else if (pendSel.light >= 0){ selLight = pendSel.light; selW = selOp = -1; }
     else if (pendSel.wall >= 0){ selW = pendSel.wall; selOp = -1; selLight = -1; }
     else { selW = selOp = selLight = -1; }
