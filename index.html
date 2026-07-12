@@ -5192,11 +5192,14 @@ async function realisticShot(){
   renderer.setPixelRatio(1);
   renderer.setSize(cw, ch, false);                   // false = leave the on-screen canvas' CSS size alone
   if (shotCam.isPerspectiveCamera){ shotCam.aspect = cw / ch; shotCam.updateProjectionMatrix(); }
+  const savedAz = sunAz;
+  if (renderTime === 'day'){ sunAz = 90; updateSun(); }   // Day: light the capture from the EAST so the realistic photo reads as morning sun
   renderer.render(scene, shotCam);                   // capture EXACTLY what the camera sees — nothing hidden
   const cnv = document.createElement('canvas'); cnv.width = cw; cnv.height = ch;
   cnv.getContext('2d').drawImage(renderer.domElement, 0, 0, cw, ch);
   const inB64 = cnv.toDataURL('image/png').split(',')[1];
   // restore the normal view right away (full-res canvas, walls see-through again, people/cat back) for the ~10s wait
+  if (renderTime === 'day' && sunAz !== savedAz){ sunAz = savedAz; updateSun(); }   // put the user's sun back
   if (shotCam.isPerspectiveCamera){ shotCam.aspect = prevAspect; shotCam.updateProjectionMatrix(); }
   renderer.setPixelRatio(prevPR);
   renderer.setSize(prevSize.x, prevSize.y, false);
@@ -5213,7 +5216,7 @@ async function realisticShot(){
     : '';
   const timeLine = renderTime === 'night'
     ? ' Set it at NIGHT: a dark evening sky through the windows, the room lit warmly by its own lamps and ceiling fixtures (glowing, with soft pools of light and gentle shadows), a cozy ambient evening mood.'
-    : ' Set it in bright DAYTIME: soft natural sunlight coming through the windows, a bright and airy feel with realistic daylight shadows.';
+    : ' Set it in bright DAYTIME: warm morning sunlight streaming in from one side (the east), casting soft directional daylight shadows across the room, bright and airy — keep the light coming from the same side as the render.';
   const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo." + styleLine + timeLine + " It must look like a real photograph, NOT a 3D model, render or cartoon.";
   try{
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
@@ -5954,7 +5957,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.door-key-fix';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.day-east-sun';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
