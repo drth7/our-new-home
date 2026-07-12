@@ -1263,8 +1263,15 @@ const DOOR_STYLES = {                                 // pickable door models �
   barn:    ['Barn',    'vertical planks'],
 };
 function doorKey(w, op){                              // stable id for one opening (survives wall re-splits)
+  // integer centimetres — NO dots: Firebase RTDB keys can't contain "." (dotted keys made the whole
+  // layout push fail, so doors AND everything else silently stopped saving/syncing).
   const cx = w.d === 'h' ? op.at : w.pos, cz = w.d === 'h' ? w.pos : op.at;
-  return 'd' + cx.toFixed(2) + '_' + cz.toFixed(2);
+  return 'd' + Math.round(cx * 100) + '_' + Math.round(cz * 100);
+}
+function cleanDoorStates(src){                        // drop any Firebase-illegal keys (old dotted keys) so the layout push never fails
+  const out = {};
+  for (const k in (src || {})) if (!/[.#$/\[\]]/.test(k)) out[k] = src[k];
+  return out;
 }
 // one door leaf's visual (slab + style detailing on BOTH sides). Returns the group + its recolourable mats.
 function makeLeaf(style, lw, lh, th, col){
@@ -4625,7 +4632,7 @@ function serialize(){
     wallColor,
     wallColors:{...wallColors},
     floorColor,
-    doorsShown, doorColor, doorStyle, doors:{...doorStates},   // doors: shown?, default colour/style, and per-door open/colour/style
+    doorsShown, doorColor, doorStyle, doors:cleanDoorStates(doorStates),   // doors: shown?, default colour/style, and per-door open/colour/style
     roomNames:{...roomNames},
     lights:{...lightsState},
     players:{...players},
@@ -4654,7 +4661,7 @@ function loadData(data){
   doorsShown = data.doorsShown ?? true;              // on by default; an explicit off (from the toggle) is respected
   doorColor = data.doorColor || doorColor;
   doorStyle = data.doorStyle || doorStyle;
-  doorStates = {...(data.doors || {})};
+  doorStates = cleanDoorStates(data.doors);
   lightsState = {...(data.lights || {})};
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
   planOverride = data.planOv || null;                // a saved layout may carry a redrawn apartment
@@ -5947,7 +5954,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.editor-hitboxes';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.door-key-fix';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6071,7 +6078,7 @@ function applyRemoteLayout(data, adopt){
     wallColor = data.wallColor || null;
     wallColors = (data.v || 3) < 4 ? migrateWallColors(data.wallColors) : {...(data.wallColors || {})};   // pre-split layouts: re-key paint onto the new segments
     floorColor = data.floorColor || null;
-    doorsShown = data.doorsShown ?? true; doorColor = data.doorColor || doorColor; doorStyle = data.doorStyle || doorStyle; doorStates = {...(data.doors || {})};   // doors sync live (on by default)
+    doorsShown = data.doorsShown ?? true; doorColor = data.doorColor || doorColor; doorStyle = data.doorStyle || doorStyle; doorStates = cleanDoorStates(data.doors);   // doors sync live (on by default)
     lightsState = {...(data.lights || {})};
     deselect();
     clearDragFx();
