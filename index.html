@@ -1104,17 +1104,15 @@ function purgeStalePointers(){
   camGestureLive = false;
   for (const id of ids){ try { renderer.domElement.dispatchEvent(new PointerEvent('pointercancel', {pointerId:id, bubbles:true})); } catch(_){} }
 }
+// We ONLY heal on the START of a fresh gesture (see the primary-finger purge below): at that moment
+// nothing else is touching, so any pointer the controls still hold is provably a phantom. We must NOT
+// try to "help" on pointerup — at capture time here OrbitControls hasn't ended its gesture yet, so every
+// normal tap still looks live, and cancelling it there would swallow the tap and block selection.
 renderer.domElement.addEventListener('pointerdown', e => {
   if (e.isPrimary && activePointers.size) purgeStalePointers();   // a fresh gesture must start with no leftover fingers
   activePointers.add(e.pointerId);
 }, true);
-renderer.domElement.addEventListener('pointerup', e => {
-  activePointers.delete(e.pointerId);
-  if (!activePointers.size && camGestureLive){         // last finger lifted but the controls still think a gesture is live
-    camGestureLive = false;
-    try { renderer.domElement.dispatchEvent(new PointerEvent('pointercancel', {pointerId:e.pointerId, bubbles:true})); } catch(_){}
-  }
-}, true);
+renderer.domElement.addEventListener('pointerup', e => activePointers.delete(e.pointerId), true);
 renderer.domElement.addEventListener('pointercancel', e => activePointers.delete(e.pointerId), true);
 renderer.domElement.addEventListener('lostpointercapture', e => activePointers.delete(e.pointerId));
 
@@ -5474,7 +5472,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-12.touch-unstick';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-12.select-fix';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
