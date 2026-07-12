@@ -1070,6 +1070,16 @@ pan.enableDamping = true; pan.dampingFactor = 0.08;
 pan.minZoom = 0.4; pan.maxZoom = 8;
 pan.enabled = false;
 
+// A camera gesture (orbit rotate / 2D pan) is "live" between OrbitControls' own start and end events.
+// If the pointerup that should end it goes missing — e.g. the OS colour dialog, opened from a swatch
+// floating over the view, swallows it — OrbitControls keeps rotating with the bare mouse. The watchdog
+// below (near the pointer handlers) ends any live gesture the moment the mouse moves with NO button held.
+let camGestureLive = false;
+orbit.addEventListener('start', () => camGestureLive = true);
+orbit.addEventListener('end',   () => camGestureLive = false);
+pan.addEventListener('start', () => camGestureLive = true);
+pan.addEventListener('end',   () => camGestureLive = false);
+
 // Adaptive frame rate — the battery saver. The home renders at a full 60fps while you're
 // interacting (or something's actively animating), and drops to ~30fps when it's just idling
 // (the cat and avatars still breathe, at roughly half the GPU cost). Any input wakes full rate
@@ -3889,6 +3899,13 @@ function resetPointerState(){
 renderer.domElement.addEventListener('pointercancel', resetPointerState);
 renderer.domElement.addEventListener('lostpointercapture', () => { if (dragging || dragChar || downCat || looking || measureDrag != null) resetPointerState(); });
 addEventListener('blur', resetPointerState);
+// Watchdog: if the camera is still mid-gesture but the mouse is moving with NO button pressed, the
+// pointerup was lost (classic after the OS colour picker closes) — end the gesture so the view stops
+// following the bare mouse. During a real drag a button/finger is held (buttons != 0), so this never
+// fires then. Runs on window in the capture phase so it sees the move even over floating UI.
+addEventListener('pointermove', e => {
+  if (camGestureLive && e.buttons === 0){ camGestureLive = false; resetPointerState(); }
+}, true);
 // A native OS colour picker (opened from the swatch that floats over the 3D view) can swallow the
 // pointerup, leaving a drag/orbit stuck when it closes — so also clear everything when focus returns.
 addEventListener('focus', resetPointerState);
@@ -5343,7 +5360,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-12.tap-deselect';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-12.orbit-watchdog';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
