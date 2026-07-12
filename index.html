@@ -150,6 +150,10 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 #confirm h2{font-size:18px;line-height:1.4}
 #confirm .wsub{margin-top:-2px}
 #confirm .btn{width:100%}
+.stylegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.stylegrid .btn{width:100%;margin:0}
+.stylebtn b{display:block;font-size:14px}
+.stylebtn span{display:block;font-size:11px;color:var(--muted);font-weight:500;margin-top:1px}
 #confirm input[type=text]{text-align:center}
 .rspin{width:36px;height:36px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:10px auto 4px;animation:rspin 1s linear infinite}
 @keyframes rspin{to{transform:rotate(360deg)}}
@@ -4865,7 +4869,7 @@ function openShareChooser(){                        // a little box that rises o
   setTimeout(() => document.addEventListener('pointerdown', shareMenuOutside, true), 0);
 }
 $('smNormal').onclick = () => { closeShareMenu(); shareScreenshot(); };
-$('smReal').onclick   = () => { closeShareMenu(); realisticShot(); };
+$('smReal').onclick   = () => { closeShareMenu(); chooseRenderStyle(); };
 updateRealMenu();                                 // show the estimate straight away (Firebase refines it)
 
 function b64ToBlob(b64, type){
@@ -4886,6 +4890,31 @@ function promptForProxy(){
       ['pxCancel', hideConfirm]
     ]);
   setTimeout(() => { const el = $('pxInput'); if (el) el.focus(); }, 120);
+}
+
+// design styles the user can steer the realistic render toward (their idea of "modern" vs the AI's)
+const RENDER_STYLES = {
+  Modern:     ['Modern',      'clean & contemporary',  'a modern contemporary interior — clean straight lines, a neutral palette, sleek uncluttered furniture, matte and smooth finishes, lots of natural light'],
+  Classic:    ['Classic',     'timeless & elegant',    'a classic traditional interior — elegant timeless furniture, warm rich wood tones, moldings and refined detailing, a symmetrical sophisticated feel'],
+  Scandi:     ['Scandi',      'light & airy',          'a Scandinavian interior — pale woods, white and soft-grey tones, cozy natural textiles, bright airy minimalism'],
+  Minimal:    ['Minimalist',  'calm & bare',           'a minimalist interior — very few elements, a calm monochrome neutral palette, clean empty surfaces, nothing cluttered'],
+  Industrial: ['Industrial',  'raw & urban',           'an industrial loft interior — exposed concrete and brick, black metal, raw wood, warm Edison-style lighting'],
+  Luxury:     ['Luxury',      'rich & opulent',        'a luxury high-end interior — marble, brass and gold accents, velvet and rich deep tones, statement lighting, an opulent feel'],
+  Rustic:     ['Rustic',      'warm & cozy',           'a rustic cozy farmhouse interior — reclaimed and natural wood, warm earthy tones, natural textures, soft warm lighting'],
+  Boho:       ['Boho',        'eclectic & relaxed',    'a bohemian interior — layered textiles, rattan and plants, warm eclectic colours and patterns, a relaxed lived-in feel'],
+};
+let renderStyle = null;                              // the chosen style key, remembered for "Try again"
+function chooseRenderStyle(){                         // pick a look before rendering, so the AI matches what you pictured
+  const keys = Object.keys(RENDER_STYLES);
+  const btns = keys.map(k => `<button class="btn stylebtn" id="st_${k}"><b>${RENDER_STYLES[k][0]}</b><span>${RENDER_STYLES[k][1]}</span></button>`).join('');
+  showConfirm(
+    `<h2>Pick a style ✨</h2><p class="wsub">The AI makes your room a real photo in the look you choose — so it matches what you have in mind.</p>
+     <div class="stylegrid">${btns}</div>
+     <button class="btn" id="stNone">Realistic — no set style</button>
+     <button class="btn" id="stCancel">Cancel</button>`,
+    [...keys.map(k => ['st_' + k, () => { renderStyle = k; hideConfirm(); realisticShot(); }]),
+     ['stNone', () => { renderStyle = null; hideConfirm(); realisticShot(); }],
+     ['stCancel', hideConfirm]]);
 }
 
 async function realisticShot(){
@@ -4921,7 +4950,10 @@ async function realisticShot(){
   showConfirm(`<h2>Making it realistic ✨</h2><p class="wsub">Sending your room to the AI… about 10&nbsp;seconds.</p><div class="rspin"></div>`, []);
 
   // simple + clean: keep the layout, just make it realistic (no references, no labels, no per-room hiding)
-  const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo. It must look like a real photograph, NOT a 3D model, render or cartoon.";
+  const styleLine = (renderStyle && RENDER_STYLES[renderStyle])
+    ? ` Style the whole room as ${RENDER_STYLES[renderStyle][2]} — let the furniture, materials, colours, finishes and lighting all read as this style — while keeping every piece in its exact same position, the same layout and the same camera angle.`
+    : '';
+  const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo." + styleLine + " It must look like a real photograph, NOT a 3D model, render or cartoon.";
   try{
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
       method: 'POST',
@@ -5661,7 +5693,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.ai-finishes';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.render-style';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
