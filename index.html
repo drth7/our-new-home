@@ -1854,10 +1854,13 @@ function buildFurniture(type){
       else if (p.shape === 'cone') geo = new THREE.ConeGeometry(p.r ?? 0.15, p.h ?? 0.3, 18);
       else geo = new THREE.BoxGeometry(p.w ?? 0.2, p.h ?? 0.2, p.d ?? 0.2);
       let mat;
+      const clamp01 = v => Math.min(1, Math.max(0, +v));
       if (p.glass){                                  // transparent part — same look as the apartment's window glass
-        mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || '#bcd6e4'), transparent:true, opacity:0.28, roughness:0.12, metalness:0.1});
+        mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || '#bcd6e4'), transparent:true, opacity:p.opacity != null ? clamp01(p.opacity) : 0.28, roughness:p.rough != null ? clamp01(p.rough) : 0.12, metalness:p.metal != null ? clamp01(p.metal) : 0.1});
       } else {
-        mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || def.color || '#9aa8b5'), roughness:0.85});
+        // FINISH: the AI can make steel/chrome (metal≈0.8) or glossy black glass / lacquer (low rough) as
+        // well as matte wood/fabric — this is what lets a generated appliance read as real, not a toy.
+        mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || def.color || '#9aa8b5'), roughness:p.rough != null ? clamp01(p.rough) : 0.85, metalness:p.metal != null ? clamp01(p.metal) : 0});
         mat.userData.role = 'main';                  // so the recolour button works on it (glass stays glass)
       }
       const m = new THREE.Mesh(geo, mat);
@@ -5009,7 +5012,7 @@ function validateGenSpec(spec){
   if (!spec || !Array.isArray(spec.parts) || !spec.parts.length) return probs;
   const W = +spec.w || 0.4, D = +spec.d || 0.4, H = +spec.h || 0.4;
   let shells = 0;
-  spec.parts.slice(0, 16).forEach((p, i) => {
+  spec.parts.slice(0, 24).forEach((p, i) => {
     const r = +p.r || 0.1, sx = +p.sx || 1, sy = +p.sy || 1, sz = +p.sz || 1;
     let ex, ey, ez;                                  // half extents per axis, before rotation
     if (p.shape === 'sphere'){ ex = ez = r; ey = r; }
@@ -5059,7 +5062,7 @@ async function repairSpec(spec, proxy){
 
 /* register one AI spec as a catalog model; returns the def (or null if unusable) */
 function adoptGenSpec(spec, fallbackName, i, srcUrl){
-  const parts = Array.isArray(spec && spec.parts) ? spec.parts.slice(0, 16) : [];
+  const parts = Array.isArray(spec && spec.parts) ? spec.parts.slice(0, 24) : [];
   if (!parts.length) return null;
   const cl = (v, lo, hi, dflt) => { v = +v; return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt; };
   const def = {
@@ -5658,7 +5661,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.pendant3-light';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.ai-finishes';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
