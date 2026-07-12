@@ -442,6 +442,7 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
   <div id="doorName">Door</div>
   <div class="pillrow">
     <button class="pbtn" id="doorToggle" title="Open / close">Open</button>
+    <button class="pbtn" id="doorStyleBtn" title="Door style" style="font-size:18px">🚪</button>
     <button class="pbtn tint" id="doorTintBtn" title="Colour"><span class="sw"></span></button>
     <input type="color" id="doorTint" style="display:none">
     <button class="pbtn" id="doorClose" title="Done" data-icon="x"></button>
@@ -533,6 +534,14 @@ body.measuring #measureHint{display:block;animation:toastin .25s cubic-bezier(.2
             <div class="switch" id="doorSw" role="switch" tabindex="0"></div>
           </div>
           <div class="field" id="doorColorField" style="display:none">
+            <label>Door style (default for all doors — tap a door to change just one)</label>
+            <select id="doorStyleSel" style="width:100%;padding:8px 10px;border-radius:9px;background:var(--panel2);color:var(--text);border:1px solid var(--line);font-size:13px;margin-bottom:10px">
+              <option value="modern">Modern — flat slab</option>
+              <option value="classic">Classic — raised panels</option>
+              <option value="shaker">Shaker — framed panel</option>
+              <option value="glass">Glass — glazed top</option>
+              <option value="barn">Barn — vertical planks</option>
+            </select>
             <label>Door colour — or tap a door in the room to paint just that one</label>
             <input type="color" id="doorColorInput" value="#95643a" style="width:54px;height:34px;border:none;border-radius:9px;padding:0;background:none;cursor:pointer">
           </div>
@@ -1245,10 +1254,43 @@ let WALLS = [];
 // closed (swinging to the editor's hinge + swing direction) and recoloured. State (open, per-door
 // colour) lives in doorStates keyed by the opening's world position, so it survives plan rebuilds and
 // syncs between phones. A global "show doors" toggle + door colour live in the layout too.
-let doorGroup = null, doorsShown = false, doorColor = '#95643a', doorStates = {}, selDoor = null;
+let doorGroup = null, doorsShown = false, doorColor = '#95643a', doorStyle = 'classic', doorStates = {}, selDoor = null;
+const DOOR_STYLES = {                                 // pickable door models — each detailed on BOTH faces
+  modern:  ['Modern',  'flat slab'],
+  classic: ['Classic', 'raised panels'],
+  shaker:  ['Shaker',  'framed panel'],
+  glass:   ['Glass',   'glazed top'],
+  barn:    ['Barn',    'vertical planks'],
+};
 function doorKey(w, op){                              // stable id for one opening (survives wall re-splits)
   const cx = w.d === 'h' ? op.at : w.pos, cz = w.d === 'h' ? w.pos : op.at;
   return 'd' + cx.toFixed(2) + '_' + cz.toFixed(2);
+}
+// one door leaf's visual (slab + style detailing on BOTH sides). Returns the group + its recolourable mats.
+function makeLeaf(style, lw, lh, th, col){
+  const grp = new THREE.Group();
+  const base = new THREE.Color(col);
+  const mat = new THREE.MeshStandardMaterial({ color: base.clone(), roughness: 0.7 });
+  const panelMat = new THREE.MeshStandardMaterial({ color: base.clone().multiplyScalar(0.86), roughness: 0.72 });
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(lw, lh, th), mat);
+  slab.castShadow = true; slab.receiveShadow = true; slab.userData.doorLeaf = true; grp.add(slab);
+  const panel = (cx, cy, pw, ph) => {                 // a raised panel mirrored on both faces (symmetric = nice both sides)
+    for (const zs of [1, -1]){
+      const p = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, th * 0.5), panelMat);
+      p.position.set(cx, cy, zs * (th / 2)); p.castShadow = true; grp.add(p);
+    }
+  };
+  if (style === 'classic'){ panel(0, lh * 0.24, lw * 0.66, lh * 0.36); panel(0, -lh * 0.2, lw * 0.66, lh * 0.4); }
+  else if (style === 'shaker'){ panel(0, 0, lw * 0.74, lh * 0.86); }
+  else if (style === 'barn'){ const n = 5, gw = lw / n; for (let i = 0; i < n; i++) panel((i - (n - 1) / 2) * gw, 0, gw * 0.88, lh * 0.97); }
+  else if (style === 'glass'){
+    const gmat = new THREE.MeshStandardMaterial({ color: 0xbfe0ee, transparent: true, opacity: 0.35, roughness: 0.1, metalness: 0.1 });
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(lw * 0.7, lh * 0.46, th * 0.6), gmat);
+    glass.position.set(0, lh * 0.24, 0); grp.add(glass);
+    panel(0, -lh * 0.22, lw * 0.7, lh * 0.36);
+  }
+  // 'modern' = a clean flat slab (already symmetric)
+  return { grp, mat, panelMat };
 }
 function buildDoorLeaf(w, op){
   const key = doorKey(w, op), st = doorStates[key] || (doorStates[key] = {});
@@ -1262,23 +1304,24 @@ function buildDoorLeaf(w, op){
   const pivot = new THREE.Group();
   pivot.position.set(hx, 0, hz);
   pivot.rotation.y = st.open ? openRotY : closedRotY;
-  const lw = op.w - 0.03, lh = oh - 0.04, th = 0.04;
-  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(st.color || doorColor), roughness: 0.72 });
-  const leaf = new THREE.Mesh(new THREE.BoxGeometry(lw, lh, th), mat);
-  leaf.position.set(op.w / 2, lh / 2 + 0.02, 0);      // hinge edge sits at the pivot; leaf extends along +X
-  leaf.castShadow = true; leaf.receiveShadow = true; leaf.userData.doorLeaf = true;
-  pivot.add(leaf);
-  const panelMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(st.color || doorColor).multiplyScalar(0.9), roughness: 0.72 });
-  const inset = new THREE.Mesh(new THREE.BoxGeometry(lw * 0.72, lh * 0.82, th * 0.4), panelMat);   // recessed panel for a little detail
-  inset.position.set(op.w / 2, lh / 2 + 0.02, th / 2); pivot.add(inset);
+  const lw = op.w - 0.03, lh = oh - 0.04, th = 0.045;
+  const { grp, mat, panelMat } = makeLeaf(st.style || doorStyle, lw, lh, th, st.color || doorColor);
+  grp.position.set(op.w / 2, lh / 2 + 0.02, 0);        // hinge edge sits at the pivot; leaf extends along +X
+  pivot.add(grp);
   const hmat = new THREE.MeshStandardMaterial({ color: 0x2c3036, roughness: 0.35, metalness: 0.7 });
   for (const zs of [1, -1]){                           // a handle on each face near the far jamb
     const h = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.11, 8), hmat);
-    h.rotation.x = Math.PI / 2; h.position.set(op.w - 0.09, oh * 0.46, zs * (th / 2 + 0.035)); pivot.add(h);
+    h.rotation.x = Math.PI / 2; h.position.set(op.w - 0.09, oh * 0.46, zs * (th / 2 + 0.04)); pivot.add(h);
   }
+  addDoorHit(pivot, op.w / 2, oh, op.w);               // invisible easy-to-tap box over the leaf
   pivot.userData = { door: true, key, closedRotY, openRotY, mat, panelMat, oh };
   doorGroup.add(pivot);
   return pivot;
+}
+function addDoorHit(parent, cx, oh, ow){               // a fat invisible collider so doors are easy to tap
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(ow + 0.08, oh, 0.36),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+  hit.position.set(cx, oh / 2, 0); hit.userData.doorHit = true; parent.add(hit);
 }
 function buildSlideDoor(w, op){                       // a barn-style sliding door for an arch: slides sideways across the wall
   const key = doorKey(w, op), st = doorStates[key] || (doorStates[key] = {});
@@ -1289,19 +1332,13 @@ function buildSlideDoor(w, op){                       // a barn-style sliding do
   grp.position.set(cx, 0, cz);
   if (w.d === 'v') grp.rotation.y = -Math.PI / 2;     // local +x runs along the wall (like buildWall)
   const pw = op.w - 0.02, ph = oh - 0.03, th = 0.05, front = WALL_T / 2 + th / 2 + 0.006;
-  const col = st.color || doorColor;
-  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(col), roughness: 0.72 });
   const slider = new THREE.Group();                   // this group slides along local x
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, th), mat);
-  panel.position.set(0, ph / 2 + 0.015, front); panel.castShadow = true; panel.userData.doorLeaf = true; slider.add(panel);
-  const panelMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(col).multiplyScalar(0.9), roughness: 0.72 });
-  for (const sx of [-0.26, 0.26]){                    // two recessed panels for a barn-door look
-    const p = new THREE.Mesh(new THREE.BoxGeometry(pw * 0.42, ph * 0.86, th * 0.4), panelMat);
-    p.position.set(sx * pw, ph / 2 + 0.015, front + th / 2); slider.add(p);
-  }
+  const { grp: leaf, mat, panelMat } = makeLeaf(st.style || (doorStyle === 'classic' ? 'barn' : doorStyle), pw, ph, th, st.color || doorColor);
+  leaf.position.set(0, ph / 2 + 0.015, front); slider.add(leaf);
   const hmat = new THREE.MeshStandardMaterial({ color: 0x2c3036, roughness: 0.35, metalness: 0.7 });
   const handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.24, 0.03), hmat);
   handle.position.set(-side * pw * 0.4, ph * 0.5, front + th / 2 + 0.02); slider.add(handle);
+  addDoorHit(slider, 0, oh, op.w);                    // easy-hit box travels with the panel
   grp.add(slider);
   const rail = new THREE.Mesh(new THREE.BoxGeometry(pw * 2.1, 0.05, 0.05), hmat);   // top track the panel hangs from
   rail.position.set(side * pw * 0.5, oh + 0.03, WALL_T / 2 + 0.03); grp.add(rail);
@@ -1377,10 +1414,25 @@ function setGlobalDoorColor(hex){                     // the default colour — 
   }
   wakeRender();
 }
-function syncDoorUI(){                                // reflect doorsShown / doorColor into the settings panel
+function syncDoorUI(){                                // reflect doorsShown / doorColor / doorStyle into the settings panel
   const sw = $('doorSw'); if (sw) sw.classList.toggle('on', doorsShown);
   const f = $('doorColorField'); if (f) f.style.display = doorsShown ? 'block' : 'none';
   const ci = $('doorColorInput'); if (ci) ci.value = doorColor;
+  const ss = $('doorStyleSel'); if (ss) ss.value = doorStyle;
+}
+function chooseDoorStyle(){                           // per-door model picker (opened from the door pill)
+  if (!selDoor) return;
+  const key = selDoor.userData.key, cur = (doorStates[key] && doorStates[key].style) || doorStyle;
+  const btns = Object.keys(DOOR_STYLES).map(k => `<button class="btn stylebtn${k === cur ? ' primary' : ''}" id="ds_${k}"><b>${DOOR_STYLES[k][0]}</b><span>${DOOR_STYLES[k][1]}</span></button>`).join('');
+  showConfirm(`<h2>Door style</h2><p class="wsub">Pick a model for this door.</p><div class="stylegrid">${btns}</div><button class="btn" id="dsCancel">Cancel</button>`,
+    [...Object.keys(DOOR_STYLES).map(k => ['ds_' + k, () => { hideConfirm(); setDoorStyle(key, k); }]), ['dsCancel', hideConfirm]]);
+}
+function setDoorStyle(key, style){
+  (doorStates[key] = doorStates[key] || {}).style = style;
+  buildDoors();                                       // rebuild, then re-select the same door
+  selDoor = doorGroup.children.find(d => d.userData.key === key) || null;
+  if (selDoor){ updateDoorPill(); $('doorPill').classList.add('on'); positionDoorPill(); }
+  scheduleSave();
 }
 function computePaintWalls(){
   const out = [];
@@ -4573,7 +4625,7 @@ function serialize(){
     wallColor,
     wallColors:{...wallColors},
     floorColor,
-    doorsShown, doorColor, doors:{...doorStates},     // doors: shown?, default colour, and per-door open/colour state
+    doorsShown, doorColor, doorStyle, doors:{...doorStates},   // doors: shown?, default colour/style, and per-door open/colour/style
     roomNames:{...roomNames},
     lights:{...lightsState},
     players:{...players},
@@ -4601,6 +4653,7 @@ function loadData(data){
   floorColor = data.floorColor || null;
   doorsShown = !!data.doorsShown;                    // doors travel with the layout so both phones agree
   doorColor = data.doorColor || doorColor;
+  doorStyle = data.doorStyle || doorStyle;
   doorStates = {...(data.doors || {})};
   lightsState = {...(data.lights || {})};
   for (const role of ['husband','wife','guest']) if (data.players?.[role]) players[role] = {...data.players[role]};
@@ -5894,7 +5947,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.sliding-doors';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.door-styles';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6018,7 +6071,7 @@ function applyRemoteLayout(data, adopt){
     wallColor = data.wallColor || null;
     wallColors = (data.v || 3) < 4 ? migrateWallColors(data.wallColors) : {...(data.wallColors || {})};   // pre-split layouts: re-key paint onto the new segments
     floorColor = data.floorColor || null;
-    doorsShown = !!data.doorsShown; doorColor = data.doorColor || doorColor; doorStates = {...(data.doors || {})};   // doors sync live
+    doorsShown = !!data.doorsShown; doorColor = data.doorColor || doorColor; doorStyle = data.doorStyle || doorStyle; doorStates = {...(data.doors || {})};   // doors sync live
     lightsState = {...(data.lights || {})};
     deselect();
     clearDragFx();
@@ -6549,6 +6602,7 @@ $('ceilBtn').onclick = () => { if (sel) setOnCeiling(sel, !sel.userData.onCeilin
 
 /* -------- door pill: open/close + colour for the selected door -------- */
 $('doorToggle').onclick = () => { if (selDoor){ toggleDoor(selDoor); updateDoorPill(); } };
+$('doorStyleBtn').onclick = () => { if (selDoor) chooseDoorStyle(); };      // pick this door's model
 $('doorTintBtn').onclick = () => { if (selDoor) $('doorTint').click(); };   // opens the native colour picker for this door
 $('doorTint').addEventListener('input',  () => { if (selDoor) paintDoor(selDoor, $('doorTint').value); });
 $('doorTint').addEventListener('change', () => { resetPointerState(); if (selDoor){ paintDoor(selDoor, $('doorTint').value); updateDoorPill(); logActivity('edit', 'painted a door'); } });
@@ -6771,6 +6825,8 @@ bindSwitch($('doorSw'), () => doorsShown, v => {
 $('doorColorInput').value = doorColor;
 $('doorColorInput').addEventListener('input',  () => setGlobalDoorColor($('doorColorInput').value));
 $('doorColorInput').addEventListener('change', () => { setGlobalDoorColor($('doorColorInput').value); scheduleSave(); });
+$('doorStyleSel').value = doorStyle;
+$('doorStyleSel').addEventListener('change', () => { doorStyle = $('doorStyleSel').value; buildDoors(); scheduleSave(); });
 
 /* ============================== settings wiring ============================== */
 
