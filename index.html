@@ -575,6 +575,9 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
+import {KTX2Loader} from 'three/addons/loaders/KTX2Loader.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 /* ---- inline SVG icon set (Lucide-style, crisp & consistent across devices) ---- */
@@ -1594,13 +1597,21 @@ async function applyEmbeddedTex(obj, url){
   obj.traverse(o => { if (o.isMesh) (Array.isArray(o.material)?o.material:[o.material]).forEach(m => { if (m){ m.map = tex; if (m.color) m.color.setHex(0xffffff); m.needsUpdate = true; } }); });
 }
 const modelCache = {};
+// one GLTFLoader for all GLB/glTF, with Draco + Meshopt (geometry) and KTX2/Basis (compressed
+// textures) decoders so OPTIMIZED files — what gltf-transform / gltfpack produce, far smaller to
+// download and lighter on the GPU — also load. Every decoder lazy-loads only when a file actually
+// uses it, so plain GLBs pay nothing; WASM/transcoder are pinned to this three version.
+const gltfLoader = new GLTFLoader()
+  .setDRACOLoader(new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/'))
+  .setKTX2Loader(new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/basis/').detectSupport(renderer))
+  .setMeshoptDecoder(MeshoptDecoder);
 function loadModel(def){
   const key = def.model;
   if (!modelCache[key]){
     const url = MODEL_BASE + key;
     modelCache[key] = new Promise(res => {
       if (/\.(glb|gltf)$/i.test(key)){              // glTF/GLB: materials + textures load natively (no atlas, no applyEmbeddedTex)
-        new GLTFLoader().load(url, gltf => res(gltf.scene || (gltf.scenes && gltf.scenes[0]) || null),
+        gltfLoader.load(url, gltf => res(gltf.scene || (gltf.scenes && gltf.scenes[0]) || null),
           undefined, err => { console.warn('GLB failed', key, err); res(null); });
       } else {
         new FBXLoader().load(url, async obj => {
@@ -5322,7 +5333,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-11.render-simple';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-12.glb-optimized';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
