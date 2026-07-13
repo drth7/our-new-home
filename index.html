@@ -5220,6 +5220,19 @@ const RENDER_STYLES = {
   Rustic:     ['Rustic',      'warm & cozy',           'a rustic cozy farmhouse interior — reclaimed and natural wood, warm earthy tones, natural textures, soft warm lighting'],
   Boho:       ['Boho',        'eclectic & relaxed',    'a bohemian interior — layered textiles, rattan and plants, warm eclectic colours and patterns, a relaxed lived-in feel'],
 };
+// nearest plain-English colour name (for telling the AI the floor colour without a hex it would ignore)
+const NAMED_COLORS = [
+  ['white', 0xffffff], ['off-white', 0xf1ede4], ['cream', 0xefe6cf], ['beige', 0xdcd0b8], ['tan', 0xc9a877],
+  ['light grey', 0xcbced3], ['grey', 0x8a9099], ['dark grey', 0x4b5058], ['charcoal', 0x2b2f36], ['black', 0x15171b],
+  ['light wood', 0xd8b98a], ['wood brown', 0x9c6b3f], ['brown', 0x6f4a2c], ['dark brown', 0x43301e],
+  ['navy', 0x1f2a44], ['blue', 0x3b6bd6], ['light blue', 0xa2c4e8], ['teal', 0x2f7d7a],
+  ['green', 0x3f7d4e], ['olive', 0x6b6a3a], ['terracotta', 0xb5613e], ['red', 0xb23b3b], ['maroon', 0x5a2b2b],
+];
+function colorName(hex){
+  const c = new THREE.Color(hex); let best = 'grey', bd = Infinity;
+  for (const [name, h] of NAMED_COLORS){ const t = new THREE.Color(h); const d = (c.r-t.r)**2 + (c.g-t.g)**2 + (c.b-t.b)**2; if (d < bd){ bd = d; best = name; } }
+  return best;
+}
 let renderStyle = null;                              // the chosen style key, remembered for "Try again"
 let renderTime = 'day';                              // day / night lighting for the render
 function chooseRenderStyle(){                         // pick time-of-day + a look before rendering, so the AI matches what you pictured
@@ -5281,7 +5294,9 @@ async function realisticShot(){
   const timeLine = renderTime === 'night'
     ? ' Set it at NIGHT: a dark evening sky through the windows, the room lit warmly by its own lamps and ceiling fixtures (glowing, with soft pools of light and gentle shadows), a cozy ambient evening mood.'
     : ' Set it in bright DAYTIME: warm morning sunlight streaming in from one side (the east), casting soft directional daylight shadows across the room, bright and airy — keep the light coming from the same side as the render.';
-  const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo." + styleLine + timeLine + " It must look like a real photograph, NOT a 3D model, render or cartoon.";
+  const floorHex = floorColor || ('#' + new THREE.Color(SCENES[theme].floor).getHexString());
+  const floorLine = ` The floor is ${colorName(floorHex)} — keep the floor that colour, do NOT invent a different floor colour.`;
+  const prompt = "Convert this 3D room render into a photorealistic interior photograph of the same room. Keep the same layout, the same furniture in the same positions, and the same camera angle — but make everything look real: realistic materials (fabric, wood, metal, glass), natural soft lighting with real shadows and gentle reflections, like a high-end real-estate photo." + styleLine + timeLine + floorLine + " It must look like a real photograph, NOT a 3D model, render or cartoon.";
   try{
     const res = await fetch(proxy, {                          // the Worker adds the secret key and calls Google
       method: 'POST',
@@ -6021,7 +6036,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.autodoors-curtains';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.render-floor-colour';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
