@@ -63,8 +63,12 @@ body.eyedrop #app canvas{cursor:crosshair}
 .partsTitle{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;padding:3px 7px 6px}
 .partrow{display:flex;align-items:center;gap:11px;padding:6px 7px;border-radius:10px;cursor:pointer}
 .partrow:hover{background:var(--btn)}
-.partrow input[type=color]{width:30px;height:30px;border:none;border-radius:8px;padding:0;background:none;cursor:pointer;flex:none}
+.partrow input[type=color]{width:34px;height:34px;border:2px solid rgba(255,255,255,.28);border-radius:9px;padding:0;background:none;cursor:pointer;flex:none;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+:root[data-theme="light"] .partrow input[type=color]{border-color:rgba(22,32,46,.18)}
 .partrow .pn{font-size:13.5px;font-weight:600;color:var(--text)}
+.partrow .pick{margin-left:auto;color:var(--muted);display:flex;align-items:center}
+.partrow .pick svg{width:17px;height:17px}
+.partrow:hover .pick{color:var(--text)}
 #selName{font-size:12.5px;font-weight:700;color:var(--text);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;padding:2px 6px 0}
 #measure{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap;padding:0 4px 2px}
 #measure.warn{color:#e05563}
@@ -6050,7 +6054,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.ai-part-colours';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.part-colour-picker';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
@@ -6729,7 +6733,8 @@ function buildPartsPop(){                              // one row per detected p
     const row = document.createElement('label'); row.className = 'partrow';
     const inp = document.createElement('input'); inp.type = 'color'; inp.value = partColor(sel, role);
     const nm  = document.createElement('span'); nm.className = 'pn'; nm.textContent = partLabel(type, role);
-    row.append(inp, nm);
+    const pick = document.createElement('span'); pick.className = 'pick'; pick.innerHTML = svgIcon('eyedrop');   // clear "tap to pick a colour" cue
+    row.append(inp, nm, pick);
     inp.addEventListener('input', () => { if (sel && canEdit()){ paintPart(sel, role, inp.value); refreshTintSwatch(); } });
     inp.addEventListener('change', () => {
       resetPointerState();                             // OK/close on the OS picker can leave a gesture stuck — clear it
