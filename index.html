@@ -2110,6 +2110,7 @@ function buildFurniture(type){
   const partMat = role => { const m = new THREE.MeshStandardMaterial({roughness:0.8}); m.userData.role = role; return m; };
   const {w, d, h} = def;
   if (def.parts){                                    // AI-generated model: assemble it from primitive parts
+    const groupRole = {}, partOrig = {};             // group parts by colour so each colour is its OWN recolourable swatch
     for (const p of def.parts){
       let geo;
       if (p.shape === 'cylinder'){
@@ -2136,8 +2137,11 @@ function buildFurniture(type){
       } else {
         // FINISH: the AI can make steel/chrome (metal≈0.8) or glossy black glass / lacquer (low rough) as
         // well as matte wood/fabric — this is what lets a generated appliance read as real, not a toy.
-        mat = new THREE.MeshStandardMaterial({color:new THREE.Color(p.color || def.color || '#9aa8b5'), roughness:p.rough != null ? clamp01(p.rough) : 0.85, metalness:p.metal != null ? clamp01(p.metal) : 0});
-        mat.userData.role = 'main';                  // so the recolour button works on it (glass stays glass)
+        const hex = '#' + new THREE.Color(p.color || def.color || '#9aa8b5').getHexString();
+        mat = new THREE.MeshStandardMaterial({color:new THREE.Color(hex), roughness:p.rough != null ? clamp01(p.rough) : 0.85, metalness:p.metal != null ? clamp01(p.metal) : 0});
+        if (!(hex in groupRole)){ groupRole[hex] = 'g' + Object.keys(groupRole).length; partOrig[groupRole[hex]] = hex; }   // each distinct colour → its own swatch (surface, cabinet, seats…)
+        mat.userData.role = groupRole[hex];
+        mat.userData.origHex = hex;                  // its default colour is its OWN colour, not a shade of a base tint
       }
       const m = new THREE.Mesh(geo, mat);
       if (p.glow) m.userData.glow = true;            // the lamp's shade/bulb — lights up with the toggle
@@ -2152,6 +2156,7 @@ function buildFurniture(type){
       m.castShadow = true; m.receiveShadow = true;
       g.add(m);
     }
+    g.userData.partOrig = partOrig;                   // role → its original colour, so each swatch defaults to its own colour
     const bb = new THREE.Box3().setFromObject(g);     // drop it onto the floor no matter what y's the AI chose
     if (isFinite(bb.min.y)) g.children.forEach(c => c.position.y -= bb.min.y);
     dbl(g);
@@ -2742,12 +2747,18 @@ const TYPE_PARTS = {};
   set(['shower'], {main:'Tray', dark:'Fittings'});
   set(['tlamp','lamp1','lamp2','lamp3'], {main:'Shade', light:'Shade', dark:'Base'});
 })();
-function partLabel(type, role){ return (TYPE_PARTS[type] && TYPE_PARTS[type][role]) || ROLE_LABEL[role] || 'Colour'; }
-// the distinct tintable roles a piece actually contains, in a stable order (main, light, dark)
+function partLabel(type, role){
+  if (TYPE_PARTS[type] && TYPE_PARTS[type][role]) return TYPE_PARTS[type][role];
+  if (ROLE_LABEL[role]) return ROLE_LABEL[role];
+  if (/^g\d+$/.test(role)) return 'Colour ' + (parseInt(role.slice(1)) + 1);   // AI model colour groups
+  return 'Colour';
+}
+// the distinct tintable roles a piece contains: the fixed roles (main/door/…) in order, then any AI
+// colour-groups (g0, g1…) in the order they appear — so a generated piece exposes each colour to recolour.
 function piecePartRoles(g){
-  const seen = new Set();
-  g.traverse(o => { if (o.isMesh && o.material){ const r = o.material.userData?.role; if (r) seen.add(r); } });
-  return ROLE_ORDER.filter(r => seen.has(r));
+  const seen = [];
+  g.traverse(o => { if (o.isMesh && o.material){ const r = o.material.userData?.role; if (r && !seen.includes(r)) seen.push(r); } });
+  return [...ROLE_ORDER.filter(r => seen.includes(r)), ...seen.filter(r => !ROLE_ORDER.includes(r))];
 }
 function roleShade(base, role){                        // the classic shade shown when a part has no explicit colour
   const c = new THREE.Color(base);
@@ -2758,12 +2769,12 @@ function roleShade(base, role){                        // the classic shade show
 // paint every mesh from its role's colour: an explicit partCols entry, else the shade of the base tint
 function applyTints(g){
   const base = g.userData.tint || CATALOG[g.userData.type]?.color || '#888888';
-  const cols = g.userData.partCols || null;
+  const cols = g.userData.partCols || null, orig = g.userData.partOrig || null;
   g.traverse(o => {
     if (!o.isMesh || !o.material) return;
     const role = o.material.userData?.role;
     if (!role) return;                                 // glass, screens, burners… keep their fixed look
-    const hex = cols && cols[role];
+    const hex = (cols && cols[role]) || (orig && orig[role]);   // an AI colour-group defaults to its OWN colour, not a shade of the base
     o.material.color.copy(hex ? new THREE.Color(hex) : roleShade(base, role));
     if (o.userData.baseCol) o.userData.baseCol.copy(o.material.color);   // a recoloured lamp remembers its NEW "on" colour
   });
@@ -2772,7 +2783,8 @@ function applyTints(g){
 // paint the WHOLE piece from one base colour (clears any per-part overrides) — the classic behaviour
 function applyTint(g, hex){
   g.userData.tint = hex;
-  g.userData.partCols = null;
+  if (g.userData.partOrig){ const pc = {}; for (const r in g.userData.partOrig) pc[r] = hex; g.userData.partCols = pc; }   // AI model: paint every colour-group to this hex
+  else g.userData.partCols = null;
   applyTints(g);
 }
 // paint a single role its own colour, leaving the others EXACTLY as they look now. Freeze every other
@@ -2790,6 +2802,8 @@ function paintPart(g, role, hex){
 function partColor(g, role){
   const c = g.userData.partCols && g.userData.partCols[role];
   if (c) return c;
+  const orig = g.userData.partOrig && g.userData.partOrig[role];
+  if (orig) return orig;                               // AI colour-group: its own original colour
   const base = g.userData.tint || CATALOG[g.userData.type]?.color || '#888888';
   return '#' + roleShade(base, role).getHexString();
 }
@@ -6036,7 +6050,7 @@ function pushLayout(){
 }
 
 let playerPushAt = 0;
-const APP_VERSION = '2026-07-13.render-floor-colour';   // bumped every deploy — written into presence so we can see which code each phone runs
+const APP_VERSION = '2026-07-13.ai-part-colours';   // bumped every deploy — written into presence so we can see which code each phone runs
 console.log('Our New Home — app version', APP_VERSION);
 // This app is one cached HTML file, and phone browsers hold onto it hard — so a device can keep
 // running OLD code after a fix ships (the usual cause of "it's still broken"). Detect that and offer a real reload.
